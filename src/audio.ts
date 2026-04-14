@@ -368,7 +368,6 @@ export const startMusic = (src: string, enabled: boolean) => {
 
   bgMusic = new Audio(src);
   bgMusic.loop = true;
-  bgMusic.crossOrigin = "anonymous";
   
   // Connect to AudioContext for better volume control and to keep context alive
   if (!musicSource || musicSource.mediaElement !== bgMusic) {
