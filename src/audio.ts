@@ -375,6 +375,8 @@ const playDecodedMusic = () => {
   bgMusicSource.start(0);
 };
 
+export let __DEBUG_AUDIO_ERROR = '';
+
 export const startMusic = async (src: string, enabled: boolean) => {
   if (!src) return;
   musicEnabledState = enabled;
@@ -403,7 +405,7 @@ export const startMusic = async (src: string, enabled: boolean) => {
     
     // Explicitly add 'same-origin' to naturally carry Vercel preview auth cookies
     const response = await fetch(src, { credentials: 'same-origin' });
-    if (!response.ok) throw new Error("Failed to fetch audio file");
+    if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
     
     const arrayBuffer = await response.arrayBuffer();
     
@@ -413,7 +415,9 @@ export const startMusic = async (src: string, enabled: boolean) => {
     if (musicEnabledState) {
       playDecodedMusic();
     }
-  } catch (e) {
+  } catch (e: any) {
+    __DEBUG_AUDIO_ERROR = `Fetch failed: ${e?.message || e}`;
+    
     console.error("Critical failure load using Web Audio API buffer, attempting standard HTML5 fallback.", e);
     // Vercel Edge networks / Auth sometimes reject the binary fetch.
     // HTML5 natively handles Vercel authentication seamlessly under all circumstances.
@@ -422,6 +426,10 @@ export const startMusic = async (src: string, enabled: boolean) => {
         fallbackAudio.loop = true;
         fallbackAudio.volume = MUSIC_VOLUME;
         fallbackAudio.preload = 'auto'; // Load immediately
+        
+        fallbackAudio.onerror = (err) => {
+           __DEBUG_AUDIO_ERROR = `Fallback audio error: ${fallbackAudio?.error?.code} ${fallbackAudio?.error?.message}`;
+        };
     }
     if (musicEnabledState) {
         playDecodedMusic();

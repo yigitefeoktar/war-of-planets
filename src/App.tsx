@@ -2,10 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { GameEngine } from './game/engine';
 import { motion } from 'motion/react';
 import { Maximize, Minimize, Volume2, VolumeX, Music, Skull, Pause, Play, Flag } from 'lucide-react';
-import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
+import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext, __DEBUG_AUDIO_ERROR } from './audio';
 
 function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled, isHardMode, setIsHardMode }: { onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void, isHardMode: boolean, setIsHardMode: (val: boolean) => void }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [debugMsg, setDebugMsg] = useState('');
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -14,6 +15,15 @@ function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
+
+  useEffect(() => {
+      const interval = setInterval(() => {
+          if (__DEBUG_AUDIO_ERROR && __DEBUG_AUDIO_ERROR !== debugMsg) {
+              setDebugMsg(__DEBUG_AUDIO_ERROR);
+          }
+      }, 500);
+      return () => clearInterval(interval);
+  }, [debugMsg]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -36,6 +46,11 @@ function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled
 
   return (
     <div className="relative w-screen h-screen bg-[#030305] flex flex-col items-center justify-center overflow-hidden font-sans select-none">
+      {debugMsg && (
+        <div className="absolute top-4 left-4 z-50 bg-red-900/80 text-white p-2 text-xs rounded border border-red-500 max-w-xs break-all">
+          Audio Error: {debugMsg}
+        </div>
+      )}
       {/* Cinematic Nebula Background */}
       <div className="absolute inset-0 z-0 opacity-40">
         <motion.div 
