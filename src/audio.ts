@@ -409,8 +409,26 @@ export const startMusic = async (src: string, enabled: boolean) => {
     
     const arrayBuffer = await response.arrayBuffer();
     
-    // Decode directly into the context
-    bgMusicBuffer = await ctx.decodeAudioData(arrayBuffer);
+    // Decode directly into the context using a wrapped Promise for Safari compatibility
+    bgMusicBuffer = await new Promise((resolve, reject) => {
+      try {
+        const decodeResult = ctx.decodeAudioData(
+          arrayBuffer, 
+          (decoded) => resolve(decoded),
+          (err) => reject(new Error("decodeAudioData error callback invoked: " + (err?.message || err)))
+        );
+        // Modern browsers return a promise
+        if (decodeResult !== undefined && typeof decodeResult.catch === 'function') {
+           decodeResult.then(resolve).catch(reject);
+        }
+      } catch (err) {
+        reject(err);
+      }
+    });
+
+    if (!bgMusicBuffer) {
+        throw new Error("Decoding resulted in empty buffer.");
+    }
     
     if (musicEnabledState) {
       playDecodedMusic();
