@@ -8,6 +8,9 @@ let currentMusicSrc: string | null = null;
 let keepAliveOsc: OscillatorNode | null = null;
 let musicEnabledState = false;
 
+// HTML DOM Audio fallback handler logic
+let fallbackAudio: HTMLAudioElement | null = null;
+
 const MUSIC_VOLUME = 0.15;
 
 const getAudioContext = () => {
@@ -347,9 +350,17 @@ export const playSound = (type: SoundType, enabled: boolean) => {
 };
 
 const playDecodedMusic = () => {
+  if (fallbackAudio) {
+    if (musicEnabledState) {
+        fallbackAudio.play().catch(e => console.log('Fallback audio blocked:', e));
+    }
+    return;
+  }
+
   if (!bgMusicBuffer) return;
   const ctx = getAudioContext();
   
+  // Re-create the source node completely to avoid the Safari suspended node bug
   if (bgMusicSource) {
     try {
       bgMusicSource.stop();
@@ -372,10 +383,13 @@ export const startMusic = async (src: string, enabled: boolean) => {
   // Keep AudioContext alive explicitly
   resumeAudioContext();
 
-  // If already fetched and decoded
-  if (bgMusicBuffer) {
-    if (enabled && !bgMusicSource) {
+  // If already fetched and decoded (or fallback loaded)
+  if (bgMusicBuffer || fallbackAudio) {
+    if (enabled) {
+      // Force recreating the playback node in the active interaction context!
       playDecodedMusic();
+    } else {
+      stopMusic();
     }
     return;
   }
@@ -387,8 +401,8 @@ export const startMusic = async (src: string, enabled: boolean) => {
   try {
     const ctx = getAudioContext();
     
-    // Fetch explicitly using DOM (bypasses any obscure HTML <audio> blocks)
-    const response = await fetch(src);
+    // Explicitly add 'same-origin' to naturally carry Vercel preview auth cookies
+    const response = await fetch(src, { credentials: 'same-origin' });
     if (!response.ok) throw new Error("Failed to fetch audio file");
     
     const arrayBuffer = await response.arrayBuffer();
@@ -396,11 +410,22 @@ export const startMusic = async (src: string, enabled: boolean) => {
     // Decode directly into the context
     bgMusicBuffer = await ctx.decodeAudioData(arrayBuffer);
     
-    if (musicEnabledState && !bgMusicSource) {
+    if (musicEnabledState) {
       playDecodedMusic();
     }
   } catch (e) {
-    console.error("Critical failure loading background music via Web Audio API.", e);
+    console.error("Critical failure load using Web Audio API buffer, attempting standard HTML5 fallback.", e);
+    // Vercel Edge networks / Auth sometimes reject the binary fetch.
+    // HTML5 natively handles Vercel authentication seamlessly under all circumstances.
+    if (!fallbackAudio) {
+        fallbackAudio = new Audio(src);
+        fallbackAudio.loop = true;
+        fallbackAudio.volume = MUSIC_VOLUME;
+        fallbackAudio.preload = 'auto'; // Load immediately
+    }
+    if (musicEnabledState) {
+        playDecodedMusic();
+    }
   } finally {
     isMusicFetching = false;
   }
@@ -415,6 +440,9 @@ export const stopMusic = () => {
     } catch(e) {}
     bgMusicSource = null;
   }
+  if (fallbackAudio) {
+      fallbackAudio.pause();
+  }
 };
 
 export const setMusicEnabled = (enabled: boolean) => {
@@ -422,10 +450,10 @@ export const setMusicEnabled = (enabled: boolean) => {
   musicEnabledState = enabled;
   
   if (enabled) {
-    if (bgMusicBuffer && !bgMusicSource) {
-      playDecodedMusic();
-    } else if (!bgMusicBuffer && !isMusicFetching && currentMusicSrc) {
-      startMusic(currentMusicSrc, enabled);
+    if (currentMusicSrc) {
+        // ALWAYS pass back through startMusic, this gracefully handles everything 
+        // including Safari state reinstantiation and fallback logic perfectly
+        startMusic(currentMusicSrc, enabled);
     }
   } else {
     stopMusic();
