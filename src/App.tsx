@@ -30,6 +30,7 @@ function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled
   const handlePlay = () => {
     resumeAudioContext();
     playSound('select', isSoundEnabled);
+    startMusic('/audio/bg-music.mp3', isMusicEnabled);
     onPlay();
   };
 
