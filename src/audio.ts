@@ -1,8 +1,11 @@
 let audioCtx: AudioContext | null = null;
 let masterGain: GainNode | null = null;
 let musicGain: GainNode | null = null;
-let bgMusic: HTMLAudioElement | null = null;
-let musicSource: MediaElementAudioSourceNode | null = null;
+let bgMusicBuffer: AudioBuffer | null = null;
+let bgMusicSource: AudioBufferSourceNode | null = null;
+let isMusicFetching = false;
+let musicEnabledState = false;
+let currentMusicSrc: string | null = null;
 let keepAliveOsc: OscillatorNode | null = null;
 
 const MUSIC_VOLUME = 0.15;
@@ -343,57 +346,77 @@ export const playSound = (type: SoundType, enabled: boolean) => {
   }
 };
 
-let playPromise: Promise<void> | null = null;
+const playDecodedMusic = () => {
+  if (!bgMusicBuffer) return;
+  const ctx = getAudioContext();
+  
+  if (bgMusicSource) {
+    try {
+      bgMusicSource.stop();
+      bgMusicSource.disconnect();
+    } catch (e) {}
+  }
+  
+  bgMusicSource = ctx.createBufferSource();
+  bgMusicSource.buffer = bgMusicBuffer;
+  bgMusicSource.loop = true;
+  bgMusicSource.connect(musicGain!);
+  bgMusicSource.start();
+};
 
-export const startMusic = (src: string, enabled: boolean) => {
+export const startMusic = async (src: string, enabled: boolean) => {
   if (!src) return;
+  musicEnabledState = enabled;
+  currentMusicSrc = src;
 
-  // If music already exists and is the same src
-  if (bgMusic && bgMusic.src.includes(src)) {
-    if (enabled && bgMusic.paused) {
-      playPromise = bgMusic.play();
-      playPromise.catch(() => {});
-    } else if (!enabled && !bgMusic.paused) {
-      bgMusic.pause();
+  if (bgMusicBuffer) {
+    if (enabled && !bgMusicSource) {
+      playDecodedMusic();
     }
     return;
   }
 
-  // Clean up old music
-  if (bgMusic) {
-    bgMusic.pause();
-    bgMusic = null;
-  }
+  if (isMusicFetching) return;
+  isMusicFetching = true;
 
-  bgMusic = new Audio(src);
-  bgMusic.loop = true;
-  bgMusic.volume = MUSIC_VOLUME; // Set volume directly instead of using Web Audio API routing
-  
-  if (enabled) {
-    playPromise = bgMusic.play();
-    playPromise.catch((e) => {
-      console.warn("Autoplay prevented or audio load failed:", e);
-    });
+  try {
+    const ctx = getAudioContext();
+    const response = await fetch(src);
+    const arrayBuffer = await response.arrayBuffer();
+    bgMusicBuffer = await ctx.decodeAudioData(arrayBuffer);
+    
+    if (musicEnabledState && !bgMusicSource) {
+      playDecodedMusic();
+    }
+  } catch (e) {
+    console.error("Failed to load or play music:", e);
+  } finally {
+    isMusicFetching = false;
   }
 };
 
 export const stopMusic = () => {
-  if (bgMusic) {
-    bgMusic.pause();
-    bgMusic = null;
+  musicEnabledState = false;
+  if (bgMusicSource) {
+    try {
+      bgMusicSource.stop();
+      bgMusicSource.disconnect();
+    } catch(e) {}
+    bgMusicSource = null;
   }
 };
 
 export const setMusicEnabled = (enabled: boolean) => {
-  if (!bgMusic) return;
+  if (musicEnabledState === enabled) return;
+  musicEnabledState = enabled;
   
   if (enabled) {
-    if (bgMusic.paused) {
-      bgMusic.play().catch(() => {});
+    if (bgMusicBuffer && !bgMusicSource) {
+      playDecodedMusic();
+    } else if (!bgMusicBuffer && !isMusicFetching && currentMusicSrc) {
+      startMusic(currentMusicSrc, enabled);
     }
   } else {
-    if (!bgMusic.paused) {
-      bgMusic.pause();
-    }
+    stopMusic();
   }
 };
