@@ -347,7 +347,6 @@ let playPromise: Promise<void> | null = null;
 
 export const startMusic = (src: string, enabled: boolean) => {
   if (!src) return;
-  const ctx = getAudioContext();
 
   // If music already exists and is the same src
   if (bgMusic && bgMusic.src.includes(src)) {
@@ -368,16 +367,13 @@ export const startMusic = (src: string, enabled: boolean) => {
 
   bgMusic = new Audio(src);
   bgMusic.loop = true;
-  
-  // Connect to AudioContext for better volume control and to keep context alive
-  if (!musicSource || musicSource.mediaElement !== bgMusic) {
-    musicSource = ctx.createMediaElementSource(bgMusic);
-    musicSource.connect(musicGain!);
-  }
+  bgMusic.volume = MUSIC_VOLUME; // Set volume directly instead of using Web Audio API routing
   
   if (enabled) {
     playPromise = bgMusic.play();
-    playPromise.catch(() => {});
+    playPromise.catch((e) => {
+      console.warn("Autoplay prevented or audio load failed:", e);
+    });
   }
 };
 
