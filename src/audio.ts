@@ -4,7 +4,6 @@ let musicGain: GainNode | null = null;
 let bgMusicBuffer: AudioBuffer | null = null;
 let bgMusicSource: AudioBufferSourceNode | null = null;
 let isMusicFetching = false;
-let musicEnabledState = false;
 let currentMusicSrc: string | null = null;
 let keepAliveOsc: OscillatorNode | null = null;
 
@@ -346,63 +345,45 @@ export const playSound = (type: SoundType, enabled: boolean) => {
   }
 };
 
+let bgMusicNode: HTMLAudioElement | null = null;
+let musicEnabledState = false;
+
 const playDecodedMusic = () => {
-  if (!bgMusicBuffer) return;
-  const ctx = getAudioContext();
-  
-  if (bgMusicSource) {
-    try {
-      bgMusicSource.stop();
-      bgMusicSource.disconnect();
-    } catch (e) {}
-  }
-  
-  bgMusicSource = ctx.createBufferSource();
-  bgMusicSource.buffer = bgMusicBuffer;
-  bgMusicSource.loop = true;
-  bgMusicSource.connect(musicGain!);
-  bgMusicSource.start();
+  // deprecated but keep empty function to avoid refactoring issues if any
 };
 
-export const startMusic = async (src: string, enabled: boolean) => {
+export const startMusic = (src: string, enabled: boolean) => {
   if (!src) return;
   musicEnabledState = enabled;
-  currentMusicSrc = src;
 
-  if (bgMusicBuffer) {
-    if (enabled && !bgMusicSource) {
-      playDecodedMusic();
-    }
-    return;
+  if (!bgMusicNode) {
+    bgMusicNode = document.createElement('audio');
+    bgMusicNode.src = src;
+    bgMusicNode.loop = true;
+    bgMusicNode.volume = MUSIC_VOLUME;
+    bgMusicNode.preload = 'auto'; // Load immediately, helps with Vercel edge delays
+    bgMusicNode.id = 'domination-bg-music';
+    document.body.appendChild(bgMusicNode);
+  } else if (!bgMusicNode.src.includes(src)) {
+    bgMusicNode.src = src;
   }
 
-  if (isMusicFetching) return;
-  isMusicFetching = true;
-
-  try {
-    const ctx = getAudioContext();
-    const response = await fetch(src);
-    const arrayBuffer = await response.arrayBuffer();
-    bgMusicBuffer = await ctx.decodeAudioData(arrayBuffer);
-    
-    if (musicEnabledState && !bgMusicSource) {
-      playDecodedMusic();
-    }
-  } catch (e) {
-    console.error("Failed to load or play music:", e);
-  } finally {
-    isMusicFetching = false;
+  if (enabled) {
+    // This executes synchronously inline with the user interaction (click),
+    // guaranteeing iOS/Safari won't block it, and using standard DOM networking
+    // that naturally sends Vercel preview authentication cookies.
+    bgMusicNode.play().catch(e => {
+      console.warn("DOM Audio playback prevented:", e);
+    });
+  } else {
+    bgMusicNode.pause();
   }
 };
 
 export const stopMusic = () => {
   musicEnabledState = false;
-  if (bgMusicSource) {
-    try {
-      bgMusicSource.stop();
-      bgMusicSource.disconnect();
-    } catch(e) {}
-    bgMusicSource = null;
+  if (bgMusicNode) {
+    bgMusicNode.pause();
   }
 };
 
@@ -410,13 +391,13 @@ export const setMusicEnabled = (enabled: boolean) => {
   if (musicEnabledState === enabled) return;
   musicEnabledState = enabled;
   
+  if (!bgMusicNode) return;
+  
   if (enabled) {
-    if (bgMusicBuffer && !bgMusicSource) {
-      playDecodedMusic();
-    } else if (!bgMusicBuffer && !isMusicFetching && currentMusicSrc) {
-      startMusic(currentMusicSrc, enabled);
+    if (bgMusicNode.paused) {
+      bgMusicNode.play().catch(() => {});
     }
   } else {
-    stopMusic();
+    bgMusicNode.pause();
   }
 };
