@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { GameEngine } from './game/engine';
 import { motion } from 'motion/react';
 import { Maximize, Minimize, Volume2, VolumeX, Music, Skull, Pause, Play, Flag } from 'lucide-react';
-import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext, __DEBUG_AUDIO_ERROR } from './audio';
+import { playSound, SoundType, resumeAudioContext, __DEBUG_AUDIO_ERROR } from './audio';
 
 function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled, isHardMode, setIsHardMode }: { onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void, isHardMode: boolean, setIsHardMode: (val: boolean) => void }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -40,7 +40,6 @@ function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled
   const handlePlay = () => {
     resumeAudioContext();
     playSound('select', isSoundEnabled);
-    startMusic('/audio/bg-music.mp3', isMusicEnabled);
     onPlay();
   };
 
@@ -280,22 +279,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
     isMusicEnabledRef.current = isMusicEnabled;
   }, [isMusicEnabled]);
 
-  useEffect(() => {
-    startMusic('/audio/bg-music.mp3', isMusicEnabled);
-    return () => {
-      stopMusic();
-    };
-  }, [isMusicEnabled]);
-
-  useEffect(() => {
-    if (winner) {
-      const timer = setTimeout(() => {
-        stopMusic();
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [winner]);
-
   const handleFleetSizeChange = (size: number) => {
     setFleetSize(size);
     fleetSizeRef.current = size;
@@ -306,11 +289,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
       const next = !prev;
       isPausedRef.current = next;
       playSound('click', isSoundEnabledRef.current);
-      if (next) {
-        setMusicEnabled(false);
-      } else {
-        setMusicEnabled(isMusicEnabledRef.current);
-      }
+      // We don't mess with musicEnabled state during pause anymore, keeping it simpler
       return next;
     });
   };
@@ -1274,6 +1253,27 @@ export default function App() {
   const [isHardMode, setIsHardMode] = useState(false);
 
   const interactionHandled = useRef(false);
+  const bgMusicRef = useRef<HTMLAudioElement | null>(null);
+
+  // Auto-play / setup volume
+  useEffect(() => {
+    if (bgMusicRef.current) {
+        bgMusicRef.current.volume = 0.15;
+    }
+  }, []);
+
+  // Handle play/pause logic safely
+  useEffect(() => {
+     if (bgMusicRef.current) {
+         if (isMusicEnabled) {
+             bgMusicRef.current.play().catch(e => {
+                 console.log("App.tsx bg-music play restricted:", e);
+             });
+         } else {
+             bgMusicRef.current.pause();
+         }
+     }
+  }, [isMusicEnabled, gameState]);
 
   useEffect(() => {
     if (interactionHandled.current) return;
@@ -1283,6 +1283,11 @@ export default function App() {
       
       resumeAudioContext();
       interactionHandled.current = true;
+
+      // Un-restrict the audio element if it was blocked
+      if (bgMusicRef.current && isMusicEnabled && bgMusicRef.current.paused) {
+         bgMusicRef.current.play().catch(() => {});
+      }
       
       // Clean up all possible interaction listeners
       const events = ['click', 'keydown', 'mousedown', 'pointerdown', 'touchstart'];
@@ -1296,26 +1301,34 @@ export default function App() {
       const events = ['click', 'keydown', 'mousedown', 'pointerdown', 'touchstart'];
       events.forEach(e => window.removeEventListener(e, handleFirstInteraction));
     };
-  }, []);
+  }, [isMusicEnabled]);
 
   const handleToggleMusic = (enabled: boolean) => {
     setIsMusicEnabled(enabled);
-    setMusicEnabled(enabled);
   };
 
-  if (gameState === 'landing') {
-    return (
-      <LandingPage 
-        onPlay={() => setGameState('playing')} 
-        isSoundEnabled={isSoundEnabled} 
-        setIsSoundEnabled={setIsSoundEnabled}
-        isMusicEnabled={isMusicEnabled}
-        setIsMusicEnabled={handleToggleMusic}
-        isHardMode={isHardMode}
-        setIsHardMode={setIsHardMode}
+  return (
+    <>
+      <audio 
+        ref={bgMusicRef} 
+        src="/audio/bg-music.mp3" 
+        loop 
+        preload="auto" 
+        className="hidden" 
       />
-    );
-  }
-
-  return <Game isSoundEnabled={isSoundEnabled} isMusicEnabled={isMusicEnabled} isHardMode={isHardMode} />;
+      {gameState === 'landing' ? (
+        <LandingPage 
+          onPlay={() => setGameState('playing')} 
+          isSoundEnabled={isSoundEnabled} 
+          setIsSoundEnabled={setIsSoundEnabled}
+          isMusicEnabled={isMusicEnabled}
+          setIsMusicEnabled={handleToggleMusic}
+          isHardMode={isHardMode}
+          setIsHardMode={setIsHardMode}
+        />
+      ) : (
+        <Game isSoundEnabled={isSoundEnabled} isMusicEnabled={isMusicEnabled} isHardMode={isHardMode} />
+      )}
+    </>
+  );
 }
