@@ -1262,19 +1262,6 @@ export default function App() {
     }
   }, []);
 
-  // Handle play/pause logic safely
-  useEffect(() => {
-     if (bgMusicRef.current) {
-         if (isMusicEnabled) {
-             bgMusicRef.current.play().catch(e => {
-                 console.log("App.tsx bg-music play restricted:", e);
-             });
-         } else {
-             bgMusicRef.current.pause();
-         }
-     }
-  }, [isMusicEnabled, gameState]);
-
   useEffect(() => {
     if (interactionHandled.current) return;
 
@@ -1305,6 +1292,23 @@ export default function App() {
 
   const handleToggleMusic = (enabled: boolean) => {
     setIsMusicEnabled(enabled);
+    if (bgMusicRef.current) {
+        if (enabled) {
+            bgMusicRef.current.play().catch(console.error);
+        } else {
+            bgMusicRef.current.pause();
+        }
+    }
+  };
+
+  const handlePlayInteraction = () => {
+    // Force play synchronously in the exact moment of the 'Click' event.
+    if (bgMusicRef.current && isMusicEnabled) {
+       bgMusicRef.current.play().catch(e => {
+           console.log("App.tsx sync play failed:", e);
+       });
+    }
+    setGameState('playing');
   };
 
   return (
@@ -1318,7 +1322,7 @@ export default function App() {
       />
       {gameState === 'landing' ? (
         <LandingPage 
-          onPlay={() => setGameState('playing')} 
+          onPlay={handlePlayInteraction} 
           isSoundEnabled={isSoundEnabled} 
           setIsSoundEnabled={setIsSoundEnabled}
           isMusicEnabled={isMusicEnabled}
