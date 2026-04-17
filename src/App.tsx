@@ -3,6 +3,7 @@ import { GameEngine } from './game/engine';
 import { motion } from 'motion/react';
 import { Maximize, Minimize, Volume2, VolumeX, Music, Skull, Pause, Play, Flag } from 'lucide-react';
 import { playSound, SoundType, resumeAudioContext, __DEBUG_AUDIO_ERROR } from './audio';
+import bgMusicSrc from './assets/bg-music.mp3';
 
 function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled, isHardMode, setIsHardMode }: { onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void, isHardMode: boolean, setIsHardMode: (val: boolean) => void }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1315,7 +1316,7 @@ export default function App() {
     <>
       <audio 
         ref={bgMusicRef} 
-        src="/audio/bg-music.mp3" 
+        src={bgMusicSrc} 
         loop 
         preload="auto" 
         className="hidden" 
