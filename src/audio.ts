@@ -1,15 +1,9 @@
 let audioCtx: AudioContext | null = null;
 let masterGain: GainNode | null = null;
 let musicGain: GainNode | null = null;
-let bgMusicBuffer: AudioBuffer | null = null;
-let bgMusicSource: AudioBufferSourceNode | null = null;
-let isMusicFetching = false;
-let currentMusicSrc: string | null = null;
+let bgMusic: HTMLAudioElement | null = null;
+let musicSource: MediaElementAudioSourceNode | null = null;
 let keepAliveOsc: OscillatorNode | null = null;
-let musicEnabledState = false;
-
-// HTML DOM Audio fallback handler logic
-let fallbackAudio: HTMLAudioElement | null = null;
 
 const MUSIC_VOLUME = 0.15;
 
@@ -349,139 +343,62 @@ export const playSound = (type: SoundType, enabled: boolean) => {
   }
 };
 
-const playDecodedMusic = () => {
-  if (fallbackAudio) {
-    if (musicEnabledState) {
-        fallbackAudio.play().catch(e => console.log('Fallback audio blocked:', e));
-    }
-    return;
-  }
+let playPromise: Promise<void> | null = null;
 
-  if (!bgMusicBuffer) return;
-  const ctx = getAudioContext();
-  
-  // Re-create the source node completely to avoid the Safari suspended node bug
-  if (bgMusicSource) {
-    try {
-      bgMusicSource.stop();
-      bgMusicSource.disconnect();
-    } catch (e) {}
-  }
-  
-  bgMusicSource = ctx.createBufferSource();
-  bgMusicSource.buffer = bgMusicBuffer;
-  bgMusicSource.loop = true;
-  bgMusicSource.connect(musicGain!);
-  bgMusicSource.start(0);
-};
-
-export let __DEBUG_AUDIO_ERROR = '';
-
-export const startMusic = async (src: string, enabled: boolean) => {
+export const startMusic = (src: string, enabled: boolean) => {
   if (!src) return;
-  musicEnabledState = enabled;
-  currentMusicSrc = src;
+  const ctx = getAudioContext();
 
-  // Keep AudioContext alive explicitly
-  resumeAudioContext();
-
-  // If already fetched and decoded (or fallback loaded)
-  if (bgMusicBuffer || fallbackAudio) {
-    if (enabled) {
-      // Force recreating the playback node in the active interaction context!
-      playDecodedMusic();
-    } else {
-      stopMusic();
+  // If music already exists and is the same src
+  if (bgMusic && bgMusic.src.includes(src)) {
+    if (enabled && bgMusic.paused) {
+      playPromise = bgMusic.play();
+      playPromise.catch(() => {});
+    } else if (!enabled && !bgMusic.paused) {
+      bgMusic.pause();
     }
     return;
   }
 
-  // Prevent multiple simultaneous fetches
-  if (isMusicFetching) return;
-  isMusicFetching = true;
+  // Clean up old music
+  if (bgMusic) {
+    bgMusic.pause();
+    bgMusic = null;
+  }
 
-  try {
-    const ctx = getAudioContext();
-    
-    // Explicitly add 'same-origin' to naturally carry Vercel preview auth cookies
-    const response = await fetch(src, { credentials: 'same-origin' });
-    if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
-    
-    const arrayBuffer = await response.arrayBuffer();
-    
-    // Decode directly into the context using a wrapped Promise for Safari compatibility
-    bgMusicBuffer = await new Promise((resolve, reject) => {
-      try {
-        const decodeResult = ctx.decodeAudioData(
-          arrayBuffer, 
-          (decoded) => resolve(decoded),
-          (err) => reject(new Error("decodeAudioData error callback invoked: " + (err?.message || err)))
-        );
-        // Modern browsers return a promise
-        if (decodeResult !== undefined && typeof decodeResult.catch === 'function') {
-           decodeResult.then(resolve).catch(reject);
-        }
-      } catch (err) {
-        reject(err);
-      }
-    });
-
-    if (!bgMusicBuffer) {
-        throw new Error("Decoding resulted in empty buffer.");
-    }
-    
-    if (musicEnabledState) {
-      playDecodedMusic();
-    }
-  } catch (e: any) {
-    __DEBUG_AUDIO_ERROR = `Fetch failed: ${e?.message || e}`;
-    
-    console.error("Critical failure load using Web Audio API buffer, attempting standard HTML5 fallback.", e);
-    // Vercel Edge networks / Auth sometimes reject the binary fetch.
-    // HTML5 natively handles Vercel authentication seamlessly under all circumstances.
-    if (!fallbackAudio) {
-        fallbackAudio = new Audio(src);
-        fallbackAudio.loop = true;
-        fallbackAudio.volume = MUSIC_VOLUME;
-        fallbackAudio.preload = 'auto'; // Load immediately
-        
-        fallbackAudio.onerror = (err) => {
-           __DEBUG_AUDIO_ERROR = `Fallback audio error: ${fallbackAudio?.error?.code} ${fallbackAudio?.error?.message}`;
-        };
-    }
-    if (musicEnabledState) {
-        playDecodedMusic();
-    }
-  } finally {
-    isMusicFetching = false;
+  bgMusic = new Audio(src);
+  bgMusic.loop = true;
+  bgMusic.crossOrigin = "anonymous";
+  
+  // Connect to AudioContext for better volume control and to keep context alive
+  if (!musicSource || musicSource.mediaElement !== bgMusic) {
+    musicSource = ctx.createMediaElementSource(bgMusic);
+    musicSource.connect(musicGain!);
+  }
+  
+  if (enabled) {
+    playPromise = bgMusic.play();
+    playPromise.catch(() => {});
   }
 };
 
 export const stopMusic = () => {
-  musicEnabledState = false;
-  if (bgMusicSource) {
-    try {
-      bgMusicSource.stop();
-      bgMusicSource.disconnect();
-    } catch(e) {}
-    bgMusicSource = null;
-  }
-  if (fallbackAudio) {
-      fallbackAudio.pause();
+  if (bgMusic) {
+    bgMusic.pause();
+    bgMusic = null;
   }
 };
 
 export const setMusicEnabled = (enabled: boolean) => {
-  if (musicEnabledState === enabled) return;
-  musicEnabledState = enabled;
+  if (!bgMusic) return;
   
   if (enabled) {
-    if (currentMusicSrc) {
-        // ALWAYS pass back through startMusic, this gracefully handles everything 
-        // including Safari state reinstantiation and fallback logic perfectly
-        startMusic(currentMusicSrc, enabled);
+    if (bgMusic.paused) {
+      bgMusic.play().catch(() => {});
     }
   } else {
-    stopMusic();
+    if (!bgMusic.paused) {
+      bgMusic.pause();
+    }
   }
 };

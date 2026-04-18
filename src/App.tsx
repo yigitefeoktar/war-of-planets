@@ -2,12 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { GameEngine } from './game/engine';
 import { motion } from 'motion/react';
 import { Maximize, Minimize, Volume2, VolumeX, Music, Skull, Pause, Play, Flag } from 'lucide-react';
-import { playSound, SoundType, resumeAudioContext, __DEBUG_AUDIO_ERROR } from './audio';
-import bgMusicSrc from './assets/bg-music.mp3';
+import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
 
 function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled, isHardMode, setIsHardMode }: { onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void, isHardMode: boolean, setIsHardMode: (val: boolean) => void }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [debugMsg, setDebugMsg] = useState('');
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -16,15 +14,6 @@ function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
-
-  useEffect(() => {
-      const interval = setInterval(() => {
-          if (__DEBUG_AUDIO_ERROR && __DEBUG_AUDIO_ERROR !== debugMsg) {
-              setDebugMsg(__DEBUG_AUDIO_ERROR);
-          }
-      }, 500);
-      return () => clearInterval(interval);
-  }, [debugMsg]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -45,12 +34,7 @@ function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled
   };
 
   return (
-    <div className="relative w-screen h-screen bg-[#030305] flex flex-col items-center justify-center overflow-hidden font-sans select-none">
-      {debugMsg && (
-        <div className="absolute top-4 left-4 z-50 bg-red-900/80 text-white p-2 text-xs rounded border border-red-500 max-w-xs break-all">
-          Audio Error: {debugMsg}
-        </div>
-      )}
+    <div className="fixed inset-0 w-full h-[100dvh] bg-[#030305] overflow-hidden font-sans select-none">
       {/* Cinematic Nebula Background */}
       <div className="absolute inset-0 z-0 opacity-40">
         <motion.div 
@@ -84,7 +68,8 @@ function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled
         COORD: 45.91.22
       </div>
 
-      <div className="relative z-10 flex flex-col items-center w-full px-4">
+      <div className="relative z-10 w-full h-full overflow-y-auto overflow-x-hidden">
+        <div className="flex flex-col items-center justify-center min-h-full w-full px-4 py-12">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -247,6 +232,7 @@ function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled
             {isHardMode ? 'Hard Mode: On' : 'Hard Mode: Off'}
           </button>
         </motion.div>
+        </div>
       </div>
     </div>
   );
@@ -280,6 +266,22 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
     isMusicEnabledRef.current = isMusicEnabled;
   }, [isMusicEnabled]);
 
+  useEffect(() => {
+    startMusic('/audio/bg-music.mp3', isMusicEnabled);
+    return () => {
+      stopMusic();
+    };
+  }, [isMusicEnabled]);
+
+  useEffect(() => {
+    if (winner) {
+      const timer = setTimeout(() => {
+        stopMusic();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [winner]);
+
   const handleFleetSizeChange = (size: number) => {
     setFleetSize(size);
     fleetSizeRef.current = size;
@@ -290,7 +292,11 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
       const next = !prev;
       isPausedRef.current = next;
       playSound('click', isSoundEnabledRef.current);
-      // We don't mess with musicEnabled state during pause anymore, keeping it simpler
+      if (next) {
+        setMusicEnabled(false);
+      } else {
+        setMusicEnabled(isMusicEnabledRef.current);
+      }
       return next;
     });
   };
@@ -902,7 +908,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
   }, []);
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-[#05050a]">
+    <div className="fixed inset-0 w-full h-[100dvh] overflow-hidden bg-[#05050a]">
       {/* Domination UI */}
       <div className={`absolute top-0 left-0 right-0 p-2 sm:p-4 md:p-6 pointer-events-none z-40 flex justify-center transition-all duration-1000 ease-out ${showUI && !isOmniStrikeTargeting ? 'translate-y-0 opacity-100' : '-translate-y-[150%] opacity-0'}`}>
         <div className="bg-cyan-950/40 backdrop-blur-md px-3 py-2 sm:px-6 sm:py-3 border border-cyan-500/30 shadow-[0_0_30px_rgba(6,182,212,0.1)] relative rounded-sm flex items-center gap-3 sm:gap-6 md:gap-8 pointer-events-auto">
@@ -1254,14 +1260,6 @@ export default function App() {
   const [isHardMode, setIsHardMode] = useState(false);
 
   const interactionHandled = useRef(false);
-  const bgMusicRef = useRef<HTMLAudioElement | null>(null);
-
-  // Auto-play / setup volume
-  useEffect(() => {
-    if (bgMusicRef.current) {
-        bgMusicRef.current.volume = 0.15;
-    }
-  }, []);
 
   useEffect(() => {
     if (interactionHandled.current) return;
@@ -1271,11 +1269,6 @@ export default function App() {
       
       resumeAudioContext();
       interactionHandled.current = true;
-
-      // Un-restrict the audio element if it was blocked
-      if (bgMusicRef.current && isMusicEnabled && bgMusicRef.current.paused) {
-         bgMusicRef.current.play().catch(() => {});
-      }
       
       // Clean up all possible interaction listeners
       const events = ['click', 'keydown', 'mousedown', 'pointerdown', 'touchstart'];
@@ -1289,51 +1282,26 @@ export default function App() {
       const events = ['click', 'keydown', 'mousedown', 'pointerdown', 'touchstart'];
       events.forEach(e => window.removeEventListener(e, handleFirstInteraction));
     };
-  }, [isMusicEnabled]);
+  }, []);
 
   const handleToggleMusic = (enabled: boolean) => {
     setIsMusicEnabled(enabled);
-    if (bgMusicRef.current) {
-        if (enabled) {
-            bgMusicRef.current.play().catch(console.error);
-        } else {
-            bgMusicRef.current.pause();
-        }
-    }
+    setMusicEnabled(enabled);
   };
 
-  const handlePlayInteraction = () => {
-    // Force play synchronously in the exact moment of the 'Click' event.
-    if (bgMusicRef.current && isMusicEnabled) {
-       bgMusicRef.current.play().catch(e => {
-           console.log("App.tsx sync play failed:", e);
-       });
-    }
-    setGameState('playing');
-  };
-
-  return (
-    <>
-      <audio 
-        ref={bgMusicRef} 
-        src={bgMusicSrc} 
-        loop 
-        preload="auto" 
-        className="hidden" 
+  if (gameState === 'landing') {
+    return (
+      <LandingPage 
+        onPlay={() => setGameState('playing')} 
+        isSoundEnabled={isSoundEnabled} 
+        setIsSoundEnabled={setIsSoundEnabled}
+        isMusicEnabled={isMusicEnabled}
+        setIsMusicEnabled={handleToggleMusic}
+        isHardMode={isHardMode}
+        setIsHardMode={setIsHardMode}
       />
-      {gameState === 'landing' ? (
-        <LandingPage 
-          onPlay={handlePlayInteraction} 
-          isSoundEnabled={isSoundEnabled} 
-          setIsSoundEnabled={setIsSoundEnabled}
-          isMusicEnabled={isMusicEnabled}
-          setIsMusicEnabled={handleToggleMusic}
-          isHardMode={isHardMode}
-          setIsHardMode={setIsHardMode}
-        />
-      ) : (
-        <Game isSoundEnabled={isSoundEnabled} isMusicEnabled={isMusicEnabled} isHardMode={isHardMode} />
-      )}
-    </>
-  );
+    );
+  }
+
+  return <Game isSoundEnabled={isSoundEnabled} isMusicEnabled={isMusicEnabled} isHardMode={isHardMode} />;
 }
