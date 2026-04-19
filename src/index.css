@@ -1,8 +1,13 @@
 @import "tailwindcss";
 
-body {
+html, body {
   margin: 0;
   padding: 0;
   overflow: hidden;
   background-color: #05050a;
+  touch-action: none;
+  overscroll-behavior: cubic-bezier(0,0,0,0); /* Prevent bounce */
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
 }

@@ -6,6 +6,7 @@ import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAud
 
 function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled, isHardMode, setIsHardMode }: { onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void, isHardMode: boolean, setIsHardMode: (val: boolean) => void }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [scale, setScale] = useState(1);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -13,6 +14,25 @@ function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      // Slightly increased reference dimensions to make the UI just a touch smaller
+      const referenceWidth = 900;
+      const referenceHeight = 700;
+      
+      const scaleW = window.innerWidth / referenceWidth;
+      const scaleH = window.innerHeight / referenceHeight;
+      
+      // Find the lowest scale factor to fit exactly, but cap it so it doesn't get ridiculously large or small
+      const computedScale = Math.min(scaleW, scaleH);
+      setScale(Math.max(0.3, Math.min(computedScale, 2.0)));
+    };
+    
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const toggleFullscreen = () => {
@@ -34,7 +54,7 @@ function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled
   };
 
   return (
-    <div className="fixed inset-0 w-full h-[100dvh] bg-[#030305] overflow-hidden font-sans select-none">
+    <div className="fixed inset-0 w-full h-[100dvh] bg-[#030305] overflow-hidden font-sans select-none touch-none overscroll-none">
       {/* Cinematic Nebula Background */}
       <div className="absolute inset-0 z-0 opacity-40">
         <motion.div 
@@ -68,8 +88,11 @@ function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled
         COORD: 45.91.22
       </div>
 
-      <div className="relative z-10 w-full h-full overflow-y-auto overflow-x-hidden">
-        <div className="flex flex-col items-center justify-center min-h-full w-full px-4 py-12">
+      <div className="relative z-10 w-full h-full overflow-hidden flex items-center justify-center">
+        <div 
+          className="flex flex-col items-center justify-center min-w-[800px]"
+          style={{ transform: `scale(${scale})`, transformOrigin: 'center center' }}
+        >
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -79,7 +102,7 @@ function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled
           <motion.h1 
             animate={{ opacity: [0, 1, 0.4, 1, 0.8, 1] }}
             transition={{ duration: 1.2, ease: "circOut" }}
-            className="text-5xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-cyan-400 tracking-tighter mb-2 drop-shadow-[0_0_20px_rgba(6,182,212,0.4)]"
+            className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-cyan-400 tracking-tighter mb-2 drop-shadow-[0_0_20px_rgba(6,182,212,0.4)] whitespace-nowrap"
           >
             WAR OF PLANETS
           </motion.h1>
@@ -89,7 +112,7 @@ function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled
             transition={{ duration: 1, delay: 0.5, ease: "circOut" }}
             className="h-[2px] w-full bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-50 mb-3 origin-center" 
           />
-          <p className="text-cyan-300/80 font-mono tracking-[0.5em] text-xs md:text-sm uppercase h-5">
+          <p className="text-cyan-300/80 font-mono tracking-[0.5em] text-sm uppercase h-5 whitespace-nowrap">
             {Array.from("A GAME BY YIĞIT EFE OKTAR").map((char, i) => (
               <motion.span
                 key={i}
@@ -108,7 +131,7 @@ function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, delay: 0.3 }}
-          className="mt-12 relative w-full max-w-lg bg-cyan-950/40 backdrop-blur-md border border-cyan-500/30 p-6 md:p-8 shadow-[0_0_30px_rgba(6,182,212,0.1)] rounded-sm"
+          className="mt-12 relative w-full max-w-lg bg-cyan-950/40 backdrop-blur-md border border-cyan-500/30 p-8 shadow-[0_0_30px_rgba(6,182,212,0.1)] rounded-sm"
         >
           {/* Corner accents */}
           <div className="absolute -top-[1px] -left-[1px] w-4 h-4 border-t-2 border-l-2 border-cyan-400" />
@@ -121,7 +144,7 @@ function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled
             Mission Briefing
           </h2>
           
-          <div className="space-y-5 font-mono text-sm text-cyan-100/80">
+          <div className="space-y-5 font-mono text-sm text-cyan-100/80 text-left">
             <div className="flex gap-4 items-start">
               <span className="text-cyan-500 font-bold">01</span>
               <p>Click your <span className="text-blue-400 font-bold">BLUE</span> planet to select it, then click a target to attack.</p>
@@ -146,7 +169,7 @@ function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled
           whileTap={{ scale: 0.95 }}
           onMouseEnter={() => playSound('hover', isSoundEnabled)}
           onClick={handlePlay}
-          className="mt-10 group relative px-12 py-5 bg-cyan-950/60 border border-cyan-400 text-cyan-300 font-bold tracking-[0.3em] uppercase transition-colors transition-shadow duration-300 overflow-hidden shadow-[0_0_20px_rgba(6,182,212,0.2)] hover:shadow-[0_0_40px_rgba(6,182,212,0.4)] hover:text-white cursor-pointer rounded-sm"
+          className="mt-12 group relative px-12 py-5 bg-cyan-950/60 border border-cyan-400 text-cyan-300 font-bold tracking-[0.3em] uppercase transition-colors transition-shadow duration-300 overflow-hidden shadow-[0_0_20px_rgba(6,182,212,0.2)] hover:shadow-[0_0_40px_rgba(6,182,212,0.4)] hover:text-white cursor-pointer rounded-sm"
         >
           <div className="absolute inset-0 bg-cyan-400/20 translate-y-[100%] group-hover:translate-y-0 transition-transform duration-300 ease-out" />
           {/* Button corner accents */}
@@ -167,7 +190,7 @@ function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1, delay: 0.8 }}
-          className="mt-8 flex items-center gap-4"
+          className="mt-10 flex flex-wrap justify-center items-center gap-4"
         >
           <button
             onMouseEnter={() => playSound('hover', isSoundEnabled)}
@@ -330,10 +353,20 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
     const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) return;
 
-    let width = window.innerWidth;
-    let height = window.innerHeight;
+    let width = canvas.clientWidth || window.innerWidth;
+    let height = canvas.clientHeight || window.innerHeight;
     canvas.width = width;
     canvas.height = height;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        width = entry.contentRect.width;
+        height = entry.contentRect.height;
+        canvas.width = width;
+        canvas.height = height;
+      }
+    });
+    resizeObserver.observe(canvas);
 
     // World size
     const WORLD_WIDTH = 3000;
@@ -409,14 +442,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
     let touchStartY = 0;
     let isTouchDragging = false;
 
-    const handleResize = () => {
-      width = window.innerWidth;
-      height = window.innerHeight;
-      canvas.width = width;
-      canvas.height = height;
-    };
-    window.addEventListener('resize', handleResize);
-
     // Mouse Events for Camera Panning
     const handleMouseDown = (e: MouseEvent) => {
       resumeAudioContext();
@@ -446,7 +471,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
       if (isGameOver || isPausedRef.current) return;
       
       const dist = Math.hypot(e.clientX - mouseDownX, e.clientY - mouseDownY);
-      if (dist < 5) {
+      if (dist < 15) { // Increased from 5 to 15 to allow a tiny bit of mouse wiggle
         // It's a click
         const rect = canvas.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
@@ -461,7 +486,9 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
           const dx = base.x - worldX;
           const dy = base.y - worldY;
           const dist = Math.hypot(dx, dy);
-          const clickRadius = Math.max(80, 20 + Math.sqrt(base.pixelCount) * 5 + 20);
+          const baseRadius = 20 + Math.sqrt(base.pixelCount) * 5;
+          // Add 25 screen-pixels of padding, converted to world units
+          const clickRadius = baseRadius + (25 / cameraZoom);
           
           if (dist < clickRadius && dist < minDistance) {
             clickedBaseId = base.id;
@@ -611,8 +638,8 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
         const touch = e.changedTouches[0];
         const dist = Math.hypot(touch.clientX - touchStartX, touch.clientY - touchStartY);
         
-        // If it was a quick tap without much movement
-        if (dist < 10) {
+        // If it was a quick tap without much movement (allow up to 30px of thumb rolling)
+        if (dist < 30) {
           const rect = canvas.getBoundingClientRect();
           const touchX = touch.clientX - rect.left;
           const touchY = touch.clientY - rect.top;
@@ -626,8 +653,10 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
             const dx = base.x - worldX;
             const dy = base.y - worldY;
             const dist = Math.hypot(dx, dy);
-            // Touch radius matches the swarm radius plus a larger buffer for fat fingers
-            const clickRadius = Math.max(100, 20 + Math.sqrt(base.pixelCount) * 5 + 30);
+            // Base visual radius
+            const baseRadius = 20 + Math.sqrt(base.pixelCount) * 5;
+            // For touch screens, give them 50 screen-pixels of padding, converted to world units
+            const clickRadius = baseRadius + (50 / cameraZoom);
             
             if (dist < clickRadius && dist < minDistance) {
               clickedBaseId = base.id;
@@ -896,7 +925,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
 
     return () => {
       cancelAnimationFrame(animationFrameId);
-      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
       canvas.removeEventListener('mousedown', handleMouseDown);
@@ -908,7 +937,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
   }, []);
 
   return (
-    <div className="fixed inset-0 w-full h-[100dvh] overflow-hidden bg-[#05050a]">
+    <div className="fixed inset-0 w-full h-[100dvh] overflow-hidden bg-[#05050a] touch-none overscroll-none select-none">
       {/* Domination UI */}
       <div className={`absolute top-0 left-0 right-0 p-2 sm:p-4 md:p-6 pointer-events-none z-40 flex justify-center transition-all duration-1000 ease-out ${showUI && !isOmniStrikeTargeting ? 'translate-y-0 opacity-100' : '-translate-y-[150%] opacity-0'}`}>
         <div className="bg-cyan-950/40 backdrop-blur-md px-3 py-2 sm:px-6 sm:py-3 border border-cyan-500/30 shadow-[0_0_30px_rgba(6,182,212,0.1)] relative rounded-sm flex items-center gap-3 sm:gap-6 md:gap-8 pointer-events-auto">
@@ -1247,6 +1276,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
 
       <canvas 
         ref={canvasRef} 
+        onContextMenu={(e) => e.preventDefault()}
         className="block w-full h-full cursor-grab active:cursor-grabbing touch-none"
       />
     </div>

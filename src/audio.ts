@@ -68,7 +68,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
         const gain = ctx.createGain();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, now);
-        gain.gain.setValueAtTime(0.008, now);
+        gain.gain.setValueAtTime(0.01, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
         osc.connect(gain);
         gain.connect(masterGain!);
@@ -125,7 +125,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
       osc.frequency.setValueAtTime(200, now);
       osc.frequency.exponentialRampToValueAtTime(1800, now + 0.3);
 
-      gain.gain.setValueAtTime(0.03, now);
+      gain.gain.setValueAtTime(0.02, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
 
       osc.connect(gain);
@@ -175,7 +175,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
       const noise = ctx.createBufferSource();
       noise.buffer = buffer;
       const noiseGain = ctx.createGain();
-      noiseGain.gain.setValueAtTime(0.005, now + 0.08);
+      noiseGain.gain.setValueAtTime(0.01, now + 0.08);
       noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
       noise.connect(noiseGain);
       noiseGain.connect(masterGain!);
@@ -190,7 +190,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
       osc.frequency.exponentialRampToValueAtTime(800, now + 1.5);
       
       gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(0.02, now + 0.1);
+      gain.gain.linearRampToValueAtTime(0.025, now + 0.1);
       gain.gain.linearRampToValueAtTime(0, now + 1.5);
       
       osc.connect(gain);
@@ -206,7 +206,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
       zapOsc.type = 'sawtooth';
       zapOsc.frequency.setValueAtTime(2000, now);
       zapOsc.frequency.exponentialRampToValueAtTime(100, now + 0.3);
-      zapGain.gain.setValueAtTime(0.05, now);
+      zapGain.gain.setValueAtTime(0.03, now);
       zapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
       zapOsc.connect(zapGain);
       zapGain.connect(masterGain!);
@@ -219,7 +219,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
       bassOsc.type = 'sine';
       bassOsc.frequency.setValueAtTime(150, now);
       bassOsc.frequency.exponentialRampToValueAtTime(20, now + 1.5);
-      bassGain.gain.setValueAtTime(0.15, now);
+      bassGain.gain.setValueAtTime(0.04, now);
       bassGain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
       bassOsc.connect(bassGain);
       bassGain.connect(masterGain!);
@@ -243,7 +243,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
       filter.frequency.exponentialRampToValueAtTime(100, now + 1.0);
       
       const noiseGain = ctx.createGain();
-      noiseGain.gain.setValueAtTime(0.1, now);
+      noiseGain.gain.setValueAtTime(0.03, now);
       noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 1.0);
       
       noise.connect(filter);
@@ -260,7 +260,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
       osc.frequency.setValueAtTime(100, now);
       osc.frequency.exponentialRampToValueAtTime(10, now + 2.0);
       
-      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.setValueAtTime(0.03, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
       
       osc.connect(gain);
@@ -284,7 +284,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
       filter.frequency.linearRampToValueAtTime(50, now + 2.0);
       
       const noiseGain = ctx.createGain();
-      noiseGain.gain.setValueAtTime(0.2, now);
+      noiseGain.gain.setValueAtTime(0.04, now);
       noiseGain.gain.linearRampToValueAtTime(0, now + 2.0);
       
       noise.connect(filter);
@@ -305,7 +305,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
         osc.frequency.setValueAtTime(freq, startTime);
         
         gain.gain.setValueAtTime(0, startTime);
-        gain.gain.linearRampToValueAtTime(0.05, startTime + 0.1);
+        gain.gain.linearRampToValueAtTime(0.015, startTime + 0.1);
         gain.gain.exponentialRampToValueAtTime(0.001, startTime + 2.0);
         
         osc.connect(gain);
@@ -314,29 +314,62 @@ export const playSound = (type: SoundType, enabled: boolean) => {
         osc.stop(startTime + 2.0);
       });
     } else if (type === 'lose') {
-      // Ominous descending power-down
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sawtooth';
+      // System Critical Failure / Defeat
       
-      osc.frequency.setValueAtTime(200, now);
-      osc.frequency.exponentialRampToValueAtTime(20, now + 2.5);
+      // 1. Dissonant failing siren (two clashing square waves pitching down)
+      [300, 315].forEach((freq) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.1, now + 2.5);
+
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.015, now + 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
+
+        // Muffle it over time so it sounds like it's losing power
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(2000, now);
+        filter.frequency.exponentialRampToValueAtTime(100, now + 2.5);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(masterGain!);
+
+        osc.start(now);
+        osc.stop(now + 2.5);
+      });
+
+      // 2. Short-circuit static sparks
+      const bufferSize = ctx.sampleRate * 1.5;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        // Create a fast stuttering/sparking effect using a sine gate
+        const spark = Math.sin(i / ctx.sampleRate * Math.PI * 24) > 0.5 ? 1 : 0;
+        data[i] = (Math.random() * 2 - 1) * spark;
+      }
       
-      gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(0.05, now + 0.1);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
       
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(1000, now);
-      filter.frequency.exponentialRampToValueAtTime(100, now + 2.5);
-      
-      osc.connect(filter);
-      filter.connect(gain);
-      gain.connect(masterGain!);
-      
-      osc.start(now);
-      osc.stop(now + 2.5);
+      const noiseFilter = ctx.createBiquadFilter();
+      noiseFilter.type = 'bandpass';
+      noiseFilter.frequency.setValueAtTime(1500, now);
+      noiseFilter.frequency.linearRampToValueAtTime(200, now + 1.5);
+
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.02, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+
+      noise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(masterGain!);
+
+      noise.start(now);
+      noise.stop(now + 1.5);
     }
   } catch (e) {
     console.error("Audio playback failed", e);
