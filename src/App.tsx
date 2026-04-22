@@ -441,12 +441,18 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
     let touchStartX = 0;
     let touchStartY = 0;
     let isTouchDragging = false;
+    let cameraVelocityX = 0;
+    let cameraVelocityY = 0;
+    let lastDragTime = 0;
 
     // Mouse Events for Camera Panning
     const handleMouseDown = (e: MouseEvent) => {
       resumeAudioContext();
       if (isIntroPlaying) return;
       isDragging = true;
+      cameraVelocityX = 0;
+      cameraVelocityY = 0;
+      lastDragTime = Date.now();
       lastMouseX = e.clientX;
       lastMouseY = e.clientY;
       mouseDownX = e.clientX;
@@ -456,12 +462,20 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
     const handleMouseMove = (e: MouseEvent) => {
       if (isPausedRef.current) return;
       if (isDragging) {
+        const now = Date.now();
+        const dt = Math.max(1, now - lastDragTime);
         const dx = e.clientX - lastMouseX;
         const dy = e.clientY - lastMouseY;
+        
+        cameraVelocityX = (dx / cameraZoom) / dt;
+        cameraVelocityY = (dy / cameraZoom) / dt;
+        
         cameraX -= dx / cameraZoom;
         cameraY -= dy / cameraZoom;
+        
         lastMouseX = e.clientX;
         lastMouseY = e.clientY;
+        lastDragTime = now;
       }
     };
 
@@ -573,6 +587,11 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
       resumeAudioContext();
       e.preventDefault();
       if (isIntroPlaying) return;
+      
+      cameraVelocityX = 0;
+      cameraVelocityY = 0;
+      lastDragTime = Date.now();
+      
       if (e.touches.length === 1) {
         lastTouchX = e.touches[0].clientX;
         lastTouchY = e.touches[0].clientY;
@@ -593,12 +612,20 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
       e.preventDefault();
       if (isIntroPlaying || isPausedRef.current) return;
       if (e.touches.length === 1 && isTouchDragging) {
+        const now = Date.now();
+        const dt = Math.max(1, now - lastDragTime);
         const dx = e.touches[0].clientX - lastTouchX;
         const dy = e.touches[0].clientY - lastTouchY;
+        
+        cameraVelocityX = (dx / cameraZoom) / dt;
+        cameraVelocityY = (dy / cameraZoom) / dt;
+        
         cameraX -= dx / cameraZoom;
         cameraY -= dy / cameraZoom;
+        
         lastTouchX = e.touches[0].clientX;
         lastTouchY = e.touches[0].clientY;
+        lastDragTime = now;
       } else if (e.touches.length === 2) {
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -801,6 +828,23 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
           
           // Update cooldown
           setOmniStrikeCooldown(prev => Math.max(0, prev - safeDt));
+        }
+
+        // Apply momentum (Kinetic Scrolling)
+        if (!isDragging && !isTouchDragging && !isIntroPlaying) {
+          if (Math.abs(cameraVelocityX) > 0.01 || Math.abs(cameraVelocityY) > 0.01) {
+            cameraX -= cameraVelocityX * safeDt * 1000;
+            cameraY -= cameraVelocityY * safeDt * 1000;
+            
+            // Friction - decelarates over time
+            const friction = Math.pow(0.92, (safeDt * 1000) / 16); 
+            cameraVelocityX *= friction;
+            cameraVelocityY *= friction;
+            
+            // Stop completely if very slow
+            if (Math.abs(cameraVelocityX) < 0.01) cameraVelocityX = 0;
+            if (Math.abs(cameraVelocityY) < 0.01) cameraVelocityY = 0;
+          }
         }
       } else {
         const timeSinceEnd = currentTime - cinematicStartTime;
