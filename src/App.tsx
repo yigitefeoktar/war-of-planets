@@ -452,7 +452,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
       isDragging = true;
       cameraVelocityX = 0;
       cameraVelocityY = 0;
-      lastDragTime = Date.now();
       lastMouseX = e.clientX;
       lastMouseY = e.clientY;
       mouseDownX = e.clientX;
@@ -462,20 +461,18 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
     const handleMouseMove = (e: MouseEvent) => {
       if (isPausedRef.current) return;
       if (isDragging) {
-        const now = Date.now();
-        const dt = Math.max(1, now - lastDragTime);
         const dx = e.clientX - lastMouseX;
         const dy = e.clientY - lastMouseY;
         
-        cameraVelocityX = (dx / cameraZoom) / dt;
-        cameraVelocityY = (dy / cameraZoom) / dt;
+        // Mouse dragging stays strictly 1:1 (no momentum)
+        cameraVelocityX = 0;
+        cameraVelocityY = 0;
         
         cameraX -= dx / cameraZoom;
         cameraY -= dy / cameraZoom;
         
         lastMouseX = e.clientX;
         lastMouseY = e.clientY;
-        lastDragTime = now;
       }
     };
 
@@ -588,6 +585,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
       e.preventDefault();
       if (isIntroPlaying) return;
       
+      // Stop any existing momentum immediately when touching the screen
       cameraVelocityX = 0;
       cameraVelocityY = 0;
       lastDragTime = Date.now();
@@ -614,11 +612,21 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
       if (e.touches.length === 1 && isTouchDragging) {
         const now = Date.now();
         const dt = Math.max(1, now - lastDragTime);
+        
         const dx = e.touches[0].clientX - lastTouchX;
         const dy = e.touches[0].clientY - lastTouchY;
         
-        cameraVelocityX = (dx / cameraZoom) / dt;
-        cameraVelocityY = (dy / cameraZoom) / dt;
+        // Exponential moving average for velocity to smooth out the jitter of the final frame
+        const currentSpeedX = (dx / cameraZoom) / dt;
+        const currentSpeedY = (dy / cameraZoom) / dt;
+        
+        if (cameraVelocityX === 0 && cameraVelocityY === 0) {
+           cameraVelocityX = currentSpeedX;
+           cameraVelocityY = currentSpeedY;
+        } else {
+           cameraVelocityX = cameraVelocityX * 0.4 + currentSpeedX * 0.6;
+           cameraVelocityY = cameraVelocityY * 0.4 + currentSpeedY * 0.6;
+        }
         
         cameraX -= dx / cameraZoom;
         cameraY -= dy / cameraZoom;
@@ -745,6 +753,13 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
         lastTouchY = e.touches[0].clientY;
       } else if (e.touches.length === 0) {
         isTouchDragging = false;
+        
+        // If the user held their finger completely still for > 50ms before releasing, 
+        // they intended to stop exactly there. Cancel momentum.
+        if (Date.now() - lastDragTime > 50) {
+          cameraVelocityX = 0;
+          cameraVelocityY = 0;
+        }
       }
     };
 
