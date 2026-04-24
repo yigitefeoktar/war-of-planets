@@ -434,16 +434,52 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
     let selectedBaseId: string | null = null;
     let isGameOver = false;
 
-    // Touch state
+    // Touch state — track touches by identifier so 2→1 finger transitions don't corrupt anchors.
+    let primaryTouchId: number | null = null;
+    let secondaryTouchId: number | null = null;
+    let lastPrimaryX = 0;
+    let lastPrimaryY = 0;
     let lastPinchDist = 0;
-    let lastTouchX = 0;
-    let lastTouchY = 0;
+    let lastPinchCenterX = 0;
+    let lastPinchCenterY = 0;
+    let gestureMode: 'none' | 'pan' | 'pinch' = 'none';
+    let wasMultiTouch = false;
     let touchStartX = 0;
     let touchStartY = 0;
-    let isTouchDragging = false;
     let cameraVelocityX = 0;
     let cameraVelocityY = 0;
     let lastDragTime = 0;
+    // Windowed velocity samples (last ~80ms of pan deltas) for smoother fling.
+    type VelSample = { t: number; dx: number; dy: number };
+    const velSamples: VelSample[] = [];
+    const VEL_WINDOW_MS = 80;
+    const MAX_TOUCH_DELTA_PX = 200; // swallow OS-level glitch jumps
+    const findTouch = (touches: TouchList, id: number | null): Touch | null => {
+      if (id === null) return null;
+      for (let i = 0; i < touches.length; i++) {
+        if (touches[i].identifier === id) return touches[i];
+      }
+      return null;
+    };
+    const pushVelSample = (now: number, dx: number, dy: number) => {
+      velSamples.push({ t: now, dx, dy });
+      const cutoff = now - VEL_WINDOW_MS;
+      while (velSamples.length > 0 && velSamples[0].t < cutoff) velSamples.shift();
+    };
+    const computeWindowedVelocity = (now: number): { vx: number; vy: number } => {
+      const cutoff = now - VEL_WINDOW_MS;
+      let sumDx = 0, sumDy = 0;
+      let firstT = now;
+      for (const s of velSamples) {
+        if (s.t < cutoff) continue;
+        sumDx += s.dx;
+        sumDy += s.dy;
+        if (s.t < firstT) firstT = s.t;
+      }
+      const span = Math.max(16, now - firstT); // ms
+      // Velocity stored in px/ms (matching the loop's `velocity * safeDt * 1000` integration).
+      return { vx: sumDx / span, vy: sumDy / span };
+    };
 
     // Mouse Events for Camera Panning
     const handleMouseDown = (e: MouseEvent) => {
@@ -580,99 +616,130 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
     };
 
     // Touch Events
+    const resetTouchState = () => {
+      primaryTouchId = null;
+      secondaryTouchId = null;
+      gestureMode = 'none';
+      wasMultiTouch = false;
+      velSamples.length = 0;
+    };
+
     const handleTouchStart = (e: TouchEvent) => {
       resumeAudioContext();
       e.preventDefault();
       if (isIntroPlaying) return;
-      
+
       // Stop any existing momentum immediately when touching the screen
       cameraVelocityX = 0;
       cameraVelocityY = 0;
       lastDragTime = Date.now();
-      
-      if (e.touches.length === 1) {
-        lastTouchX = e.touches[0].clientX;
-        lastTouchY = e.touches[0].clientY;
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
-        isTouchDragging = true;
-      } else if (e.touches.length === 2) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        lastPinchDist = Math.hypot(dx, dy);
-        lastTouchX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-        lastTouchY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-        isTouchDragging = true;
+      velSamples.length = 0;
+
+      if (e.touches.length >= 2) {
+        // Enter (or stay in) pinch mode using the first two active touches.
+        primaryTouchId = e.touches[0].identifier;
+        secondaryTouchId = e.touches[1].identifier;
+        const t0 = e.touches[0];
+        const t1 = e.touches[1];
+        lastPinchDist = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
+        lastPinchCenterX = (t0.clientX + t1.clientX) / 2;
+        lastPinchCenterY = (t0.clientY + t1.clientY) / 2;
+        gestureMode = 'pinch';
+        wasMultiTouch = true;
+      } else if (e.touches.length === 1) {
+        const t = e.touches[0];
+        primaryTouchId = t.identifier;
+        secondaryTouchId = null;
+        lastPrimaryX = t.clientX;
+        lastPrimaryY = t.clientY;
+        touchStartX = t.clientX;
+        touchStartY = t.clientY;
+        gestureMode = 'pan';
+        wasMultiTouch = false;
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
       e.preventDefault();
       if (isIntroPlaying || isPausedRef.current) return;
-      if (e.touches.length === 1 && isTouchDragging) {
-        const now = Date.now();
-        const dt = Math.max(1, now - lastDragTime);
-        
-        const dx = e.touches[0].clientX - lastTouchX;
-        const dy = e.touches[0].clientY - lastTouchY;
-        
-        // Exponential moving average for velocity to smooth out the jitter of the final frame
-        const currentSpeedX = (dx / cameraZoom) / dt;
-        const currentSpeedY = (dy / cameraZoom) / dt;
-        
-        if (cameraVelocityX === 0 && cameraVelocityY === 0) {
-           cameraVelocityX = currentSpeedX;
-           cameraVelocityY = currentSpeedY;
-        } else {
-           cameraVelocityX = cameraVelocityX * 0.4 + currentSpeedX * 0.6;
-           cameraVelocityY = cameraVelocityY * 0.4 + currentSpeedY * 0.6;
-        }
-        
-        cameraX -= dx / cameraZoom;
-        cameraY -= dy / cameraZoom;
-        
-        lastTouchX = e.touches[0].clientX;
-        lastTouchY = e.touches[0].clientY;
-        lastDragTime = now;
-      } else if (e.touches.length === 2) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        const dist = Math.hypot(dx, dy);
-        
-        const centerScreenX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-        const centerScreenY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-        
-        // Pan
-        const panX = centerScreenX - lastTouchX;
-        const panY = centerScreenY - lastTouchY;
+
+      if (gestureMode === 'pinch') {
+        const t0 = findTouch(e.touches, primaryTouchId);
+        const t1 = findTouch(e.touches, secondaryTouchId);
+        if (!t0 || !t1) return; // wait for touchend to reconcile
+
+        const dist = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
+        const centerScreenX = (t0.clientX + t1.clientX) / 2;
+        const centerScreenY = (t0.clientY + t1.clientY) / 2;
+
+        // Pan from centroid delta, clamped to swallow OS glitches.
+        let panX = centerScreenX - lastPinchCenterX;
+        let panY = centerScreenY - lastPinchCenterY;
+        if (Math.abs(panX) > MAX_TOUCH_DELTA_PX) panX = 0;
+        if (Math.abs(panY) > MAX_TOUCH_DELTA_PX) panY = 0;
         cameraX -= panX / cameraZoom;
         cameraY -= panY / cameraZoom;
 
-        // Zoom
+        // Zoom — clamp per-event factor so a glitchy frame can't snap multiple steps.
         const worldX = (centerScreenX / cameraZoom) + cameraX;
         const worldY = (centerScreenY / cameraZoom) + cameraY;
-
-        const zoomFactor = dist / lastPinchDist;
+        const rawFactor = lastPinchDist > 0 ? dist / lastPinchDist : 1;
+        const zoomFactor = Math.max(0.5, Math.min(rawFactor, 2.0));
         const newZoom = Math.max(0.1, Math.min(cameraZoom * zoomFactor, 3));
-
         cameraX = worldX - (centerScreenX / newZoom);
         cameraY = worldY - (centerScreenY / newZoom);
         cameraZoom = newZoom;
-        
+
         lastPinchDist = dist;
-        lastTouchX = centerScreenX;
-        lastTouchY = centerScreenY;
+        lastPinchCenterX = centerScreenX;
+        lastPinchCenterY = centerScreenY;
+      } else if (gestureMode === 'pan') {
+        const t = findTouch(e.touches, primaryTouchId);
+        if (!t) return;
+
+        const now = Date.now();
+        let dx = t.clientX - lastPrimaryX;
+        let dy = t.clientY - lastPrimaryY;
+        if (Math.abs(dx) > MAX_TOUCH_DELTA_PX) dx = 0;
+        if (Math.abs(dy) > MAX_TOUCH_DELTA_PX) dy = 0;
+
+        cameraX -= dx / cameraZoom;
+        cameraY -= dy / cameraZoom;
+
+        // Track recent deltas in a windowed buffer for fling velocity.
+        // Store deltas in world units (dx/cameraZoom) so velocity is zoom-correct.
+        pushVelSample(now, dx / cameraZoom, dy / cameraZoom);
+
+        lastPrimaryX = t.clientX;
+        lastPrimaryY = t.clientY;
+        lastDragTime = now;
       }
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
       e.preventDefault();
       if (isIntroPlaying || isGameOver || isPausedRef.current) return;
-      
-      if (e.changedTouches.length === 1) {
+
+      // Determine whether the lifted touch is one we were tracking.
+      let liftedPrimary = false;
+      let liftedSecondary = false;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const id = e.changedTouches[i].identifier;
+        if (id === primaryTouchId) liftedPrimary = true;
+        if (id === secondaryTouchId) liftedSecondary = true;
+      }
+
+      // Tap detection: only valid for a single-finger pan that never escalated to multi-touch,
+      // and only when ALL fingers are now off the screen.
+      if (
+        e.touches.length === 0 &&
+        gestureMode === 'pan' &&
+        !wasMultiTouch &&
+        e.changedTouches.length === 1
+      ) {
         const touch = e.changedTouches[0];
         const dist = Math.hypot(touch.clientX - touchStartX, touch.clientY - touchStartY);
-        
+
         // If it was a quick tap without much movement (allow up to 30px of thumb rolling)
         if (dist < 30) {
           const rect = canvas.getBoundingClientRect();
@@ -748,19 +815,53 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
         }
       }
 
-      if (e.touches.length === 1) {
-        lastTouchX = e.touches[0].clientX;
-        lastTouchY = e.touches[0].clientY;
-      } else if (e.touches.length === 0) {
-        isTouchDragging = false;
-        
-        // If the user held their finger completely still for > 50ms before releasing, 
-        // they intended to stop exactly there. Cancel momentum.
-        if (Date.now() - lastDragTime > 50) {
+      // Reconcile gesture state based on what's still on the screen.
+      if (e.touches.length === 0) {
+        // All fingers up — fling only if the gesture was a single-finger pan and the user
+        // was still moving when they released. Otherwise stop dead.
+        const movingAtRelease = gestureMode === 'pan' && (Date.now() - lastDragTime) < 50;
+        if (movingAtRelease) {
+          const { vx, vy } = computeWindowedVelocity(Date.now());
+          cameraVelocityX = vx;
+          cameraVelocityY = vy;
+        } else {
           cameraVelocityX = 0;
           cameraVelocityY = 0;
         }
+        resetTouchState();
+      } else if (gestureMode === 'pinch' && (liftedPrimary || liftedSecondary) && e.touches.length === 1) {
+        // 2→1 transition: re-anchor on the surviving finger and continue panning, but do NOT
+        // generate fling velocity from the pinch — clear samples and momentum.
+        const survivor = e.touches[0];
+        primaryTouchId = survivor.identifier;
+        secondaryTouchId = null;
+        lastPrimaryX = survivor.clientX;
+        lastPrimaryY = survivor.clientY;
+        gestureMode = 'pan';
+        wasMultiTouch = true; // disqualify tap detection for the rest of the gesture
+        velSamples.length = 0;
+        cameraVelocityX = 0;
+        cameraVelocityY = 0;
+        lastDragTime = Date.now();
+      } else if (gestureMode === 'pan' && liftedPrimary && e.touches.length >= 1) {
+        // The pan finger lifted but another finger is still on screen — re-anchor to it.
+        const survivor = e.touches[0];
+        primaryTouchId = survivor.identifier;
+        lastPrimaryX = survivor.clientX;
+        lastPrimaryY = survivor.clientY;
+        wasMultiTouch = true;
+        velSamples.length = 0;
+        cameraVelocityX = 0;
+        cameraVelocityY = 0;
+        lastDragTime = Date.now();
       }
+    };
+
+    const handleTouchCancel = (e: TouchEvent) => {
+      e.preventDefault();
+      cameraVelocityX = 0;
+      cameraVelocityY = 0;
+      resetTouchState();
     };
 
     canvas.addEventListener('mousedown', handleMouseDown);
@@ -770,6 +871,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
     canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
     canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+    canvas.addEventListener('touchcancel', handleTouchCancel, { passive: false });
 
     let animationFrameId: number;
     let lastUiUpdateTime = 0;
@@ -846,16 +948,27 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
         }
 
         // Apply momentum (Kinetic Scrolling)
-        if (!isDragging && !isTouchDragging && !isIntroPlaying) {
+        if (!isDragging && gestureMode === 'none' && !isIntroPlaying) {
+          // Cap fling speed so a noisy final sample can't produce an unbounded jump.
+          // Velocity is in world units per ms; cap is expressed per second for readability.
+          const MAX_FLING_PER_SEC = 2500; // world units / second
+          const maxPerMs = MAX_FLING_PER_SEC / 1000;
+          const speed = Math.hypot(cameraVelocityX, cameraVelocityY);
+          if (speed > maxPerMs) {
+            const k = maxPerMs / speed;
+            cameraVelocityX *= k;
+            cameraVelocityY *= k;
+          }
+
           if (Math.abs(cameraVelocityX) > 0.01 || Math.abs(cameraVelocityY) > 0.01) {
             cameraX -= cameraVelocityX * safeDt * 1000;
             cameraY -= cameraVelocityY * safeDt * 1000;
-            
-            // Friction - decelarates over time
-            const friction = Math.pow(0.92, (safeDt * 1000) / 16); 
+
+            // Friction — settles in ~400ms instead of ~900ms.
+            const friction = Math.pow(0.88, (safeDt * 1000) / 16);
             cameraVelocityX *= friction;
             cameraVelocityY *= friction;
-            
+
             // Stop completely if very slow
             if (Math.abs(cameraVelocityX) < 0.01) cameraVelocityX = 0;
             if (Math.abs(cameraVelocityY) < 0.01) cameraVelocityY = 0;
@@ -992,6 +1105,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
       canvas.removeEventListener('touchstart', handleTouchStart);
       canvas.removeEventListener('touchmove', handleTouchMove);
       canvas.removeEventListener('touchend', handleTouchEnd);
+      canvas.removeEventListener('touchcancel', handleTouchCancel);
     };
   }, []);
 
