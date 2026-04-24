@@ -1,11 +1,8 @@
 let audioCtx: AudioContext | null = null;
 let masterGain: GainNode | null = null;
 let musicGain: GainNode | null = null;
-let musicBuffer: AudioBuffer | null = null;
-let musicBufferSource: AudioBufferSourceNode | null = null;
-let currentMusicSrc: string | null = null;
-let isMusicIntendedToPlay = false;
-let isMusicFetching = false;
+let bgMusic: HTMLAudioElement | null = null;
+let musicSource: MediaElementAudioSourceNode | null = null;
 let keepAliveOsc: OscillatorNode | null = null;
 
 const MUSIC_VOLUME = 0.15;
@@ -379,87 +376,62 @@ export const playSound = (type: SoundType, enabled: boolean) => {
   }
 };
 
-export const startMusic = async (src: string, enabled: boolean) => {
+let playPromise: Promise<void> | null = null;
+
+export const startMusic = (src: string, enabled: boolean) => {
   if (!src) return;
   const ctx = getAudioContext();
-  isMusicIntendedToPlay = enabled;
 
   // If music already exists and is the same src
-  if (currentMusicSrc === src) {
-    if (enabled && !musicBufferSource && musicBuffer) {
-      playMusicBuffer();
-    } else if (!enabled && musicBufferSource) {
-      try { musicBufferSource.stop(); } catch(e) {}
-      musicBufferSource = null;
+  if (bgMusic && bgMusic.src.includes(src)) {
+    if (enabled && bgMusic.paused) {
+      playPromise = bgMusic.play();
+      playPromise.catch(() => {});
+    } else if (!enabled && !bgMusic.paused) {
+      bgMusic.pause();
     }
     return;
   }
 
   // Clean up old music
-  if (musicBufferSource) {
-    try { musicBufferSource.stop(); } catch(e) {}
-    musicBufferSource = null;
+  if (bgMusic) {
+    bgMusic.pause();
+    bgMusic = null;
   }
-  
-  currentMusicSrc = src;
-  
-  if (isMusicFetching) return;
-  isMusicFetching = true;
 
-  try {
-    const response = await fetch(src);
-    const arrayBuffer = await response.arrayBuffer();
-    musicBuffer = await ctx.decodeAudioData(arrayBuffer);
-    
-    // Only play if hasn't been disabled in the meantime
-    if (isMusicIntendedToPlay) {
-      playMusicBuffer();
-    }
-  } catch (err) {
-    console.error("Failed to load or decode music:", err);
-  } finally {
-    isMusicFetching = false;
-  }
-};
-
-const playMusicBuffer = () => {
-  if (!musicBuffer) return;
-  const ctx = getAudioContext();
+  bgMusic = new Audio(src);
+  bgMusic.loop = true;
+  bgMusic.crossOrigin = "anonymous";
   
-  if (musicBufferSource) {
-    try { musicBufferSource.stop(); } catch(e) {}
+  // Connect to AudioContext for better volume control and to keep context alive
+  if (!musicSource || musicSource.mediaElement !== bgMusic) {
+    musicSource = ctx.createMediaElementSource(bgMusic);
+    musicSource.connect(musicGain!);
   }
   
-  musicBufferSource = ctx.createBufferSource();
-  musicBufferSource.buffer = musicBuffer;
-  musicBufferSource.loop = true;
-  musicBufferSource.connect(musicGain!);
-  
-  if (ctx.state === 'suspended') {
-     ctx.resume();
+  if (enabled) {
+    playPromise = bgMusic.play();
+    playPromise.catch(() => {});
   }
-  
-  musicBufferSource.start();
 };
 
 export const stopMusic = () => {
-  isMusicIntendedToPlay = false;
-  if (musicBufferSource) {
-    try { musicBufferSource.stop(); } catch(e) {}
-    musicBufferSource = null;
+  if (bgMusic) {
+    bgMusic.pause();
+    bgMusic = null;
   }
 };
 
 export const setMusicEnabled = (enabled: boolean) => {
-  const needsPlay = enabled && !isMusicIntendedToPlay;
-  const needsStop = !enabled && isMusicIntendedToPlay;
+  if (!bgMusic) return;
   
-  isMusicIntendedToPlay = enabled;
-  
-  if (needsPlay && musicBuffer) {
-    playMusicBuffer();
-  } else if (needsStop && musicBufferSource) {
-    try { musicBufferSource.stop(); } catch(e) {}
-    musicBufferSource = null;
+  if (enabled) {
+    if (bgMusic.paused) {
+      bgMusic.play().catch(() => {});
+    }
+  } else {
+    if (!bgMusic.paused) {
+      bgMusic.pause();
+    }
   }
 };
