@@ -424,6 +424,62 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
     let cameraX = startX;
     let cameraY = startY;
 
+    // World camera bounds — allow ~half a viewport of overscan so edge-of-map
+    // bases stay easy to see. If the viewport is larger than the world (very
+    // zoomed out), centerline the camera instead of clamping.
+    const CAMERA_OVERSCAN = 400;
+    const clampCamera = () => {
+      const viewW = canvas.width / cameraZoom;
+      const viewH = canvas.height / cameraZoom;
+      if (viewW >= WORLD_WIDTH + CAMERA_OVERSCAN * 2) {
+        cameraX = (WORLD_WIDTH - viewW) / 2;
+      } else {
+        const minX = -CAMERA_OVERSCAN;
+        const maxX = WORLD_WIDTH + CAMERA_OVERSCAN - viewW;
+        if (cameraX < minX) cameraX = minX;
+        else if (cameraX > maxX) cameraX = maxX;
+      }
+      if (viewH >= WORLD_HEIGHT + CAMERA_OVERSCAN * 2) {
+        cameraY = (WORLD_HEIGHT - viewH) / 2;
+      } else {
+        const minY = -CAMERA_OVERSCAN;
+        const maxY = WORLD_HEIGHT + CAMERA_OVERSCAN - viewH;
+        if (cameraY < minY) cameraY = minY;
+        else if (cameraY > maxY) cameraY = maxY;
+      }
+    };
+
+    // Smoothed wheel zoom: handleWheel sets desiredZoom + an anchor; the loop
+    // approaches it exponentially while keeping the world point under the
+    // anchor fixed.
+    let desiredZoom = cameraZoom;
+    let zoomAnchorScreenX = 0;
+    let zoomAnchorScreenY = 0;
+    const ZOOM_TIME_CONSTANT_S = 0.06; // ~150ms perceived response
+
+    // Camera tween (used by Space=center-on-capital and bookmark recall).
+    type CamTween = { sx: number; sy: number; sz: number; ex: number; ey: number; ez: number; t0: number; dur: number };
+    let camTween: CamTween | null = null;
+    const cancelTween = () => {
+      camTween = null;
+      desiredZoom = cameraZoom;
+    };
+    const tweenTo = (ex: number, ey: number, ez: number, dur = 400) => {
+      camTween = { sx: cameraX, sy: cameraY, sz: cameraZoom, ex, ey, ez, t0: Date.now(), dur };
+    };
+
+    // Camera bookmarks (slots 1..4) and held-key state for WASD/arrow panning.
+    const bookmarks = new Map<number, { x: number; y: number; z: number }>();
+    const keysHeld = new Set<string>();
+    const KEY_PAN_SPEED = 900; // world units per second at zoom 1
+
+    // Double-tap state (mobile zoom-in shortcut).
+    let lastTapTime = 0;
+    let lastTapX = 0;
+    let lastTapY = 0;
+    const DOUBLE_TAP_MS = 300;
+    const DOUBLE_TAP_PX = 50;
+
     let isDragging = false;
     let lastMouseX = 0;
     let lastMouseY = 0;
@@ -488,6 +544,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
       isDragging = true;
       cameraVelocityX = 0;
       cameraVelocityY = 0;
+      cancelTween();
       lastMouseX = e.clientX;
       lastMouseY = e.clientY;
       mouseDownX = e.clientX;
@@ -598,21 +655,14 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       if (isIntroPlaying || isPausedRef.current) return;
+      cancelTween();
       const rect = canvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-
-      // World position before zoom
-      const worldX = (mouseX / cameraZoom) + cameraX;
-      const worldY = (mouseY / cameraZoom) + cameraY;
-
+      zoomAnchorScreenX = e.clientX - rect.left;
+      zoomAnchorScreenY = e.clientY - rect.top;
+      // Update the desired zoom; the loop animates cameraZoom toward it
+      // each frame while keeping the world point under the anchor fixed.
       const zoomFactor = Math.exp(-e.deltaY * 0.002);
-      const newZoom = Math.max(0.1, Math.min(cameraZoom * zoomFactor, 3));
-
-      // Adjust camera to keep mouse over same world point
-      cameraX = worldX - (mouseX / newZoom);
-      cameraY = worldY - (mouseY / newZoom);
-      cameraZoom = newZoom;
+      desiredZoom = Math.max(0.1, Math.min(desiredZoom * zoomFactor, 3));
     };
 
     // Touch Events
@@ -634,6 +684,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
       cameraVelocityY = 0;
       lastDragTime = Date.now();
       velSamples.length = 0;
+      cancelTween();
 
       if (e.touches.length >= 2) {
         // Enter (or stay in) pinch mode using the first two active touches.
@@ -689,6 +740,8 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
         cameraX = worldX - (centerScreenX / newZoom);
         cameraY = worldY - (centerScreenY / newZoom);
         cameraZoom = newZoom;
+        desiredZoom = cameraZoom; // pinch is direct; don't let smoothed zoom override
+        cancelTween();
 
         lastPinchDist = dist;
         lastPinchCenterX = centerScreenX;
@@ -745,6 +798,28 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
           const rect = canvas.getBoundingClientRect();
           const touchX = touch.clientX - rect.left;
           const touchY = touch.clientY - rect.top;
+
+          // Double-tap zoom-in: if the previous tap was recent and nearby, zoom in
+          // 1.5× anchored on this tap point and skip base-click handling.
+          const tapNow = Date.now();
+          const tapDt = tapNow - lastTapTime;
+          const tapMove = Math.hypot(touch.clientX - lastTapX, touch.clientY - lastTapY);
+          if (tapDt < DOUBLE_TAP_MS && tapMove < DOUBLE_TAP_PX) {
+            cancelTween();
+            const newZoom = Math.max(0.1, Math.min(cameraZoom * 1.5, 3));
+            const worldAnchorX = (touchX / cameraZoom) + cameraX;
+            const worldAnchorY = (touchY / cameraZoom) + cameraY;
+            cameraX = worldAnchorX - touchX / newZoom;
+            cameraY = worldAnchorY - touchY / newZoom;
+            cameraZoom = newZoom;
+            desiredZoom = newZoom;
+            lastTapTime = 0; // consume — prevents triple-tap chaining
+            return;
+          }
+          lastTapTime = tapNow;
+          lastTapX = touch.clientX;
+          lastTapY = touch.clientY;
+
           const worldX = (touchX / cameraZoom) + cameraX;
           const worldY = (touchY / cameraZoom) + cameraY;
 
@@ -864,6 +939,64 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
       resetTouchState();
     };
 
+    // Center the camera on the player's first remaining capital (or, if none,
+    // on any remaining player base). At a comfortable zoom of 1.0.
+    const centerOnPlayerCapital = () => {
+      const playerBases = Array.from(engine.bases.values()).filter(b => b.color === '#3b82f6');
+      const target = playerBases.find(b => b.isCapital) ?? playerBases[0];
+      if (!target) return;
+      const targetZoomVal = Math.max(cameraZoom, 1.0);
+      const ex = target.x - canvas.width / (2 * targetZoomVal);
+      const ey = target.y - canvas.height / (2 * targetZoomVal);
+      tweenTo(ex, ey, targetZoomVal, 400);
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      const tag = (document.activeElement as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (isIntroPlaying || isPausedRef.current) return;
+
+      // Bookmarks: Shift+1..4 saves, plain 1..4 recalls.
+      if (e.code === 'Digit1' || e.code === 'Digit2' || e.code === 'Digit3' || e.code === 'Digit4') {
+        const slot = Number(e.code.replace('Digit', ''));
+        if (e.shiftKey) {
+          bookmarks.set(slot, { x: cameraX, y: cameraY, z: cameraZoom });
+        } else {
+          const bm = bookmarks.get(slot);
+          if (bm) tweenTo(bm.x, bm.y, bm.z, 400);
+        }
+        e.preventDefault();
+        return;
+      }
+
+      if (e.code === 'Space') {
+        centerOnPlayerCapital();
+        e.preventDefault();
+        return;
+      }
+
+      // WASD / arrow-key panning — track held state; movement happens in the loop.
+      if (
+        e.code === 'KeyW' || e.code === 'KeyA' || e.code === 'KeyS' || e.code === 'KeyD' ||
+        e.code === 'ArrowUp' || e.code === 'ArrowDown' || e.code === 'ArrowLeft' || e.code === 'ArrowRight'
+      ) {
+        keysHeld.add(e.code);
+        cancelTween();
+        cameraVelocityX = 0;
+        cameraVelocityY = 0;
+        e.preventDefault();
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      keysHeld.delete(e.code);
+    };
+
+    const handleBlur = () => {
+      keysHeld.clear();
+    };
+
     canvas.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
@@ -872,6 +1005,9 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
     canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
     canvas.addEventListener('touchcancel', handleTouchCancel, { passive: false });
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
 
     let animationFrameId: number;
     let lastUiUpdateTime = 0;
@@ -913,6 +1049,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
           cameraZoom = startZoom + (targetZoom - startZoom) * ease;
           cameraX = startX + (targetX - startX) * ease;
           cameraY = startY + (targetY - startY) * ease;
+          desiredZoom = cameraZoom;
         }
       }
 
@@ -974,6 +1111,51 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
             if (Math.abs(cameraVelocityY) < 0.01) cameraVelocityY = 0;
           }
         }
+
+        // Keyboard panning (WASD + arrows). Speed is constant in screen space:
+        // we divide by zoom so panning feels the same regardless of zoom level.
+        if (!isIntroPlaying && !isPausedRef.current && keysHeld.size > 0) {
+          let kx = 0, ky = 0;
+          if (keysHeld.has('KeyW') || keysHeld.has('ArrowUp')) ky -= 1;
+          if (keysHeld.has('KeyS') || keysHeld.has('ArrowDown')) ky += 1;
+          if (keysHeld.has('KeyA') || keysHeld.has('ArrowLeft')) kx -= 1;
+          if (keysHeld.has('KeyD') || keysHeld.has('ArrowRight')) kx += 1;
+          if (kx !== 0 || ky !== 0) {
+            const len = Math.hypot(kx, ky);
+            const step = (KEY_PAN_SPEED / cameraZoom) * safeDt;
+            cameraX += (kx / len) * step;
+            cameraY += (ky / len) * step;
+            cancelTween();
+          }
+        }
+
+        // Camera tween (Space=center-on-capital, bookmark recall).
+        if (camTween) {
+          const p = Math.min(1, (Date.now() - camTween.t0) / camTween.dur);
+          const ease = 1 - Math.pow(1 - p, 3); // ease-out cubic
+          cameraX = camTween.sx + (camTween.ex - camTween.sx) * ease;
+          cameraY = camTween.sy + (camTween.ey - camTween.sy) * ease;
+          cameraZoom = camTween.sz + (camTween.ez - camTween.sz) * ease;
+          desiredZoom = cameraZoom;
+          if (p >= 1) camTween = null;
+        }
+
+        // Smoothed wheel zoom: exponentially approach desiredZoom while keeping
+        // the world point under the wheel anchor stationary on screen.
+        if (Math.abs(cameraZoom - desiredZoom) > 0.0001) {
+          const oldZoom = cameraZoom;
+          const k = 1 - Math.exp(-safeDt / ZOOM_TIME_CONSTANT_S);
+          cameraZoom = oldZoom + (desiredZoom - oldZoom) * k;
+          if (Math.abs(cameraZoom - desiredZoom) < 0.0005) cameraZoom = desiredZoom;
+          const worldAX = zoomAnchorScreenX / oldZoom + cameraX;
+          const worldAY = zoomAnchorScreenY / oldZoom + cameraY;
+          cameraX = worldAX - zoomAnchorScreenX / cameraZoom;
+          cameraY = worldAY - zoomAnchorScreenY / cameraZoom;
+        }
+
+        // Final bounds clamp — applied after every camera mutation so all input
+        // paths (drag, momentum, WASD, tween, zoom) get the same treatment.
+        clampCamera();
       } else {
         const timeSinceEnd = currentTime - cinematicStartTime;
         
@@ -989,7 +1171,8 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
         const ease = 1 - Math.pow(1 - progress, 4); // Quartic ease out (whip pan)
         
         cameraZoom = cinematicStartZoom + (cinematicTargetZoom - cinematicStartZoom) * ease;
-        
+        desiredZoom = cameraZoom;
+
         // Orbit effect: Add a slight circular offset based on time
         const orbitRadius = progress * 50;
         const orbitAngle = timeSinceEnd * 0.0005;
@@ -1106,6 +1289,9 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
       canvas.removeEventListener('touchmove', handleTouchMove);
       canvas.removeEventListener('touchend', handleTouchEnd);
       canvas.removeEventListener('touchcancel', handleTouchCancel);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
     };
   }, []);
 
