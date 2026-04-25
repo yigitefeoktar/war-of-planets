@@ -756,12 +756,22 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
         if (Math.abs(dx) > MAX_TOUCH_DELTA_PX) dx = 0;
         if (Math.abs(dy) > MAX_TOUCH_DELTA_PX) dy = 0;
 
-        cameraX -= dx / cameraZoom;
-        cameraY -= dy / cameraZoom;
+        // Speed-adaptive pan: slow drags stay 1:1 (precision), fast drags get
+        // amplified up to MAX_BOOST (fast traversal). Trackpad-style curve.
+        // Combined with no-fling on release, this gives both precision and
+        // reach without the "coasts past my target" problem.
+        const dt = Math.max(1, now - lastDragTime);          // ms
+        const fingerSpeed = Math.hypot(dx, dy) / dt;         // CSS px / ms
+        const SLOW_PX_PER_MS = 0.3;                          // 300 px/s
+        const FAST_PX_PER_MS = 1.5;                          // 1500 px/s
+        const MAX_BOOST = 2.5;
+        const tNorm = Math.max(0, Math.min(1,
+          (fingerSpeed - SLOW_PX_PER_MS) / (FAST_PX_PER_MS - SLOW_PX_PER_MS)));
+        const ease = tNorm * tNorm * (3 - 2 * tNorm);        // smoothstep
+        const boost = 1 + ease * (MAX_BOOST - 1);
 
-        // Track recent deltas in a windowed buffer for fling velocity.
-        // Store deltas in world units (dx/cameraZoom) so velocity is zoom-correct.
-        pushVelSample(now, dx / cameraZoom, dy / cameraZoom);
+        cameraX -= (dx * boost) / cameraZoom;
+        cameraY -= (dy * boost) / cameraZoom;
 
         lastPrimaryX = t.clientX;
         lastPrimaryY = t.clientY;
@@ -892,17 +902,10 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
 
       // Reconcile gesture state based on what's still on the screen.
       if (e.touches.length === 0) {
-        // All fingers up — fling only if the gesture was a single-finger pan and the user
-        // was still moving when they released. Otherwise stop dead.
-        const movingAtRelease = gestureMode === 'pan' && (Date.now() - lastDragTime) < 50;
-        if (movingAtRelease) {
-          const { vx, vy } = computeWindowedVelocity(Date.now());
-          cameraVelocityX = vx;
-          cameraVelocityY = vy;
-        } else {
-          cameraVelocityX = 0;
-          cameraVelocityY = 0;
-        }
+        // No fling on mobile — strategy gameplay needs precision. Fast
+        // traversal is handled by the speed-adaptive boost in handleTouchMove.
+        cameraVelocityX = 0;
+        cameraVelocityY = 0;
         resetTouchState();
       } else if (gestureMode === 'pinch' && (liftedPrimary || liftedSecondary) && e.touches.length === 1) {
         // 2→1 transition: re-anchor on the surviving finger and continue panning, but do NOT
