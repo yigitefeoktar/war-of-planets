@@ -756,22 +756,11 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
         if (Math.abs(dx) > MAX_TOUCH_DELTA_PX) dx = 0;
         if (Math.abs(dy) > MAX_TOUCH_DELTA_PX) dy = 0;
 
-        // Speed-adaptive pan: slow drags stay 1:1 (precision), fast drags get
-        // amplified up to MAX_BOOST (fast traversal). Trackpad-style curve.
-        // Combined with no-fling on release, this gives both precision and
-        // reach without the "coasts past my target" problem.
-        const dt = Math.max(1, now - lastDragTime);          // ms
-        const fingerSpeed = Math.hypot(dx, dy) / dt;         // CSS px / ms
-        const SLOW_PX_PER_MS = 0.3;                          // 300 px/s
-        const FAST_PX_PER_MS = 1.5;                          // 1500 px/s
-        const MAX_BOOST = 2.5;
-        const tNorm = Math.max(0, Math.min(1,
-          (fingerSpeed - SLOW_PX_PER_MS) / (FAST_PX_PER_MS - SLOW_PX_PER_MS)));
-        const ease = tNorm * tNorm * (3 - 2 * tNorm);        // smoothstep
-        const boost = 1 + ease * (MAX_BOOST - 1);
-
-        cameraX -= (dx * boost) / cameraZoom;
-        cameraY -= (dy * boost) / cameraZoom;
+        // Pure 1:1 finger-to-world drag — Clash of Clans-style. No boost,
+        // no fling. For fast traversal the user pinches out to see more
+        // of the map, then drags.
+        cameraX -= dx / cameraZoom;
+        cameraY -= dy / cameraZoom;
 
         lastPrimaryX = t.clientX;
         lastPrimaryY = t.clientY;
