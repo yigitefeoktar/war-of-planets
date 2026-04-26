@@ -756,11 +756,15 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
         if (Math.abs(dx) > MAX_TOUCH_DELTA_PX) dx = 0;
         if (Math.abs(dy) > MAX_TOUCH_DELTA_PX) dy = 0;
 
-        // Pure 1:1 finger-to-world drag — Clash of Clans-style. No boost,
-        // no fling. For fast traversal the user pinches out to see more
-        // of the map, then drags.
+        // Pure 1:1 finger-to-world drag — Clash of Clans-style. No boost.
+        // A small soft tail is added on release via the windowed velocity
+        // buffer below.
         cameraX -= dx / cameraZoom;
         cameraY -= dy / cameraZoom;
+
+        // Sample recent deltas in world units so release can produce a
+        // gated subtle fling (see handleTouchEnd).
+        pushVelSample(now, dx / cameraZoom, dy / cameraZoom);
 
         lastPrimaryX = t.clientX;
         lastPrimaryY = t.clientY;
@@ -891,10 +895,25 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
 
       // Reconcile gesture state based on what's still on the screen.
       if (e.touches.length === 0) {
-        // No fling on mobile — strategy gameplay needs precision. Fast
-        // traversal is handled by the speed-adaptive boost in handleTouchMove.
-        cameraVelocityX = 0;
-        cameraVelocityY = 0;
+        // Subtle fling: only trigger if the user was still moving when
+        // they released AND the windowed speed is above a meaningful
+        // threshold. Slow precise drags stop dead.
+        if (gestureMode === 'pan' && (Date.now() - lastDragTime) < 50) {
+          const { vx, vy } = computeWindowedVelocity(Date.now());
+          // 600 px/s in screen-space, expressed in world-units / ms at the
+          // current zoom — below this, no fling.
+          const minWorldSpeed = 0.6 / cameraZoom;
+          if (Math.hypot(vx, vy) > minWorldSpeed) {
+            cameraVelocityX = vx;
+            cameraVelocityY = vy;
+          } else {
+            cameraVelocityX = 0;
+            cameraVelocityY = 0;
+          }
+        } else {
+          cameraVelocityX = 0;
+          cameraVelocityY = 0;
+        }
         resetTouchState();
       } else if (gestureMode === 'pinch' && (liftedPrimary || liftedSecondary) && e.touches.length === 1) {
         // 2→1 transition: re-anchor on the surviving finger and continue panning, but do NOT
@@ -1080,7 +1099,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
         if (!isDragging && gestureMode === 'none' && !isIntroPlaying) {
           // Cap fling speed so a noisy final sample can't produce an unbounded jump.
           // Velocity is in world units per ms; cap is expressed per second for readability.
-          const MAX_FLING_PER_SEC = 2500; // world units / second
+          const MAX_FLING_PER_SEC = 1500; // world units / second
           const maxPerMs = MAX_FLING_PER_SEC / 1000;
           const speed = Math.hypot(cameraVelocityX, cameraVelocityY);
           if (speed > maxPerMs) {
@@ -1093,8 +1112,8 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
             cameraX -= cameraVelocityX * safeDt * 1000;
             cameraY -= cameraVelocityY * safeDt * 1000;
 
-            // Friction — settles in ~400ms instead of ~900ms.
-            const friction = Math.pow(0.88, (safeDt * 1000) / 16);
+            // Friction — short soft tail, settles to imperceptible in ~250ms.
+            const friction = Math.pow(0.80, (safeDt * 1000) / 16);
             cameraVelocityX *= friction;
             cameraVelocityY *= friction;
 
