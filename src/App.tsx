@@ -424,10 +424,11 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
     let cameraX = startX;
     let cameraY = startY;
 
-    // World camera bounds — allow ~half a viewport of overscan so edge-of-map
-    // bases stay easy to see. If the viewport is larger than the world (very
-    // zoomed out), centerline the camera instead of clamping.
-    const CAMERA_OVERSCAN = 400;
+    // World camera bounds — allow generous overscan so that zooming out at
+    // the edge of the map doesn't pull the camera back inward (which would
+    // make the whole map appear to shift). If the viewport is larger than
+    // the world plus overscan (very zoomed out), centerline the camera.
+    const CAMERA_OVERSCAN = 2000;
     const clampCamera = () => {
       const viewW = canvas.width / cameraZoom;
       const viewH = canvas.height / cameraZoom;
