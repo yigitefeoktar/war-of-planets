@@ -1524,7 +1524,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
                 Req: 5 Planets ({playerPlanetCount}/5)
               </div>
             ) : omniStrikeCooldown > 0 ? (
-              <div className="text-[10px] text-red-500/80 font-mono uppercase tracking-tight">
+              <div className="text-[10px] text-cyan-500/60 font-mono uppercase tracking-tight">
                 Recharging: {Math.ceil(omniStrikeCooldown)}s
               </div>
             ) : null}
