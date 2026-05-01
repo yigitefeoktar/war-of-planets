@@ -658,12 +658,23 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
       if (isIntroPlaying || isPausedRef.current) return;
       cancelTween();
       const rect = canvas.getBoundingClientRect();
-      zoomAnchorScreenX = e.clientX - rect.left;
-      zoomAnchorScreenY = e.clientY - rect.top;
-      // Update the desired zoom; the loop animates cameraZoom toward it
-      // each frame while keeping the world point under the anchor fixed.
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      // World position before zoom
+      const worldX = (mouseX / cameraZoom) + cameraX;
+      const worldY = (mouseY / cameraZoom) + cameraY;
+
       const zoomFactor = Math.exp(-e.deltaY * 0.002);
-      desiredZoom = Math.max(0.1, Math.min(desiredZoom * zoomFactor, 3));
+      const newZoom = Math.max(0.1, Math.min(cameraZoom * zoomFactor, 3));
+
+      // Apply the zoom instantly (PC behavior matches the original — no
+      // kinetic / smoothed feel). Keep desiredZoom in sync so the per-frame
+      // smoothing block in the loop is a no-op.
+      cameraX = worldX - (mouseX / newZoom);
+      cameraY = worldY - (mouseY / newZoom);
+      cameraZoom = newZoom;
+      desiredZoom = newZoom;
     };
 
     // Touch Events
