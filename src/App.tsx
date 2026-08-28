@@ -3,6 +3,7 @@ import { GameEngine } from './game/engine';
 import { motion } from 'motion/react';
 import { Maximize, Minimize, Volume2, VolumeX, Music, Skull, Pause, Play, Flag } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
+import { CampaignSelection, ModeSelection } from './ui/CampaignMenus';
 
 function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled, isHardMode, setIsHardMode }: { onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void, isHardMode: boolean, setIsHardMode: (val: boolean) => void }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1666,7 +1667,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
 }
 
 export default function App() {
-  const [gameState, setGameState] = useState<'landing' | 'playing'>('landing');
+  const [gameState, setGameState] = useState<'landing' | 'modes' | 'campaign' | 'playing'>('landing');
   const [isSoundEnabled, setIsSoundEnabled] = useState(true);
   const [isMusicEnabled, setIsMusicEnabled] = useState(true);
   const [isHardMode, setIsHardMode] = useState(false);
@@ -1704,13 +1705,34 @@ export default function App() {
   if (gameState === 'landing') {
     return (
       <LandingPage 
-        onPlay={() => setGameState('playing')} 
+        onPlay={() => setGameState('modes')}
         isSoundEnabled={isSoundEnabled} 
         setIsSoundEnabled={setIsSoundEnabled}
         isMusicEnabled={isMusicEnabled}
         setIsMusicEnabled={handleToggleMusic}
         isHardMode={isHardMode}
         setIsHardMode={setIsHardMode}
+      />
+    );
+  }
+
+  if (gameState === 'modes') {
+    return (
+      <ModeSelection
+        isSoundEnabled={isSoundEnabled}
+        onBack={() => setGameState('landing')}
+        onCampaign={() => setGameState('campaign')}
+        onQuickMatch={() => setGameState('playing')}
+      />
+    );
+  }
+
+  if (gameState === 'campaign') {
+    return (
+      <CampaignSelection
+        isSoundEnabled={isSoundEnabled}
+        onBack={() => setGameState('modes')}
+        onLaunchMission={() => setGameState('playing')}
       />
     );
   }
