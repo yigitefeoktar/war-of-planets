@@ -33,3 +33,17 @@
 .mode-dialog-hint { margin: 22px 0 0; text-align: center; color: #8fa3b8; font-size: 12px; }
 @media (max-width: 700px) { .mode-dialog { padding: 20px; border-radius: 12px; } .mode-grid { grid-template-columns: 1fr; gap: 14px; } .mode-option { min-height: 300px; } .mode-option .mode-art { object-position: center 35%; } .mode-option .mode-copy h2 { max-width: none; font-size: 27px; } .mode-option .mode-copy p { min-height: 0; } .mode-dialog-header { align-items: flex-start; } }
 @media (prefers-reduced-motion: reduce) { .mode-art, .mode-option, .mode-change { transition: none; } .mode-option:hover { transform: none; } }
+/* The legacy title menu is scaled from a 900px design canvas. Compensate
+   inside its selected card so phone text and its Change target stay usable. */
+@media (max-width: 700px) {
+  .mode-current { width: 780px; height: 580px; padding: 36px; }
+  .mode-current .mode-eyebrow { font-size: 22px; padding: 12px 16px; gap: 12px; }
+  .mode-current .mode-eyebrow svg { width: 24px; height: 24px; }
+  .mode-current .mode-copy h2 { font-size: 48px; margin-bottom: 18px; }
+  .mode-current .mode-copy p { max-width: none; font-size: 27px; line-height: 1.5; }
+  .mode-current .mode-meta { font-size: 19px; }
+  .mode-current .mode-footer { margin-top: 24px; padding-top: 24px; }
+  .mode-current .mode-change { min-height: 104px; padding: 0 30px; font-size: 25px; gap: 16px; border-radius: 8px; }
+  .mode-current .mode-change svg { width: 28px; height: 28px; }
+  .mode-current .mode-instructions { font-size: 24px; padding-left: 37px; }
+}
