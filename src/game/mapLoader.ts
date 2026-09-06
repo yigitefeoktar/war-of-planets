@@ -1,11 +1,14 @@
 import { GameEngine } from './engine';
+import { OrbitingGameEngine } from './orbitingEngine';
 import { validateMap, type MapDefinition } from './campaign';
 
 // Keep the legacy random generator for Quick Match. Authored games replace
 // only the initial planets and ships; stars, combat, AI, and controls are shared.
 export function createMatch(map?: MapDefinition): GameEngine {
   if (map) validateMap(map);
-  const engine = new GameEngine(map?.width ?? 3000, map?.height ?? 3000);
+  const engine = map?.orbit
+    ? new OrbitingGameEngine(map.width, map.height, map.orbit)
+    : new GameEngine(map?.width ?? 3000, map?.height ?? 3000);
   if (map) {
     engine.bases.clear();
     engine.pixels = [];

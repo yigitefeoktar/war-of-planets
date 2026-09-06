@@ -4,6 +4,7 @@ export const FACTIONS = [PLAYER, '#ef4444', '#22c55e', '#eab308'] as const;
 export type ModeId = 'chapter-1' | 'chapter-2' | 'quick-match';
 export type ChapterId = Exclude<ModeId, 'quick-match'>;
 export type PlanetDefinition = { id: string; x: number; y: number; owner: typeof FACTIONS[number] | typeof NEUTRAL; ships: number; capital?: boolean };
+export type OrbitDefinition = { x: number; y: number; periodSeconds: number; planetIds: string[] };
 export type MapDefinition = {
   id: string;
   title: string;
@@ -13,12 +14,13 @@ export type MapDefinition = {
   attackRange: number;
   objective: { type: 'eliminate-capitals'; description: string };
   planets: PlanetDefinition[];
+  orbit?: OrbitDefinition;
 };
 export type Chapter = { id: ChapterId; plannedLevels: number; maps: MapDefinition[] };
 
 export const FIRST_STRIKE: MapDefinition = {
   id: 'helios-first-strike', title: 'First Strike',
-  briefing: 'Capture the lightly defended worlds near your capital. Build your fleet, then push north to the red command world.',
+  briefing: 'This system rotates around its white star. Capture nearby worlds, build your fleet, and destroy the red capital. The star cannot be captured.',
   width: 1600, height: 1400, attackRange: 600,
   objective: { type: 'eliminate-capitals', description: 'Destroy the red capital. Keep your blue capital alive.' },
   planets: [
@@ -26,12 +28,16 @@ export const FIRST_STRIKE: MapDefinition = {
     { id: 'ai_1', x: 800, y: 220, owner: '#ef4444', ships: 90, capital: true },
     { id: 'west-landing', x: 470, y: 970, owner: NEUTRAL, ships: 10 },
     { id: 'east-landing', x: 1130, y: 970, owner: NEUTRAL, ships: 10 },
-    { id: 'midway', x: 800, y: 730, owner: NEUTRAL, ships: 18 },
+    { id: 'midway', x: 800, y: 860, owner: NEUTRAL, ships: 18 },
     { id: 'west-route', x: 410, y: 610, owner: NEUTRAL, ships: 16 },
     { id: 'east-route', x: 1190, y: 610, owner: NEUTRAL, ships: 16 },
     { id: 'west-front', x: 520, y: 310, owner: NEUTRAL, ships: 24 },
     { id: 'east-front', x: 1080, y: 310, owner: NEUTRAL, ships: 24 },
   ],
+  orbit: {
+    x: 800, y: 700, periodSeconds: 180,
+    planetIds: ['player_1', 'ai_1', 'west-landing', 'east-landing', 'midway', 'west-route', 'east-route', 'west-front', 'east-front'],
+  },
 };
 
 export const CHAPTERS: Record<ChapterId, Chapter> = {
@@ -90,6 +96,16 @@ export function validateMap(map: MapDefinition): void {
     if (p.capital && p.owner === NEUTRAL) throw new Error('Neutral capital is not supported');
   }
   if (map.planets.filter(p => p.capital && p.owner === PLAYER).length !== 1 || !map.planets.some(p => p.capital && p.owner !== PLAYER)) throw new Error('Map requires one player capital and an enemy capital');
+  if (map.orbit) {
+    const orbit = map.orbit;
+    if (![orbit.x, orbit.y, orbit.periodSeconds].every(Number.isFinite) || orbit.periodSeconds <= 0 || orbit.x < 0 || orbit.x > map.width || orbit.y < 0 || orbit.y > map.height) throw new Error('Invalid orbit centre or period');
+    if (!orbit.planetIds.length || new Set(orbit.planetIds).size !== orbit.planetIds.length || orbit.planetIds.some(id => !ids.has(id))) throw new Error('Invalid orbit planet IDs');
+    for (const planet of map.planets.filter(p => orbit.planetIds.includes(p.id))) {
+      const radius = Math.hypot(planet.x - orbit.x, planet.y - orbit.y);
+      const margin = planet.capital ? 80 : 50;
+      if (radius < 110 || radius + margin > Math.min(orbit.x, orbit.y, map.width - orbit.x, map.height - orbit.y)) throw new Error('Orbit intersects star or map edge');
+    }
+  }
   const reached = new Set([map.planets.find(p => p.capital && p.owner === PLAYER)!.id]);
   let changed = true;
   while (changed) {

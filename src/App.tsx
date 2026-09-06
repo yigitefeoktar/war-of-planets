@@ -560,6 +560,9 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, missionNumber, 
         const mouseY = e.clientY - rect.top;
         const worldX = (mouseX / cameraZoom) + cameraX;
         const worldY = (mouseY / cameraZoom) + cameraY;
+        // The white star is scenery, even when a nearby planet's generous
+        // selection padding overlaps it.
+        if (map?.orbit && Math.hypot(worldX - map.orbit.x, worldY - map.orbit.y) <= 52) return;
 
         let clickedBaseId: string | null = null;
         let minDistance = Infinity;
@@ -814,6 +817,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, missionNumber, 
 
           const worldX = (touchX / cameraZoom) + cameraX;
           const worldY = (touchY / cameraZoom) + cameraY;
+          if (map?.orbit && Math.hypot(worldX - map.orbit.x, worldY - map.orbit.y) <= 52) return;
 
           let clickedBaseId: string | null = null;
           let minDistance = Infinity;

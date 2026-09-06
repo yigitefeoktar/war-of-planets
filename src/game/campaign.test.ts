@@ -65,7 +65,7 @@ test('invalid and disconnected maps are rejected before starting', () => {
   assert.throws(() => validateMap({ ...FIRST_STRIKE, attackRange: 1 }));
 });
 test('real combat destroys an enemy capital and resolves victory', () => {
-  const fixture = { ...FIRST_STRIKE, planets: [
+  const fixture = { ...FIRST_STRIKE, orbit: undefined, planets: [
     { ...FIRST_STRIKE.planets[0], x: 700, y: 700, ships: 40 },
     { ...FIRST_STRIKE.planets[1], x: 820, y: 700, ships: 1 },
   ] };
