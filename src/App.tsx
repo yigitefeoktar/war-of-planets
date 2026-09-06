@@ -393,9 +393,9 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, missionNumber, 
     const startX = (WORLD_WIDTH - width / startZoom) / 2;
     const startY = (WORLD_HEIGHT - height / startZoom) / 2;
 
-    const targetZoom = 0.6;
-    const targetX = playerBase ? playerBase.x - (width / 2) / targetZoom : startX;
-    const targetY = playerBase ? playerBase.y - (height / 2) / targetZoom : startY;
+    const targetZoom = map ? Math.max(0.35, Math.min(width / WORLD_WIDTH, height / WORLD_HEIGHT) * 0.9) : 0.6;
+    const targetX = map ? (WORLD_WIDTH - width / targetZoom) / 2 : playerBase ? playerBase.x - (width / 2) / targetZoom : startX;
+    const targetY = map ? (WORLD_HEIGHT - height / targetZoom) / 2 : playerBase ? playerBase.y - (height / 2) / targetZoom : startY;
 
     let cameraZoom = startZoom;
     let cameraX = startX;
@@ -1638,7 +1638,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, missionNumber, 
         </motion.div>
       )}
 
-      {map && !winner && <div className="pointer-events-none absolute top-24 left-4 right-4 z-20 mx-auto max-w-lg rounded border border-cyan-700/40 bg-black/75 p-3 text-center text-cyan-100"><p className="text-xs font-bold">Mission {missionNumber}: {map.title}</p><p className="mt-1 text-xs text-cyan-100/75">{map.objective.description}</p></div>}
+      {map && !winner && <div className="pointer-events-none absolute top-24 left-4 right-4 z-20 mx-auto max-w-lg rounded border border-cyan-700/40 bg-black/75 p-3 text-center text-cyan-100 md:top-6 md:right-auto md:max-w-xs md:text-left"><p className="text-xs font-bold">Mission {missionNumber}: {map.title}</p><p className="mt-1 text-xs text-cyan-100/75">{map.objective.description}</p></div>}
       <canvas 
         ref={canvasRef} 
         onContextMenu={(e) => e.preventDefault()}
