@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { GameEngine } from './game/engine';
+import { createMatch } from './game/mapLoader';
+import { CHAPTERS, completeMission, followingMission, getOutcome, launchMission, loadProgress, nextMission, saveProgress, type MapDefinition, type ModeId, type Progress } from './game/campaign';
 import { motion } from 'motion/react';
 import { Maximize, Minimize, Volume2, VolumeX, Music, Skull, Pause, Play, Flag } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
 import { ModeCard } from './ui/ModeCard';
 
-function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled, isHardMode, setIsHardMode }: { onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void, isHardMode: boolean, setIsHardMode: (val: boolean) => void }) {
+function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled, isHardMode, setIsHardMode }: { selectedMode: ModeId, onSelectMode: (mode: ModeId) => void, progress: Progress, saveWarning: boolean, onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void, isHardMode: boolean, setIsHardMode: (val: boolean) => void }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [scale, setScale] = useState(1);
 
@@ -127,7 +128,8 @@ function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled
           </p>
         </motion.div>
 
-        <ModeCard isSoundEnabled={isSoundEnabled} />
+        <ModeCard isSoundEnabled={isSoundEnabled} selectedMode={selectedMode} onSelectMode={onSelectMode} progress={progress} />
+        {saveWarning && <p className="mt-2 text-amber-300 text-xs">Progress cannot be saved in this browser session.</p>}
 
         {/* Action Button */}
         <motion.button
@@ -138,6 +140,7 @@ function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled
           whileTap={{ scale: 0.95 }}
           onMouseEnter={() => playSound('hover', isSoundEnabled)}
           onClick={handlePlay}
+          disabled={selectedMode !== 'quick-match' && CHAPTERS[selectedMode].maps.length === 0}
           className="mt-12 group relative px-12 py-5 bg-cyan-950/60 border border-cyan-400 text-cyan-300 font-bold tracking-[0.3em] uppercase transition-colors transition-shadow duration-300 overflow-hidden shadow-[0_0_20px_rgba(6,182,212,0.2)] hover:shadow-[0_0_40px_rgba(6,182,212,0.4)] hover:text-white cursor-pointer rounded-sm"
         >
           <div className="absolute inset-0 bg-cyan-400/20 translate-y-[100%] group-hover:translate-y-0 transition-transform duration-300 ease-out" />
@@ -147,7 +150,7 @@ function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled
           <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <span className="relative z-10 flex items-center gap-3">
-            Initialize Launch
+            {selectedMode !== 'quick-match' && CHAPTERS[selectedMode].maps.length === 0 ? 'Coming soon' : selectedMode === 'quick-match' ? 'Initialize Launch' : nextMission(CHAPTERS[selectedMode], progress.completed) ? 'Continue Campaign' : 'Replay Mission'}
             <svg className="w-5 h-5 group-hover:translate-x-2 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="square" strokeLinejoin="miter" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
             </svg>
@@ -230,7 +233,9 @@ function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled
   );
 }
 
-function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: boolean, isMusicEnabled: boolean, isHardMode: boolean }) {
+function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, missionNumber, onResult, onRetry, onMenu, resultDetail, actionLabel }: { isSoundEnabled: boolean, isMusicEnabled: boolean, isHardMode: boolean, map?: MapDefinition, missionNumber?: number, onResult: (won: boolean) => void, onRetry: () => void, onMenu: () => void, resultDetail: string, actionLabel: string }) {
+  const onResultRef = useRef(onResult);
+  onResultRef.current = onResult;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [factions, setFactions] = useState<{ color: string; isAlive: boolean; isPlayer: boolean; shipCount: number; name: string }[]>([]);
   const [winner, setWinner] = useState<{ color: string } | null>(null);
@@ -338,12 +343,13 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
     resizeObserver.observe(canvas);
 
     // World size
-    const WORLD_WIDTH = 3000;
-    const WORLD_HEIGHT = 3000;
+    const WORLD_WIDTH = map?.width ?? 3000;
+    const WORLD_HEIGHT = map?.height ?? 3000;
 
     // Initialize Game Engine
-    const engine = new GameEngine(WORLD_WIDTH, WORLD_HEIGHT);
+    const engine = createMatch(map);
     engine.isHardMode = isHardMode;
+    const activeFactionColors = new Set(Array.from(engine.bases.values()).filter(b => b.isCapital).map(b => b.color));
 
     const updatePlayerStats = () => {
       const pCount = Array.from(engine.bases.values()).filter(b => b.color === '#3b82f6').length;
@@ -372,6 +378,8 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
     engine.onCapitalDestroyed = (color) => {
       playSound('capitalDestroyed', isSoundEnabledRef.current);
     };
+
+    updatePlayerStats();
 
     // Camera state
     const playerBase = Array.from(engine.bases.values()).find(b => b.color === '#3b82f6');
@@ -1208,10 +1216,9 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
           { color: '#ef4444', isPlayer: false, isAlive: false, shipCount: 0, name: 'AI RED' },
           { color: '#22c55e', isPlayer: false, isAlive: false, shipCount: 0, name: 'AI GREEN' },
           { color: '#eab308', isPlayer: false, isAlive: false, shipCount: 0, name: 'AI YELLOW' },
-        ];
+        ].filter(f => activeFactionColors.has(f.color));
 
         let playerAlive = false;
-        let aiAliveCount = 0;
 
         for (const base of engine.bases.values()) {
           if (base.isCapital) {
@@ -1219,7 +1226,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
             if (faction) {
               faction.isAlive = true;
               if (faction.isPlayer) playerAlive = true;
-              else aiAliveCount++;
             }
           }
         }
@@ -1233,11 +1239,13 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
 
         setFactions(currentFactions);
 
-        if (!playerAlive || aiAliveCount === 0) {
+        const outcome = getOutcome(engine.bases.values());
+        if (outcome) {
           if (!isGameOver) {
             isGameOver = true;
             isPlayerWinner = playerAlive;
             setWinner({ color: playerAlive ? '#3b82f6' : '#ef4444' });
+            onResultRef.current(outcome === 'victory');
             
             if (playerAlive) {
               playSound('win', isSoundEnabledRef.current);
@@ -1351,8 +1359,12 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
           className="absolute inset-0 z-30 bg-black/50 backdrop-blur-sm flex items-center justify-center cursor-pointer"
           onClick={togglePause}
         >
-          <div className="text-cyan-400 font-mono text-4xl font-bold tracking-[0.5em] uppercase drop-shadow-[0_0_20px_rgba(6,182,212,0.8)] animate-pulse pointer-events-none">
-            Paused
+          <div className="flex flex-col items-center gap-5 text-cyan-200" onClick={event => event.stopPropagation()}>
+            <h2 className="font-mono text-3xl font-bold uppercase tracking-widest">Paused</h2>
+            {map && <p className="max-w-sm px-5 text-center text-sm">{map.briefing}</p>}
+            <button type="button" onClick={togglePause} className="border border-cyan-300 bg-cyan-950 px-8 py-3">Resume</button>
+            <button type="button" onClick={onMenu} className="px-6 py-3 underline">Main menu</button>
+            {map && <p className="text-xs text-cyan-100/60">Completed missions are saved. This battle will restart.</p>}
           </div>
         </div>
       )}
@@ -1592,9 +1604,9 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
             
             <div className="h-[2px] w-full max-w-xs bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-50 mb-4" />
 
-            <p className="text-cyan-300/80 font-mono tracking-[0.4em] text-xs mb-12 uppercase">
+            <p className="max-w-md text-cyan-300/80 font-mono tracking-wide text-xs mb-6 uppercase">
               {winner.color === '#3b82f6' 
-                ? '> Sector Secured. Awaiting orders.' 
+                ? resultDetail
                 : '> System Offline. Signal lost.'}
             </p>
             
@@ -1604,7 +1616,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
               onMouseEnter={() => playSound('hover', isSoundEnabled)}
               onClick={() => {
                 playSound('select', isSoundEnabled);
-                setTimeout(() => window.location.reload(), 400);
+                onRetry();
               }}
               className="group relative px-12 py-5 bg-cyan-950/60 border border-cyan-400 text-cyan-300 font-bold tracking-[0.3em] uppercase transition-all overflow-hidden shadow-[0_0_20px_rgba(6,182,212,0.2)] hover:shadow-[0_0_40px_rgba(6,182,212,0.4)] hover:text-white cursor-pointer rounded-sm"
             >
@@ -1615,16 +1627,18 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
               <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <span className="relative z-10 flex items-center gap-3">
-                Restart Simulation
+                {actionLabel}
                 <svg className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="square" strokeLinejoin="miter" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
               </span>
             </motion.button>
+            <button type="button" onClick={onMenu} className="mt-5 px-6 py-3 text-cyan-200 underline underline-offset-4">Main menu</button>
           </motion.div>
         </motion.div>
       )}
 
+      {map && !winner && <div className="pointer-events-none absolute top-24 left-4 right-4 z-20 mx-auto max-w-lg rounded border border-cyan-700/40 bg-black/75 p-3 text-center text-cyan-100"><p className="text-xs font-bold">Mission {missionNumber}: {map.title}</p><p className="mt-1 text-xs text-cyan-100/75">{map.objective.description}</p></div>}
       <canvas 
         ref={canvasRef} 
         onContextMenu={(e) => e.preventDefault()}
@@ -1635,7 +1649,27 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
 }
 
 export default function App() {
-  const [gameState, setGameState] = useState<'landing' | 'playing'>('landing');
+  const [progress, setProgress] = useState(loadProgress);
+  const [saveWarning, setSaveWarning] = useState(false);
+  const [session, setSession] = useState<{ mode: ModeId; map?: MapDefinition; attempt: number } | null>(null);
+  const [result, setResult] = useState<boolean | null>(null);
+  useEffect(() => { setSaveWarning(!saveProgress(progress)); }, [progress]);
+  const begin = (mode: ModeId, map?: MapDefinition) => {
+    setResult(null);
+    setSession(previous => ({ mode, map, attempt: (previous?.attempt ?? 0) + 1 }));
+  };
+  const followingMap = session?.mode !== 'quick-match' && session
+    ? followingMission(CHAPTERS[session.mode], session.map?.id ?? '')
+    : undefined;
+  useEffect(() => {
+    if (result !== true || !session || !followingMap) return;
+    const timer = window.setTimeout(() => begin(session.mode, followingMap), 6000);
+    return () => window.clearTimeout(timer);
+  }, [result, session, followingMap]);
+  const onResult = (won: boolean) => {
+    setResult(won);
+    if (won && session?.map) setProgress(previous => completeMission(previous, session.map!.id));
+  };
   const [isSoundEnabled, setIsSoundEnabled] = useState(true);
   const [isMusicEnabled, setIsMusicEnabled] = useState(true);
   const [isHardMode, setIsHardMode] = useState(false);
@@ -1670,10 +1704,18 @@ export default function App() {
     setMusicEnabled(enabled);
   };
 
-  if (gameState === 'landing') {
+  if (!session) {
     return (
       <LandingPage 
-        onPlay={() => setGameState('playing')}
+        selectedMode={progress.selectedMode}
+        progress={progress}
+        saveWarning={saveWarning}
+        onSelectMode={mode => setProgress(previous => ({ ...previous, selectedMode: mode }))}
+        onPlay={() => {
+          const mode = progress.selectedMode;
+          const map = mode === 'quick-match' ? undefined : launchMission(CHAPTERS[mode], progress.completed);
+          if (mode === 'quick-match' || map) begin(mode, map);
+        }}
         isSoundEnabled={isSoundEnabled} 
         setIsSoundEnabled={setIsSoundEnabled}
         isMusicEnabled={isMusicEnabled}
@@ -1685,5 +1727,15 @@ export default function App() {
   }
 
 
-  return <Game isSoundEnabled={isSoundEnabled} isMusicEnabled={isMusicEnabled} isHardMode={isHardMode} />;
+  const chapter = session.mode === 'quick-match' ? undefined : CHAPTERS[session.mode];
+  const resultDetail = followingMap ? 'Next mission starts automatically in a moment.'
+    : chapter && chapter.maps.length < chapter.plannedLevels ? 'Mission complete. More chapter missions are coming soon.'
+    : chapter ? 'Chapter complete. All missions secured.' : 'Sector secured.';
+  return <React.Fragment key={session.attempt}><Game map={session.map}
+    missionNumber={chapter ? chapter.maps.findIndex(map => map.id === session.map?.id) + 1 : undefined}
+    isSoundEnabled={isSoundEnabled} isMusicEnabled={isMusicEnabled} isHardMode={isHardMode}
+    onResult={onResult} resultDetail={resultDetail}
+    actionLabel={result && followingMap ? 'Next Mission' : session.map ? result ? 'Replay Mission' : 'Retry Mission' : 'New Quick Match'}
+    onRetry={() => begin(session.mode, result && followingMap ? followingMap : session.map)}
+    onMenu={() => { setSession(null); setResult(null); setMusicEnabled(isMusicEnabled); }} /></React.Fragment>;
 }

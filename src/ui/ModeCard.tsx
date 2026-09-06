@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronRight, Layers, Swords, X } from 'lucide-react';
 import { playSound } from '../audio';
 import './ModeCard.css';
+import { progressLabel, type ModeId, type Progress } from '../game/campaign';
 
 const modes = [
   { id: 'chapter-1', title: 'Chapter 1', subtitle: 'The Helios Breach', description: 'Lead your fleet through five tactical battles. Capture new worlds and push into enemy territory.', accent: '#73dcff', rgb: '115, 220, 255', label: 'Campaign · 5 battles' },
@@ -32,8 +33,8 @@ function CardContent({ mode, compact = false }: { mode: Mode; compact?: boolean 
   </>;
 }
 
-export function ModeCard({ isSoundEnabled }: { isSoundEnabled: boolean }) {
-  const [selected, setSelected] = useState(modes[0]);
+export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress }: { isSoundEnabled: boolean; selectedMode: ModeId; onSelectMode: (mode: ModeId) => void; progress: Progress }) {
+  const selected = modes.find(mode => mode.id === selectedMode) ?? modes[0];
   const dialog = useRef<HTMLDialogElement>(null);
   const changeButton = useRef<HTMLButtonElement>(null);
 
@@ -49,7 +50,7 @@ export function ModeCard({ isSoundEnabled }: { isSoundEnabled: boolean }) {
       <Artwork mode={selected} />
       <CardContent mode={selected} />
       <div className="mode-footer">
-        <span className="mode-meta">{selected.label}</span>
+        <span className="mode-meta">{progressLabel(selectedMode, progress)}</span>
         <button ref={changeButton} type="button" aria-haspopup="dialog" onClick={() => { playSound('select', isSoundEnabled); dialog.current?.showModal(); }} className="mode-change">Change <ChevronRight size={17} /></button>
       </div>
     </section>
@@ -60,10 +61,10 @@ export function ModeCard({ isSoundEnabled }: { isSoundEnabled: boolean }) {
       </header>
       <div className="mode-grid">
         {modes.map(mode => (
-          <button key={mode.id} type="button" aria-label={`Select ${mode.title}`} aria-pressed={selected.id === mode.id} onClick={() => { setSelected(mode); playSound('select', isSoundEnabled); dialog.current?.close(); }} className={`mode-card mode-option ${selected.id === mode.id ? 'is-selected' : ''}`} style={theme(mode)}>
+          <button key={mode.id} type="button" aria-label={`Select ${mode.title}`} aria-pressed={selected.id === mode.id} onClick={() => { onSelectMode(mode.id as ModeId); playSound('select', isSoundEnabled); dialog.current?.close(); }} className={`mode-card mode-option ${selected.id === mode.id ? 'is-selected' : ''}`} style={theme(mode)}>
             <Artwork mode={mode} />
             <CardContent mode={mode} compact />
-            <div className="mode-footer"><span className="mode-meta">{mode.label}</span><span className="mode-select">{selected.id === mode.id ? <><Check size={15} /> Selected</> : <>Select <ChevronRight size={16} /></>}</span></div>
+            <div className="mode-footer"><span className="mode-meta">{progressLabel(mode.id as ModeId, progress)}</span><span className="mode-select">{selected.id === mode.id ? <><Check size={15} /> Selected</> : <>Select <ChevronRight size={16} /></>}</span></div>
           </button>
         ))}
       </div>
