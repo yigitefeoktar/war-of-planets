@@ -3,7 +3,7 @@ import { GameEngine } from './game/engine';
 import { motion } from 'motion/react';
 import { Maximize, Minimize, Volume2, VolumeX, Music, Skull, Pause, Play, Flag } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
-import { CampaignSelection, ModeSelection } from './ui/CampaignMenus';
+import { ModeCard } from './ui/ModeCard';
 
 function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled, isHardMode, setIsHardMode }: { onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void, isHardMode: boolean, setIsHardMode: (val: boolean) => void }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -127,39 +127,7 @@ function LandingPage({ onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled
           </p>
         </motion.div>
 
-        {/* Mission Briefing Panel */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.3 }}
-          className="mt-12 relative w-full max-w-lg bg-cyan-950/40 backdrop-blur-md border border-cyan-500/30 p-8 shadow-[0_0_30px_rgba(6,182,212,0.1)] rounded-sm"
-        >
-          {/* Corner accents */}
-          <div className="absolute -top-[1px] -left-[1px] w-4 h-4 border-t-2 border-l-2 border-cyan-400" />
-          <div className="absolute -top-[1px] -right-[1px] w-4 h-4 border-t-2 border-r-2 border-cyan-400" />
-          <div className="absolute -bottom-[1px] -left-[1px] w-4 h-4 border-b-2 border-l-2 border-cyan-400" />
-          <div className="absolute -bottom-[1px] -right-[1px] w-4 h-4 border-b-2 border-r-2 border-cyan-400" />
-          
-          <h2 className="text-cyan-400 font-mono text-sm tracking-widest uppercase mb-6 flex items-center gap-3">
-            <span className="w-2 h-2 bg-cyan-400 animate-pulse" />
-            Mission Briefing
-          </h2>
-          
-          <div className="space-y-5 font-mono text-sm text-cyan-100/80 text-left">
-            <div className="flex gap-4 items-start">
-              <span className="text-cyan-500 font-bold">01</span>
-              <p>Click your <span className="text-blue-400 font-bold">BLUE</span> planet to select it, then click a target to attack.</p>
-            </div>
-            <div className="flex gap-4 items-start">
-              <span className="text-cyan-500 font-bold">02</span>
-              <p>Protect your Capital (the largest planet) at all costs.</p>
-            </div>
-            <div className="flex gap-4 items-start">
-              <span className="text-cyan-500 font-bold">03</span>
-              <p>Capture 5 planets to unlock the devastating Omni-Strike superweapon.</p>
-            </div>
-          </div>
-        </motion.div>
+        <ModeCard isSoundEnabled={isSoundEnabled} />
 
         {/* Action Button */}
         <motion.button
@@ -1667,7 +1635,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode }: { isSoundEnabled: 
 }
 
 export default function App() {
-  const [gameState, setGameState] = useState<'landing' | 'modes' | 'campaign' | 'playing'>('landing');
+  const [gameState, setGameState] = useState<'landing' | 'playing'>('landing');
   const [isSoundEnabled, setIsSoundEnabled] = useState(true);
   const [isMusicEnabled, setIsMusicEnabled] = useState(true);
   const [isHardMode, setIsHardMode] = useState(false);
@@ -1705,7 +1673,7 @@ export default function App() {
   if (gameState === 'landing') {
     return (
       <LandingPage 
-        onPlay={() => setGameState('modes')}
+        onPlay={() => setGameState('playing')}
         isSoundEnabled={isSoundEnabled} 
         setIsSoundEnabled={setIsSoundEnabled}
         isMusicEnabled={isMusicEnabled}
@@ -1716,26 +1684,6 @@ export default function App() {
     );
   }
 
-  if (gameState === 'modes') {
-    return (
-      <ModeSelection
-        isSoundEnabled={isSoundEnabled}
-        onBack={() => setGameState('landing')}
-        onCampaign={() => setGameState('campaign')}
-        onQuickMatch={() => setGameState('playing')}
-      />
-    );
-  }
-
-  if (gameState === 'campaign') {
-    return (
-      <CampaignSelection
-        isSoundEnabled={isSoundEnabled}
-        onBack={() => setGameState('modes')}
-        onLaunchMission={() => setGameState('playing')}
-      />
-    );
-  }
 
   return <Game isSoundEnabled={isSoundEnabled} isMusicEnabled={isMusicEnabled} isHardMode={isHardMode} />;
 }
