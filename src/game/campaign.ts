@@ -95,9 +95,9 @@ export function parseProgress(raw: string | null): Progress {
   try {
     const value = JSON.parse(raw ?? 'null');
     if (value?.version !== 1) return emptyProgress();
-    const selectedMode = ['chapter-1', 'chapter-2', 'quick-match'].includes(value.selectedMode) ? value.selectedMode : 'chapter-1';
     const completed = Array.isArray(value.completed) ? [...new Set<string>(value.completed.filter((id: unknown) => typeof id === 'string'))] : [];
-    return { version: 1, selectedMode, completed };
+    // Always open on Chapter 1, even if an older save selected another mode.
+    return { version: 1, selectedMode: 'chapter-1', completed };
   } catch { return emptyProgress(); }
 }
 export function loadProgress(): Progress {
@@ -113,6 +113,9 @@ export function nextMission(chapter: Chapter, completed: readonly string[]): Map
   return chapter.maps.find(map => !completed.includes(map.id));
 }
 export function launchMission(chapter: Chapter, completed: readonly string[]): MapDefinition | undefined {
+  // A new Chapter 1 run always teaches the basics before the larger map.
+  // In-run advancement still uses followingMission, not saved completion IDs.
+  if (chapter.id === 'chapter-1') return chapter.maps[0];
   return nextMission(chapter, completed) ?? chapter.maps[0];
 }
 export function followingMission(chapter: Chapter, currentId: string): MapDefinition | undefined {
@@ -123,6 +126,7 @@ export function progressLabel(mode: ModeId, progress: Progress): string {
   if (mode === 'quick-match') return 'Instant action';
   const chapter = CHAPTERS[mode];
   if (!chapter.maps.length) return 'Coming soon';
+  if (mode === 'chapter-1') return 'Tutorial first · Orbiting planets next';
   const next = nextMission(chapter, progress.completed);
   return next ? `Mission ${chapter.maps.indexOf(next) + 1} · ${chapter.plannedLevels} planned` : `${chapter.maps.length}/${chapter.plannedLevels} complete · More coming soon`;
 }

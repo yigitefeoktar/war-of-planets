@@ -36,14 +36,17 @@ test('victory and defeat are resolved with defeat precedence', () => {
   engine.bases.delete('player_1'); assert.equal(getOutcome(engine.bases.values()), 'defeat');
   assert.equal(getOutcome([{ color: PLAYER, isCapital: false }]), 'defeat');
 });
-test('campaign advances by stable map IDs and resumes newly released levels', () => {
+test('Chapter 1 always launches its tutorial and advances to the orbiting second level', () => {
   let progress = emptyProgress();
   assert.equal(launchMission(CHAPTERS['chapter-1'], progress.completed)?.id, FIRST_STRIKE.id);
   progress = completeMission(progress, FIRST_STRIKE.id);
   progress = completeMission(progress, FIRST_STRIKE.id);
   assert.equal(progress.completed.length, 1);
   assert.equal(nextMission(CHAPTERS['chapter-1'], progress.completed)?.id, TURNING_TIDE.id);
-  assert.equal(launchMission(CHAPTERS['chapter-1'], progress.completed)?.id, TURNING_TIDE.id);
+  assert.equal(launchMission(CHAPTERS['chapter-1'], progress.completed)?.id, FIRST_STRIKE.id);
+  assert.ok(launchMission(CHAPTERS['chapter-1'], progress.completed)?.tutorial);
+  assert.ok(CHAPTERS['chapter-1'].maps[1].orbit);
+  assert.equal(CHAPTERS['chapter-1'].maps[1].tutorial, undefined);
   assert.equal(followingMission(CHAPTERS['chapter-1'], FIRST_STRIKE.id)?.id, TURNING_TIDE.id);
   assert.equal(followingMission(CHAPTERS['chapter-1'], TURNING_TIDE.id), undefined);
   const finished = completeMission(progress, TURNING_TIDE.id);
@@ -55,8 +58,19 @@ test('campaign advances by stable map IDs and resumes newly released levels', ()
   assert.equal(followingMission(expanded, FIRST_STRIKE.id)?.id, second.id);
   assert.equal(followingMission(expanded, second.id), undefined);
   assert.equal(followingMission(expanded, 'invalid'), undefined);
-  assert.equal(launchMission(expanded, parseProgress(JSON.stringify(progress)).completed)?.id, second.id);
+  assert.equal(launchMission(expanded, parseProgress(JSON.stringify(progress)).completed)?.id, FIRST_STRIKE.id);
   assert.equal(launchMission(CHAPTERS['chapter-2'], []), undefined);
+});
+test('startup selects Chapter 1 for new and existing saves without deleting completed levels', () => {
+  assert.equal(emptyProgress().selectedMode, 'chapter-1');
+  for (const selectedMode of ['chapter-1', 'chapter-2', 'quick-match']) {
+    const completed = [FIRST_STRIKE.id, TURNING_TIDE.id];
+    const loaded = parseProgress(JSON.stringify({ version: 1, selectedMode, completed }));
+    assert.equal(loaded.selectedMode, 'chapter-1');
+    assert.deepEqual(loaded.completed, completed);
+    assert.equal(launchMission(CHAPTERS['chapter-1'], loaded.completed)?.id, FIRST_STRIKE.id);
+    assert.equal(followingMission(CHAPTERS['chapter-1'], FIRST_STRIKE.id)?.id, TURNING_TIDE.id);
+  }
 });
 test('corrupt, outdated and malformed saves recover safely', () => {
   for (const raw of [null, '{', '{}', '{"version":2}']) assert.deepEqual(parseProgress(raw), emptyProgress());

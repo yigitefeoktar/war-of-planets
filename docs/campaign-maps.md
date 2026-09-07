@@ -6,7 +6,7 @@ Each map defines a stable ID, title, briefing, world size, attack range, objecti
 
 To add a level, create another `MapDefinition` and append it to the chapter's `maps` array. Do not rename released map IDs. Winning records the ID and automatically starts the next array entry after six seconds; the victory button can start it immediately. If no next map is released, the player can replay or return to the menu. Chapter 2 remains unavailable until its first map is added.
 
-The versioned browser save stores the selected mode and completed map IDs. Continue starts the first incomplete released mission. If all released missions are completed, replay begins at the first map. Finishing a replay never removes progress. Refreshing or returning to the menu restarts the current battle, not its exact simulation state. Invalid saves reset safely; unavailable browser storage shows a warning.
+The versioned browser save stores completed map IDs; its legacy selected-mode field is ignored when loading, so every page opening selects Chapter 1. Players can still choose another mode for the current session. Start Chapter 1 always begins with First Strike's tutorial, regardless of previous wins, then victory automatically advances to The Turning Tide as Level 2. Retrying a defeat stays on the current level. Starting another run from the menu or refreshing returns to the tutorial, without deleting completed-level records. Invalid saves reset safely; unavailable browser storage shows a warning.
 
 Checks: `npm run lint`, `npx tsx --test src/game/*.test.ts`, `npm run build`.
 
@@ -28,7 +28,7 @@ A 2600 × 2600 battlefield, with 12 fixed outer worlds and 12 rotating worlds ar
 - Pressure: red and green each begin with a capital, a fixed outpost, and an orbiting foothold. The northern neutral divide separates their command worlds, but they can fight each other too.
 - Reward: more captured worlds mean more ship production and access to the existing five-planet Omni-Strike. No new special-planet mechanic is introduced.
 
-The full orbit stays clear of fixed planets. Desktop opens on the complete map; `mobileFocus: 'capital'` moves from the overview intro to a readable southern opening on phones. Normal panning and zoom remain available. Existing saves that completed First Strike continue straight into Mission 2.
+The full orbit stays clear of fixed planets. Desktop opens on the complete map; `mobileFocus: 'capital'` moves from the overview intro to a readable southern opening on phones. Normal panning and zoom remain available. Mission 2 is reached by winning the tutorial mission in the current campaign run, not by skipping ahead using old completion records.
 
 ## Orbiting system
 
