@@ -242,7 +242,11 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   const [factions, setFactions] = useState<{ color: string; isAlive: boolean; isPlayer: boolean; shipCount: number; name: string }[]>([]);
   const [winner, setWinner] = useState<{ color: string } | null>(null);
   const [showUI, setShowUI] = useState(false);
-  const [tutorial, setTutorial] = useState<TutorialState>(() => ({ step: map?.tutorial ? 'select' : 'done' }));
+  const [tutorial, setTutorial] = useState<TutorialState>(() => ({
+    step: map?.tutorial ? 'select' : 'done',
+    // Use input capability, not window size: a narrow desktop is still a PC.
+    showZoomLesson: window.matchMedia('(hover: none) and (pointer: coarse)').matches,
+  }));
   const tutorialRef = useRef(tutorial);
   const updateTutorial = (event: TutorialEvent) => {
     const next = advanceTutorial(tutorialRef.current, event);
@@ -1681,7 +1685,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         {tutorial.step === 'zoom' && <div aria-hidden="true" className="tutorial-zoom-gesture"><span className="tutorial-zoom-circle" /><span className="tutorial-zoom-circle" /></div>}
         <section aria-label="How to play" className={`absolute ${tutorial.step === 'capitals' ? 'bottom-44' : 'top-24'} left-4 right-4 z-20 mx-auto max-w-md rounded-xl border border-[#73dcff]/50 bg-slate-950/95 p-4 text-white shadow-xl md:top-auto md:bottom-6 md:right-auto md:w-80`}>
           <div aria-live="polite" aria-atomic="true">
-            <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#73dcff]">{tutorial.step === 'select' || tutorial.step === 'attack' ? '1 / 3 · Attack' : tutorial.step === 'zoom' ? '2 / 3 · Zoom out' : '3 / 3 · Win the battle'}</p>
+            <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#73dcff]">{tutorial.step === 'select' || tutorial.step === 'attack' ? `1 / ${tutorial.showZoomLesson === false ? 2 : 3} · Attack` : tutorial.step === 'zoom' ? '2 / 3 · Zoom out' : tutorial.showZoomLesson === false ? '2 / 2 · Win the battle' : '3 / 3 · Win the battle'}</p>
             <p className="text-sm leading-relaxed">{tutorial.step === 'select' ? 'Click or tap your highlighted BLUE planet to select your fleet.' : tutorial.step === 'attack' ? 'Now click or tap the highlighted RED planet to send your ships and attack.' : tutorial.step === 'zoom' ? 'Fleet launched! Scroll down with your mouse wheel, or pinch two fingers together, to zoom out and see more of the battlefield.' : 'Capture ALL enemy capitals—the large planets—to win. You do not need every small planet. Protect your blue capital: losing it means defeat.'}</p>
           </div>
           <button type="button" onClick={() => updateTutorial({ type: 'dismiss' })} className="mt-3 min-h-11 rounded border border-white/25 px-4 text-sm font-semibold text-cyan-100 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-cyan-300">{tutorial.step === 'capitals' ? 'Got it — let’s win' : 'Skip tutorial'}</button>

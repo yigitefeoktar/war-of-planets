@@ -145,3 +145,25 @@ test('early manual zoom is remembered without showing the next lesson immediatel
   const skipped = advanceTutorial(state, { type: 'dismiss' });
   assert.equal(advanceTutorial(skipped, { type: 'tick', now: 4000 }).step, 'done');
 });
+
+test('PC tutorial skips zoom entirely after the normal post-attack delay', () => {
+  let state: TutorialState = { step: 'select', showZoomLesson: false };
+  state = advanceTutorial(state, { type: 'selection', playerSelected: true });
+  assert.equal(state.showZoomLesson, false);
+  state = advanceTutorial(state, { type: 'launch', hostile: true, zoom: 0.6, now: 0 });
+  assert.equal(state.step, 'watch');
+  state = advanceTutorial(state, { type: 'tick', now: 3999 });
+  assert.equal(state.step, 'watch');
+  state = advanceTutorial(state, { type: 'tick', now: 4000 });
+  assert.equal(state.step, 'capitals');
+  assert.equal(state.showZoomLesson, false);
+});
+
+test('touch tutorial retains its delayed zoom lesson', () => {
+  let state: TutorialState = { step: 'select', showZoomLesson: true };
+  state = advanceTutorial(state, { type: 'selection', playerSelected: true });
+  state = advanceTutorial(state, { type: 'launch', hostile: true, zoom: 0.3, now: 0 });
+  state = advanceTutorial(state, { type: 'tick', now: 4000 });
+  assert.equal(state.step, 'zoom');
+  assert.equal(state.showZoomLesson, true);
+});
