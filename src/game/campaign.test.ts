@@ -32,7 +32,8 @@ test('Quick Match keeps random map and four capitals', () => {
 });
 test('victory and defeat are resolved with defeat precedence', () => {
   const engine = createMatch(FIRST_STRIKE);
-  engine.bases.delete('ai_1'); assert.equal(getOutcome(engine.bases.values()), 'victory');
+  for (const base of engine.bases.values()) if (base.isCapital && base.color !== PLAYER) engine.bases.delete(base.id);
+  assert.equal(getOutcome(engine.bases.values()), 'victory');
   engine.bases.delete('player_1'); assert.equal(getOutcome(engine.bases.values()), 'defeat');
   assert.equal(getOutcome([{ color: PLAYER, isCapital: false }]), 'defeat');
 });

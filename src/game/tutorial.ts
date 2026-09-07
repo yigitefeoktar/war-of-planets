@@ -1,10 +1,10 @@
 import { NEUTRAL, PLAYER } from './campaign';
 import type { Base } from './types';
 
-export type TutorialState = { step: 'select' | 'attack' | 'zoom' | 'capitals' | 'done'; zoomStart?: number };
+export type TutorialState = { step: 'select' | 'attack' | 'zoom' | 'capitals' | 'done'; zoomStart?: number; zoomGoal?: number };
 export type TutorialEvent =
   | { type: 'selection'; playerSelected: boolean }
-  | { type: 'launch'; hostile: boolean; zoom: number }
+  | { type: 'launch'; hostile: boolean; zoom: number; overviewZoom?: number }
   | { type: 'zoom'; before: number; after: number }
   | { type: 'dismiss' };
 
@@ -15,9 +15,9 @@ export function advanceTutorial(state: TutorialState, event: TutorialEvent): Tut
     const step = event.playerSelected ? 'attack' : 'select';
     return step === state.step ? state : { step };
   }
-  if (event.type === 'launch' && event.hostile && (state.step === 'select' || state.step === 'attack')) return { step: 'zoom', zoomStart: event.zoom };
+  if (event.type === 'launch' && event.hostile && (state.step === 'select' || state.step === 'attack')) return { step: 'zoom', zoomStart: event.zoom, zoomGoal: Math.max(0.1, Math.min(event.zoom * 0.9, event.overviewZoom ?? event.zoom * 0.9)) };
   // Only an actual user zoom-out counts, never the automatic camera intro.
-  if (event.type === 'zoom' && state.step === 'zoom' && event.after < event.before && event.after <= state.zoomStart! * 0.9) return { step: 'capitals' };
+  if (event.type === 'zoom' && state.step === 'zoom' && event.after < event.before && event.after <= (state.zoomGoal ?? state.zoomStart! * 0.9)) return { step: 'capitals' };
   return state;
 }
 
@@ -38,23 +38,17 @@ export function tutorialTargets(state: TutorialState, bases: readonly Base[], se
 
 export function drawTutorialHighlights(ctx: CanvasRenderingContext2D, targets: readonly Base[], zoom: number, time: number) {
   ctx.save();
-  ctx.strokeStyle = '#fef08a';
-  ctx.fillStyle = '#fef08a';
+  ctx.strokeStyle = '#3b82f6';
+  ctx.shadowColor = '#60a5fa';
+  ctx.shadowBlur = 12;
   ctx.lineWidth = 3 / zoom;
   const pulse = (Math.sin(time / 240) + 1) / 2;
   for (const base of targets) {
-    const radius = (base.isCapital ? 40 : 20) + 15 + Math.sqrt(base.pixelCount) * 5 + (8 + pulse * 5) / zoom;
+    const radius = (base.isCapital ? 40 : 20) + 15 + Math.sqrt(base.pixelCount) * 5 + (8 + pulse * 12) / zoom;
+    ctx.globalAlpha = 0.65 + pulse * 0.35;
     ctx.beginPath();
     ctx.arc(base.x, base.y, radius, 0, Math.PI * 2);
     ctx.stroke();
-    // A small inward-pointing arrow stays attached as the world rotates.
-    const y = base.y - radius - 9 / zoom;
-    ctx.beginPath();
-    ctx.moveTo(base.x, y);
-    ctx.lineTo(base.x - 7 / zoom, y - 10 / zoom);
-    ctx.lineTo(base.x + 7 / zoom, y - 10 / zoom);
-    ctx.closePath();
-    ctx.fill();
   }
   ctx.restore();
 }

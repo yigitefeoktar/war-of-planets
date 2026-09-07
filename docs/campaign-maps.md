@@ -10,13 +10,15 @@ The versioned browser save stores completed map IDs; its legacy selected-mode fi
 
 Checks: `npm run lint`, `npx tsx --test src/game/*.test.ts`, `npm run build`.
 
-Current content: Chapter 1 / First Strike (nine planets, two factions) and The Turning Tide (24 planets, three factions). Each uses one orbiting system. Missions 3–5 and Chapter 2 are not released yet.
+Current content: Chapter 1 / First Strike (34 fixed planets, four factions) and The Turning Tide (24 planets, three factions, one orbiting system). Missions 3–5 and Chapter 2 are not released yet.
 
 ## First Strike tutorial
 
-First Strike alone opts into an action-driven tutorial via `tutorial.attackTargetId`. Its nearby western planet is now a weak red outpost so the first instruction teaches an actual enemy attack. Prompts teach selecting blue then attacking red, scrolling down/pinching fingers together to zoom out, and capturing every enemy capital while protecting the player's own. Highlight rings follow the planets' live positions; the win lesson highlights surviving enemy capitals, not ordinary planets.
+First Strike alone opts into an action-driven tutorial via `tutorial.attackTargetId`. It is an authored 3000 × 3000 static map inspired by the original random battlefield: blue capital in the south, red/green/yellow capitals in the north, and neutral expansion routes between them. All 34 planet positions, owners, and starting ship counts are identical on each launch. No orbit or central star is present. A weak red outpost directly ahead of the player teaches the first attack.
 
-The opening simulation is held still until the first hostile fleet launch (or Skip), without accumulating production or AI time. Selecting/deselecting updates the first prompt; a real launch advances it, and a cumulative 10% manual zoom-out advances to the win explanation. The intro camera never completes that lesson. Players can skip at any time or dismiss the final explanation with Got it. The tutorial restarts on mission retry/replay and does not change campaign saves. Other missions and Quick Match have no tutorial. The old persistent mission title/objective overlay and pause-menu mission briefing are removed from every level.
+Prompts teach selecting blue then attacking red, scrolling down/pinching fingers together to zoom out, and capturing every enemy capital while protecting the player's own. Click targets have a blue pulsing circle with no arrow. The zoom prompt shows two blue circles at 58% across/down the viewport; they spread apart and snap back side-by-side every 1.6 seconds. This requested outward visual cue does not change actual pinch controls. Reduced-motion preferences disable the spreading animation. The win lesson highlights surviving enemy capitals, not ordinary planets.
+
+The opening simulation is held still until the first hostile fleet launch (or Skip), without accumulating production or AI time. The camera settles on the player's opening fleet on both desktop and mobile. Selecting/deselecting updates the first prompt; a real launch advances it, and manually zooming out to the map overview advances to the win explanation. The intro camera never completes that lesson. Players can skip at any time or dismiss the final explanation with Got it. The tutorial restarts on mission retry/replay and does not change campaign saves. Other missions and Quick Match have no tutorial. The old persistent mission title/objective overlay and pause-menu mission briefing are removed from every level.
 
 ## Mission 2: The Turning Tide
 
@@ -32,6 +34,6 @@ The full orbit stays clear of fixed planets. Desktop opens on the complete map; 
 
 ## Orbiting system
 
-An optional `orbit` defines the fixed white star centre (`x`, `y`), a clockwise rotation period in simulation seconds (`periodSeconds`), and participating `planetIds`. First Strike rotates all nine planets once every 180 seconds. Every member uses the same angular speed, preserving their spacing and mutual attack ranges. The star is decorative: no ownership, collision, gravity, damage, ships, or effect on victory. The inner neutral planet was moved away from the star to keep both readable.
+An optional `orbit` defines the fixed white star centre (`x`, `y`), a clockwise rotation period in simulation seconds (`periodSeconds`), and participating `planetIds`. The Turning Tide rotates 12 of its 24 planets once every 180 seconds. Every member uses the same angular speed, preserving their spacing and mutual attack ranges. The star is decorative: no ownership, collision, gravity, damage, ships, or effect on victory. Orbit regression tests use an independent fixture so tutorial map changes do not change their coverage.
 
 Stationed ships move with their planet; launched ships pursue the moving target in world space. Captures do not stop an orbit. Pausing stops rotation, retry resets positions, and end-of-battle slow motion applies to orbits too. Quick Match still uses the unchanged static random map. Validation checks membership, period, star clearance, and the complete orbit's map-edge clearance. Only one system per map is supported for now; multiple stars are intentionally deferred.

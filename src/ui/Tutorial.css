@@ -1,0 +1,42 @@
+.tutorial-zoom-gesture {
+  position: absolute;
+  left: 58%;
+  top: 58%;
+  width: 168px;
+  height: 48px;
+  transform: translate(-50%, -50%);
+  z-index: 21;
+  pointer-events: none;
+}
+
+.tutorial-zoom-circle {
+  position: absolute;
+  top: 4px;
+  left: calc(50% - 20px);
+  width: 40px;
+  height: 40px;
+  border: 3px solid #3b82f6;
+  border-radius: 50%;
+  background: rgb(59 130 246 / 12%);
+  box-shadow: 0 0 18px rgb(96 165 250 / 45%);
+  animation: tutorial-spread-left 1.6s ease-out infinite;
+}
+
+.tutorial-zoom-circle + .tutorial-zoom-circle {
+  animation-name: tutorial-spread-right;
+}
+
+/* Each new iteration snaps straight back to the side-by-side start. */
+@keyframes tutorial-spread-left {
+  0% { transform: translateX(-23px); }
+  80%, 100% { transform: translateX(-63px); }
+}
+@keyframes tutorial-spread-right {
+  0% { transform: translateX(23px); }
+  80%, 100% { transform: translateX(63px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tutorial-zoom-circle { animation: none; transform: translateX(-45px); }
+  .tutorial-zoom-circle + .tutorial-zoom-circle { transform: translateX(45px); }
+}

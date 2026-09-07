@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { advanceTutorial, tutorialHoldsOpening, tutorialTargets, type TutorialState } from './tutorial';
-import { FIRST_STRIKE, TURNING_TIDE, PLAYER, NEUTRAL } from './campaign';
+import { advanceTutorial, drawTutorialHighlights, tutorialHoldsOpening, tutorialTargets, type TutorialState } from './tutorial';
+import { FIRST_STRIKE, TURNING_TIDE, PLAYER, NEUTRAL, validateMap } from './campaign';
 import { createMatch } from './mapLoader';
 
 test('tutorial follows select, attack, real zoom-out, and win-condition acknowledgement', () => {
@@ -64,14 +64,55 @@ test('highlights follow current planet positions and ignore captured capitals', 
   const engine = createMatch(FIRST_STRIKE);
   const targetId = FIRST_STRIKE.tutorial!.attackTargetId;
   const before = engine.bases.get(targetId)!.x;
-  engine.lastAITime = Number.MAX_SAFE_INTEGER;
-  engine.lastSpawnTime = Number.MAX_SAFE_INTEGER;
-  engine.update(1 / 60);
+  engine.bases.get(targetId)!.x += 1;
   const targets = tutorialTargets({ step: 'attack' }, [...engine.bases.values()], 'player_1', targetId, engine.MAX_ATTACK_RANGE);
   assert.notEqual(targets[0].x, before);
   assert.equal(targets[0], engine.bases.get(targetId));
-  assert.deepEqual(tutorialTargets({ step: 'capitals' }, [...engine.bases.values()], null, targetId, 600).map(p => p.id), ['ai_1']);
+  assert.deepEqual(tutorialTargets({ step: 'capitals' }, [...engine.bases.values()], null, targetId, 600).map(p => p.id), ['ai_1', 'ai_2', 'ai_3']);
   engine.bases.get('ai_1')!.color = NEUTRAL;
-  assert.equal(tutorialTargets({ step: 'capitals' }, [...engine.bases.values()], null, targetId, 600).length, 0);
+  assert.deepEqual(tutorialTargets({ step: 'capitals' }, [...engine.bases.values()], null, targetId, 600).map(p => p.id), ['ai_2', 'ai_3']);
   assert.equal(tutorialTargets({ step: 'done' }, [...engine.bases.values()], null, targetId, 600).length, 0);
+});
+
+test('tutorial map is large, deterministic, connected and stationary', () => {
+  assert.equal(FIRST_STRIKE.width, 3000);
+  assert.equal(FIRST_STRIKE.height, 3000);
+  assert.equal(FIRST_STRIKE.orbit, undefined);
+  assert.equal(FIRST_STRIKE.planets.length, 34);
+  validateMap(FIRST_STRIKE);
+  const a = createMatch(FIRST_STRIKE), b = createMatch(FIRST_STRIKE);
+  assert.deepEqual([...a.bases.values()], [...b.bases.values()]);
+  const before = [...a.bases.values()].map(p => [p.id, p.x, p.y]);
+  a.lastAITime = Number.MAX_SAFE_INTEGER;
+  a.lastSpawnTime = Number.MAX_SAFE_INTEGER;
+  a.pixels = [];
+  a.update(180);
+  assert.deepEqual([...a.bases.values()].map(p => [p.id, p.x, p.y]), before);
+  for (const p of FIRST_STRIKE.planets) for (const q of FIRST_STRIKE.planets) {
+    if (p.id !== q.id) assert.ok(Math.hypot(p.x - q.x, p.y - q.y) >= 250, `${p.id} overlaps ${q.id}`);
+  }
+});
+
+test('larger tutorial requires zooming to the overview, not just one small wheel step', () => {
+  let state = advanceTutorial({ step: 'attack' }, { type: 'launch', hostile: true, zoom: 0.6, overviewZoom: 0.23 });
+  state = advanceTutorial(state, { type: 'zoom', before: 0.6, after: 0.5 });
+  assert.equal(state.step, 'zoom');
+  state = advanceTutorial(state, { type: 'zoom', before: 0.3, after: 0.23 });
+  assert.equal(state.step, 'capitals');
+});
+
+test('click cues draw blue circles whose radius pulses, without arrow geometry', () => {
+  const circles: number[][] = [];
+  const context = {
+    strokeStyle: '', shadowColor: '', shadowBlur: 0, lineWidth: 0, globalAlpha: 1,
+    save() {}, restore() {}, beginPath() {}, stroke() {},
+    arc(x: number, y: number, radius: number) { circles.push([x, y, radius]); },
+  };
+  const target = [...createMatch(FIRST_STRIKE).bases.values()][0];
+  drawTutorialHighlights(context as unknown as CanvasRenderingContext2D, [target], 0.5, 0);
+  drawTutorialHighlights(context as unknown as CanvasRenderingContext2D, [target], 0.5, Math.PI * 120);
+  assert.equal(context.strokeStyle, '#3b82f6');
+  assert.equal(circles.length, 2);
+  assert.deepEqual(circles[0].slice(0, 2), [target.x, target.y]);
+  assert.ok(circles[1][2] > circles[0][2]);
 });
