@@ -15,15 +15,15 @@
   left: calc(50% - 20px);
   width: 40px;
   height: 40px;
-  border: 3px solid #3b82f6;
+  border: 3px solid #73dcff;
   border-radius: 50%;
-  background: rgb(59 130 246 / 12%);
-  box-shadow: 0 0 18px rgb(96 165 250 / 45%);
-  animation: tutorial-spread-left 1.6s ease-out infinite;
+  background: rgb(115 220 255 / 10%);
+  box-shadow: 0 0 18px rgb(115 220 255 / 45%);
+  animation: tutorial-spread-left 1.6s ease-out infinite, tutorial-circle-pulse 0.7s ease-in-out infinite;
 }
 
 .tutorial-zoom-circle + .tutorial-zoom-circle {
-  animation-name: tutorial-spread-right;
+  animation-name: tutorial-spread-right, tutorial-circle-pulse;
 }
 
 /* Each new iteration snaps straight back to the side-by-side start. */
@@ -34,6 +34,12 @@
 @keyframes tutorial-spread-right {
   0% { transform: translateX(23px); }
   80%, 100% { transform: translateX(63px); }
+}
+
+/* Independent scale pulse preserves the outward motion and instant reset. */
+@keyframes tutorial-circle-pulse {
+  0%, 100% { scale: 0.92; opacity: 0.65; box-shadow: 0 0 8px rgb(115 220 255 / 25%); }
+  50% { scale: 1.12; opacity: 1; box-shadow: 0 0 22px rgb(115 220 255 / 60%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
