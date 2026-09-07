@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import { Maximize, Minimize, Volume2, VolumeX, Music, Skull, Pause, Play, Flag } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
 import { ModeCard } from './ui/ModeCard';
-import { advanceTutorial, drawTutorialHighlights, tutorialHoldsOpening, tutorialTargets, type TutorialState, type TutorialEvent } from './game/tutorial';
+import { advanceTutorial, drawTutorialHighlights, tutorialTargets, type TutorialState, type TutorialEvent } from './game/tutorial';
 import './ui/Tutorial.css';
 
 function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled, isHardMode, setIsHardMode }: { selectedMode: ModeId, onSelectMode: (mode: ModeId) => void, progress: Progress, saveWarning: boolean, onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void, isHardMode: boolean, setIsHardMode: (val: boolean) => void }) {
@@ -1108,15 +1108,8 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
             tutorialTime += safeDt * 1000;
             updateTutorial({ type: 'tick', now: tutorialTime });
           }
-          // Update game state
-          if (tutorialHoldsOpening(tutorialRef.current)) {
-            // Give beginners unlimited reading time without orbit drift,
-            // accumulated production, or an AI attack on the first click.
-            engine.lastSpawnTime = currentTime;
-            engine.lastAITime = currentTime;
-          } else {
-            engine.update(safeDt);
-          }
+          // Tutorial prompts never stop the simulation; only Pause does.
+          engine.update(safeDt);
           
           // Update cooldown
           setOmniStrikeCooldown(prev => Math.max(0, prev - safeDt));

@@ -28,10 +28,6 @@ export function advanceTutorial(state: TutorialState, event: TutorialEvent): Tut
   return state;
 }
 
-export function tutorialHoldsOpening(state: TutorialState): boolean {
-  return state.step === 'select' || state.step === 'attack';
-}
-
 export function tutorialTargets(state: TutorialState, bases: readonly Base[], selectedId: string | null, preferredId: string | undefined, attackRange: number): Base[] {
   if (state.step === 'select') return bases.filter(p => p.color === PLAYER && p.isCapital);
   if (state.step === 'capitals') return bases.filter(p => p.isCapital && p.color !== PLAYER && p.color !== NEUTRAL);
