@@ -10,7 +10,19 @@ The versioned browser save stores the selected mode and completed map IDs. Conti
 
 Checks: `npm run lint`, `npx tsx --test src/game/*.test.ts`, `npm run build`.
 
-Current content: Chapter 1 / First Strike, a nine-planet, two-faction introduction with one orbiting system. Other authored levels and special-planet mechanics are not implemented yet.
+Current content: Chapter 1 / First Strike (nine planets, two factions) and The Turning Tide (24 planets, three factions). Each uses one orbiting system. Missions 3–5 and Chapter 2 are not released yet.
+
+## Mission 2: The Turning Tide
+
+A 2600 × 2600 battlefield, with 12 fixed outer worlds and 12 rotating worlds around one white star. Rotation remains clockwise, once every 180 seconds. Both enemy capitals must fall; the blue capital must survive.
+
+- Opening: 260 ships at the fixed southern capital. Two cheap outer harbours and the boarding planet provide three expansion choices before enemy territory.
+- Moving route: board the outer orbit, develop the four inner worlds, and use passing planets as staging positions. All 12 orbiting worlds share angular speed; connections to the fixed outer ring open and close.
+- Fixed routes: the west and east flanks provide permanent, more heavily defended alternatives to riding the orbit.
+- Pressure: red and green each begin with a capital, a fixed outpost, and an orbiting foothold. The northern neutral divide separates their command worlds, but they can fight each other too.
+- Reward: more captured worlds mean more ship production and access to the existing five-planet Omni-Strike. No new special-planet mechanic is introduced.
+
+The full orbit stays clear of fixed planets. Desktop opens on the complete map; `mobileFocus: 'capital'` moves from the overview intro to a readable southern opening on phones. Normal panning and zoom remain available. Existing saves that completed First Strike continue straight into Mission 2.
 
 ## Orbiting system
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FIRST_STRIKE, CHAPTERS, PLAYER, completeMission, emptyProgress, followingMission, getOutcome, launchMission, nextMission, parseProgress, validateMap, type Chapter } from './campaign';
+import { FIRST_STRIKE, TURNING_TIDE, CHAPTERS, PLAYER, completeMission, emptyProgress, followingMission, getOutcome, launchMission, nextMission, parseProgress, validateMap, type Chapter } from './campaign';
 import { createMatch } from './mapLoader';
 
 test('authored map loads exact planets, ships, factions, dimensions and range', () => {
@@ -42,8 +42,13 @@ test('campaign advances by stable map IDs and resumes newly released levels', ()
   progress = completeMission(progress, FIRST_STRIKE.id);
   progress = completeMission(progress, FIRST_STRIKE.id);
   assert.equal(progress.completed.length, 1);
-  assert.equal(nextMission(CHAPTERS['chapter-1'], progress.completed), undefined);
-  assert.equal(launchMission(CHAPTERS['chapter-1'], progress.completed)?.id, FIRST_STRIKE.id);
+  assert.equal(nextMission(CHAPTERS['chapter-1'], progress.completed)?.id, TURNING_TIDE.id);
+  assert.equal(launchMission(CHAPTERS['chapter-1'], progress.completed)?.id, TURNING_TIDE.id);
+  assert.equal(followingMission(CHAPTERS['chapter-1'], FIRST_STRIKE.id)?.id, TURNING_TIDE.id);
+  assert.equal(followingMission(CHAPTERS['chapter-1'], TURNING_TIDE.id), undefined);
+  const finished = completeMission(progress, TURNING_TIDE.id);
+  assert.equal(nextMission(CHAPTERS['chapter-1'], finished.completed), undefined);
+  assert.equal(launchMission(CHAPTERS['chapter-1'], finished.completed)?.id, FIRST_STRIKE.id);
   const second = { ...FIRST_STRIKE, id: 'test-next-map' };
   const expanded: Chapter = { ...CHAPTERS['chapter-1'], maps: [FIRST_STRIKE, second] };
   assert.equal(nextMission(expanded, progress.completed)?.id, second.id);

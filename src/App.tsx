@@ -393,9 +393,13 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, missionNumber, 
     const startX = (WORLD_WIDTH - width / startZoom) / 2;
     const startY = (WORLD_HEIGHT - height / startZoom) / 2;
 
-    const targetZoom = map ? Math.max(0.35, Math.min(width / WORLD_WIDTH, height / WORLD_HEIGHT) * 0.9) : 0.6;
-    const targetX = map ? (WORLD_WIDTH - width / targetZoom) / 2 : playerBase ? playerBase.x - (width / 2) / targetZoom : startX;
-    const targetY = map ? (WORLD_HEIGHT - height / targetZoom) / 2 : playerBase ? playerBase.y - (height / 2) / targetZoom : startY;
+    // Larger missions fit on desktop. On phones their overview intro settles
+    // on the opening fleet, keeping nearby planets large enough to tap.
+    const focusCapital = map?.mobileFocus === 'capital' && width < 700 && playerBase;
+    const targetZoom = map && focusCapital ? Math.min(0.35, width / (map.attackRange * 2 + 100))
+      : map ? Math.max(width < 700 ? 0.35 : 0.15, Math.min(width / WORLD_WIDTH, height / WORLD_HEIGHT) * 0.9) : 0.6;
+    const targetX = focusCapital ? playerBase.x - (width / 2) / targetZoom : map ? (WORLD_WIDTH - width / targetZoom) / 2 : playerBase ? playerBase.x - (width / 2) / targetZoom : startX;
+    const targetY = focusCapital ? playerBase.y - (height * 0.7) / targetZoom : map ? (WORLD_HEIGHT - height / targetZoom) / 2 : playerBase ? playerBase.y - (height / 2) / targetZoom : startY;
 
     let cameraZoom = startZoom;
     let cameraX = startX;

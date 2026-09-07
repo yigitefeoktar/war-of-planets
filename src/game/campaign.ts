@@ -15,6 +15,7 @@ export type MapDefinition = {
   objective: { type: 'eliminate-capitals'; description: string };
   planets: PlanetDefinition[];
   orbit?: OrbitDefinition;
+  mobileFocus?: 'capital';
 };
 export type Chapter = { id: ChapterId; plannedLevels: number; maps: MapDefinition[] };
 
@@ -40,8 +41,48 @@ export const FIRST_STRIKE: MapDefinition = {
   },
 };
 
+export const TURNING_TIDE: MapDefinition = {
+  id: 'helios-turning-tide', title: 'The Turning Tide',
+  briefing: 'Capture the cheap worlds beside your blue capital, then board the rotating planets. Ride them into range of the red and green strongholds, or advance along the fixed outer flanks. Hold five worlds to unlock Omni-Strike. Your capital stays still: leave a defence behind.',
+  width: 2600, height: 2600, attackRange: 600, mobileFocus: 'capital',
+  objective: { type: 'eliminate-capitals', description: 'Destroy both enemy capitals. Use rotating worlds to open new attack routes.' },
+  planets: [
+    // Fixed outer ring: a safe southern opening, two flanks, and rival fortresses.
+    { id: 'tide-home', x: 1300, y: 2360, owner: PLAYER, ships: 260, capital: true },
+    { id: 'southwest-harbour', x: 770, y: 2218, owner: NEUTRAL, ships: 12 },
+    { id: 'west-approach', x: 382, y: 1830, owner: NEUTRAL, ships: 28 },
+    { id: 'west-bastion', x: 240, y: 1300, owner: NEUTRAL, ships: 40 },
+    { id: 'red-outpost', x: 382, y: 770, owner: '#ef4444', ships: 50 },
+    { id: 'red-command', x: 770, y: 382, owner: '#ef4444', ships: 140, capital: true },
+    { id: 'northern-divide', x: 1300, y: 240, owner: NEUTRAL, ships: 55 },
+    { id: 'green-command', x: 1830, y: 382, owner: '#22c55e', ships: 140, capital: true },
+    { id: 'green-outpost', x: 2218, y: 770, owner: '#22c55e', ships: 50 },
+    { id: 'east-bastion', x: 2360, y: 1300, owner: NEUTRAL, ships: 40 },
+    { id: 'east-approach', x: 2218, y: 1830, owner: NEUTRAL, ships: 28 },
+    { id: 'southeast-harbour', x: 1830, y: 2218, owner: NEUTRAL, ships: 12 },
+    // Moving transport ring. Enemy footholds rotate toward the player's flank.
+    { id: 'tide-boarding', x: 1300, y: 1920, owner: NEUTRAL, ships: 12 },
+    { id: 'tide-southwest', x: 862, y: 1738, owner: NEUTRAL, ships: 20 },
+    { id: 'tide-west', x: 680, y: 1300, owner: NEUTRAL, ships: 30 },
+    { id: 'tide-red', x: 862, y: 862, owner: '#ef4444', ships: 60 },
+    { id: 'tide-north', x: 1300, y: 680, owner: NEUTRAL, ships: 38 },
+    { id: 'tide-green', x: 1738, y: 862, owner: '#22c55e', ships: 60 },
+    { id: 'tide-east', x: 1920, y: 1300, owner: NEUTRAL, ships: 30 },
+    { id: 'tide-southeast', x: 1738, y: 1738, owner: NEUTRAL, ships: 20 },
+    // Inner shortcuts: the extra production is useful, but exposed on all sides.
+    { id: 'inner-south', x: 1300, y: 1600, owner: NEUTRAL, ships: 18 },
+    { id: 'inner-west', x: 1000, y: 1300, owner: NEUTRAL, ships: 24 },
+    { id: 'inner-north', x: 1300, y: 1000, owner: NEUTRAL, ships: 35 },
+    { id: 'inner-east', x: 1600, y: 1300, owner: NEUTRAL, ships: 24 },
+  ],
+  orbit: {
+    x: 1300, y: 1300, periodSeconds: 180,
+    planetIds: ['tide-boarding', 'tide-southwest', 'tide-west', 'tide-red', 'tide-north', 'tide-green', 'tide-east', 'tide-southeast', 'inner-south', 'inner-west', 'inner-north', 'inner-east'],
+  },
+};
+
 export const CHAPTERS: Record<ChapterId, Chapter> = {
-  'chapter-1': { id: 'chapter-1', plannedLevels: 5, maps: [FIRST_STRIKE] },
+  'chapter-1': { id: 'chapter-1', plannedLevels: 5, maps: [FIRST_STRIKE, TURNING_TIDE] },
   'chapter-2': { id: 'chapter-2', plannedLevels: 5, maps: [] },
 };
 
