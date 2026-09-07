@@ -12,6 +12,12 @@ Checks: `npm run lint`, `npx tsx --test src/game/*.test.ts`, `npm run build`.
 
 Current content: Chapter 1 / First Strike (nine planets, two factions) and The Turning Tide (24 planets, three factions). Each uses one orbiting system. Missions 3–5 and Chapter 2 are not released yet.
 
+## First Strike tutorial
+
+First Strike alone opts into an action-driven tutorial via `tutorial.attackTargetId`. Its nearby western planet is now a weak red outpost so the first instruction teaches an actual enemy attack. Prompts teach selecting blue then attacking red, scrolling down/pinching fingers together to zoom out, and capturing every enemy capital while protecting the player's own. Highlight rings follow the planets' live positions; the win lesson highlights surviving enemy capitals, not ordinary planets.
+
+The opening simulation is held still until the first hostile fleet launch (or Skip), without accumulating production or AI time. Selecting/deselecting updates the first prompt; a real launch advances it, and a cumulative 10% manual zoom-out advances to the win explanation. The intro camera never completes that lesson. Players can skip at any time or dismiss the final explanation with Got it. The tutorial restarts on mission retry/replay and does not change campaign saves. Other missions and Quick Match have no tutorial. The old persistent mission title/objective overlay and pause-menu mission briefing are removed from every level.
+
 ## Mission 2: The Turning Tide
 
 A 2600 × 2600 battlefield, with 12 fixed outer worlds and 12 rotating worlds around one white star. Rotation remains clockwise, once every 180 seconds. Both enemy capitals must fall; the blue capital must survive.

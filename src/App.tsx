@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { Maximize, Minimize, Volume2, VolumeX, Music, Skull, Pause, Play, Flag } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
 import { ModeCard } from './ui/ModeCard';
+import { advanceTutorial, drawTutorialHighlights, tutorialHoldsOpening, tutorialTargets, type TutorialState, type TutorialEvent } from './game/tutorial';
 
 function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled, isHardMode, setIsHardMode }: { selectedMode: ModeId, onSelectMode: (mode: ModeId) => void, progress: Progress, saveWarning: boolean, onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void, isHardMode: boolean, setIsHardMode: (val: boolean) => void }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -233,13 +234,22 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
   );
 }
 
-function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, missionNumber, onResult, onRetry, onMenu, resultDetail, actionLabel }: { isSoundEnabled: boolean, isMusicEnabled: boolean, isHardMode: boolean, map?: MapDefinition, missionNumber?: number, onResult: (won: boolean) => void, onRetry: () => void, onMenu: () => void, resultDetail: string, actionLabel: string }) {
+function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRetry, onMenu, resultDetail, actionLabel }: { isSoundEnabled: boolean, isMusicEnabled: boolean, isHardMode: boolean, map?: MapDefinition, onResult: (won: boolean) => void, onRetry: () => void, onMenu: () => void, resultDetail: string, actionLabel: string }) {
   const onResultRef = useRef(onResult);
   onResultRef.current = onResult;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [factions, setFactions] = useState<{ color: string; isAlive: boolean; isPlayer: boolean; shipCount: number; name: string }[]>([]);
   const [winner, setWinner] = useState<{ color: string } | null>(null);
   const [showUI, setShowUI] = useState(false);
+  const [tutorial, setTutorial] = useState<TutorialState>(() => ({ step: map?.tutorial ? 'select' : 'done' }));
+  const tutorialRef = useRef(tutorial);
+  const updateTutorial = (event: TutorialEvent) => {
+    const next = advanceTutorial(tutorialRef.current, event);
+    if (next !== tutorialRef.current) {
+      tutorialRef.current = next;
+      setTutorial(next);
+    }
+  };
   const [fleetSize, setFleetSize] = useState<number>(1.0);
   const fleetSizeRef = useRef<number>(1.0);
   const [omniStrikeCooldown, setOmniStrikeCooldown] = useState(0);
@@ -356,9 +366,10 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, missionNumber, 
       setPlayerPlanetCount(pCount);
     };
 
-    engine.onLaunch = (fromId) => {
+    engine.onLaunch = (fromId, toId) => {
       const base = engine.bases.get(fromId);
       if (base?.color === '#3b82f6') {
+        updateTutorial({ type: 'launch', hostile: engine.bases.get(toId)?.color !== '#3b82f6', zoom: cameraZoom });
         playSound('launch', isSoundEnabledRef.current);
       }
     };
@@ -651,6 +662,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, missionNumber, 
 
       const zoomFactor = Math.exp(-e.deltaY * 0.002);
       const newZoom = Math.max(0.1, Math.min(cameraZoom * zoomFactor, 3));
+      updateTutorial({ type: 'zoom', before: cameraZoom, after: newZoom });
 
       // Apply the zoom instantly (PC behavior matches the original — no
       // kinetic / smoothed feel). Keep desiredZoom in sync so the per-frame
@@ -733,6 +745,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, missionNumber, 
         const rawFactor = lastPinchDist > 0 ? dist / lastPinchDist : 1;
         const zoomFactor = Math.max(0.5, Math.min(rawFactor, 2.0));
         const newZoom = Math.max(0.1, Math.min(cameraZoom * zoomFactor, 3));
+        updateTutorial({ type: 'zoom', before: cameraZoom, after: newZoom });
         cameraX = worldX - (centerScreenX / newZoom);
         cameraY = worldY - (centerScreenY / newZoom);
         cameraZoom = newZoom;
@@ -1086,7 +1099,14 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, missionNumber, 
 
         if (!isPausedRef.current) {
           // Update game state
-          engine.update(safeDt);
+          if (tutorialHoldsOpening(tutorialRef.current)) {
+            // Give beginners unlimited reading time without orbit drift,
+            // accumulated production, or an AI attack on the first click.
+            engine.lastSpawnTime = currentTime;
+            engine.lastAITime = currentTime;
+          } else {
+            engine.update(safeDt);
+          }
           
           // Update cooldown
           setOmniStrikeCooldown(prev => Math.max(0, prev - safeDt));
@@ -1215,6 +1235,12 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, missionNumber, 
 
       // Draw game
       engine.draw(ctx, selectedBaseId, cameraX, cameraY, isOmniStrikeTargetingRef.current);
+      if (!isIntroPlaying && !isGameOver && !isPausedRef.current && !isOmniStrikeTargetingRef.current) {
+        updateTutorial({ type: 'selection', playerSelected: selectedBaseId !== null && engine.bases.get(selectedBaseId)?.color === '#3b82f6' });
+        if (tutorialRef.current.step !== 'done') {
+          drawTutorialHighlights(ctx, tutorialTargets(tutorialRef.current, [...engine.bases.values()], selectedBaseId, map?.tutorial?.attackTargetId, engine.MAX_ATTACK_RANGE), cameraZoom, currentTime);
+        }
+      }
 
       // Update UI state periodically (every 250ms) to avoid React re-render spam
       const now = Date.now();
@@ -1369,7 +1395,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, missionNumber, 
         >
           <div className="flex flex-col items-center gap-5 text-cyan-200" onClick={event => event.stopPropagation()}>
             <h2 className="font-mono text-3xl font-bold uppercase tracking-widest">Paused</h2>
-            {map && <p className="max-w-sm px-5 text-center text-sm">{map.briefing}</p>}
             <button type="button" onClick={togglePause} className="border border-cyan-300 bg-cyan-950 px-8 py-3">Resume</button>
             <button type="button" onClick={onMenu} className="px-6 py-3 underline">Main menu</button>
             {map && <p className="text-xs text-cyan-100/60">Completed missions are saved. This battle will restart.</p>}
@@ -1646,7 +1671,16 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, missionNumber, 
         </motion.div>
       )}
 
-      {map && !winner && <div className="pointer-events-none absolute top-24 left-4 right-4 z-20 mx-auto max-w-lg rounded border border-cyan-700/40 bg-black/75 p-3 text-center text-cyan-100 md:top-6 md:right-auto md:max-w-xs md:text-left"><p className="text-xs font-bold">Mission {missionNumber}: {map.title}</p><p className="mt-1 text-xs text-cyan-100/75">{map.objective.description}</p></div>}
+      {showUI && !winner && !isPaused && !showSurrenderConfirm && tutorial.step !== 'done' && <>
+        {tutorial.step === 'zoom' && <div aria-hidden="true" className="pointer-events-none absolute inset-2 rounded-xl border-2 border-cyan-300/50" />}
+        <section aria-label="How to play" className={`absolute ${tutorial.step === 'capitals' ? 'bottom-44' : 'top-24'} left-4 right-4 z-20 mx-auto max-w-md rounded-xl border border-yellow-200/40 bg-slate-950/95 p-4 text-white shadow-xl md:top-auto md:bottom-6 md:right-auto md:w-80`}>
+          <div aria-live="polite" aria-atomic="true">
+            <p className="mb-2 text-xs font-bold uppercase tracking-widest text-yellow-200">{tutorial.step === 'select' || tutorial.step === 'attack' ? '1 / 3 · Attack' : tutorial.step === 'zoom' ? '2 / 3 · Zoom out' : '3 / 3 · Win the battle'}</p>
+            <p className="text-sm leading-relaxed">{tutorial.step === 'select' ? 'Click or tap your highlighted BLUE planet to select your fleet.' : tutorial.step === 'attack' ? 'Now click or tap the highlighted RED planet to send your ships and attack.' : tutorial.step === 'zoom' ? 'Fleet launched! Scroll down with your mouse wheel, or pinch two fingers together, to zoom out and see more of the battlefield.' : 'Capture ALL enemy capitals—the large planets—to win. You do not need every small planet. Protect your blue capital: losing it means defeat.'}</p>
+          </div>
+          <button type="button" onClick={() => updateTutorial({ type: 'dismiss' })} className="mt-3 min-h-11 rounded border border-white/25 px-4 text-sm font-semibold text-cyan-100 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-cyan-300">{tutorial.step === 'capitals' ? 'Got it — let’s win' : 'Skip tutorial'}</button>
+        </section>
+      </>}
       <canvas 
         ref={canvasRef} 
         onContextMenu={(e) => e.preventDefault()}
@@ -1740,7 +1774,6 @@ export default function App() {
     : chapter && chapter.maps.length < chapter.plannedLevels ? 'Mission complete. More chapter missions are coming soon.'
     : chapter ? 'Chapter complete. All missions secured.' : 'Sector secured.';
   return <React.Fragment key={session.attempt}><Game map={session.map}
-    missionNumber={chapter ? chapter.maps.findIndex(map => map.id === session.map?.id) + 1 : undefined}
     isSoundEnabled={isSoundEnabled} isMusicEnabled={isMusicEnabled} isHardMode={isHardMode}
     onResult={onResult} resultDetail={resultDetail}
     actionLabel={result && followingMap ? 'Next Mission' : session.map ? result ? 'Replay Mission' : 'Retry Mission' : 'New Quick Match'}

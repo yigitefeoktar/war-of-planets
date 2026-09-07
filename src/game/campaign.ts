@@ -16,6 +16,7 @@ export type MapDefinition = {
   planets: PlanetDefinition[];
   orbit?: OrbitDefinition;
   mobileFocus?: 'capital';
+  tutorial?: { attackTargetId: string };
 };
 export type Chapter = { id: ChapterId; plannedLevels: number; maps: MapDefinition[] };
 
@@ -23,11 +24,12 @@ export const FIRST_STRIKE: MapDefinition = {
   id: 'helios-first-strike', title: 'First Strike',
   briefing: 'This system rotates around its white star. Capture nearby worlds, build your fleet, and destroy the red capital. The star cannot be captured.',
   width: 1600, height: 1400, attackRange: 600,
+  tutorial: { attackTargetId: 'west-landing' },
   objective: { type: 'eliminate-capitals', description: 'Destroy the red capital. Keep your blue capital alive.' },
   planets: [
     { id: 'player_1', x: 800, y: 1130, owner: PLAYER, ships: 180, capital: true },
     { id: 'ai_1', x: 800, y: 220, owner: '#ef4444', ships: 90, capital: true },
-    { id: 'west-landing', x: 470, y: 970, owner: NEUTRAL, ships: 10 },
+    { id: 'west-landing', x: 470, y: 970, owner: '#ef4444', ships: 10 },
     { id: 'east-landing', x: 1130, y: 970, owner: NEUTRAL, ships: 10 },
     { id: 'midway', x: 800, y: 860, owner: NEUTRAL, ships: 18 },
     { id: 'west-route', x: 410, y: 610, owner: NEUTRAL, ships: 16 },
