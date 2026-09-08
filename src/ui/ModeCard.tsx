@@ -1,4 +1,4 @@
-import { useEffect, useRef, type CSSProperties } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronRight, Layers, Swords, X } from 'lucide-react';
 import { playSound } from '../audio';
@@ -11,7 +11,6 @@ const modes = [
   { id: 'quick-match', title: 'Quick Match', subtitle: 'One battle. Total conquest.', description: 'Command your fleet. Defend your capital. Conquer the system.', accent: '#ffc184', rgb: '255, 193, 132', label: 'Instant action' },
 ];
 type Mode = typeof modes[number];
-const theme = (mode: Mode) => ({ '--mode-accent': mode.accent, '--mode-rgb': mode.rgb } as CSSProperties);
 
 function Artwork({ mode }: { mode: Mode }) {
   return <><img className="mode-art" src={`/images/modes/${mode.id}.jpg`} alt="" draggable={false} /><span className="mode-shade" /></>;
@@ -46,7 +45,7 @@ export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress 
   }, []);
 
   return <>
-    <section aria-label="Selected game mode" className="mode-card mode-current" style={theme(selected)}>
+    <section aria-label="Selected game mode" className="mode-card mode-current">
       <Artwork mode={selected} />
       <CardContent mode={selected} />
       <div className="mode-footer">
@@ -61,7 +60,7 @@ export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress 
       </header>
       <div className="mode-grid">
         {modes.map(mode => (
-          <button key={mode.id} type="button" aria-label={`Select ${mode.title}`} aria-pressed={selected.id === mode.id} onClick={() => { onSelectMode(mode.id as ModeId); playSound('select', isSoundEnabled); dialog.current?.close(); }} className={`mode-card mode-option ${selected.id === mode.id ? 'is-selected' : ''}`} style={theme(mode)}>
+          <button key={mode.id} type="button" aria-label={`Select ${mode.title}`} aria-pressed={selected.id === mode.id} onClick={() => { onSelectMode(mode.id as ModeId); playSound('select', isSoundEnabled); dialog.current?.close(); }} className={`mode-card mode-option ${selected.id === mode.id ? 'is-selected' : ''}`}>
             <Artwork mode={mode} />
             <CardContent mode={mode} compact />
             <div className="mode-footer"><span className="mode-meta">{progressLabel(mode.id as ModeId, progress)}</span><span className="mode-select">{selected.id === mode.id ? <><Check size={15} /> Selected</> : <>Select <ChevronRight size={16} /></>}</span></div>
