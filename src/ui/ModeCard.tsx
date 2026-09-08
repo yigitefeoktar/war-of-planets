@@ -39,7 +39,7 @@ export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress 
 
   useEffect(() => {
     const element = dialog.current;
-    const restoreFocus = () => changeButton.current?.focus();
+    const restoreFocus = () => changeButton.current?.focus({ preventScroll: true });
     element?.addEventListener('close', restoreFocus);
     return () => element?.removeEventListener('close', restoreFocus);
   }, []);
