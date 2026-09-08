@@ -39,7 +39,18 @@ export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress 
 
   useEffect(() => {
     const element = dialog.current;
-    const restoreFocus = () => changeButton.current?.focus({ preventScroll: true });
+    // Native dialog focus can scroll the menu's otherwise hidden containers.
+    const menuPositions: { element: HTMLElement; top: number; left: number }[] = [];
+    for (let parent = changeButton.current?.parentElement; parent; parent = parent.parentElement) {
+      menuPositions.push({ element: parent, top: parent.scrollTop, left: parent.scrollLeft });
+    }
+    const restoreFocus = () => {
+      changeButton.current?.focus({ preventScroll: true });
+      for (const position of menuPositions) {
+        position.element.scrollTop = position.top;
+        position.element.scrollLeft = position.left;
+      }
+    };
     element?.addEventListener('close', restoreFocus);
     return () => element?.removeEventListener('close', restoreFocus);
   }, []);
