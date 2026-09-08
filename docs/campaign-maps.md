@@ -10,6 +10,12 @@ The versioned browser save stores completed map IDs; its legacy selected-mode fi
 
 Checks: `npm run lint`, `npx tsx --test src/game/*.test.ts`, `npm run build`.
 
+## Friendly logistics network
+
+The 600-world-unit range remains a strict source-to-target limit for attacks against enemy and neutral planets. Friendly transfers use the same radius only to determine network connectivity: if two owned planets are joined by any chain of friendly links where every link is 600 units or shorter, ships may fly directly between them regardless of their direct distance. Disconnected friendly planets cannot transfer to each other.
+
+Connectivity is recalculated when the order is issued, using current ownership and live positions. Capturing a bridge can join or split networks, and moving planets can create temporary connections. Once launched, a transfer continues to its destination even if the connection later breaks. Selecting a planet shows faint cyan network links and cyan dashed rings around every valid friendly destination. Mouse and touch orders share the same rule. Hostile AI logic, Omni-Strike range, and ordinary attack range are unchanged.
+
 Current content: Chapter 1 / First Strike (34 fixed planets, four factions) and The Turning Tide (24 planets, three factions, one orbiting system). Missions 3–5 and Chapter 2 are not released yet.
 
 ## First Strike tutorial
