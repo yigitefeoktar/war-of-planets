@@ -7,7 +7,7 @@ import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAud
 import { ModeCard } from './ui/ModeCard';
 import { advanceTutorial, drawTutorialHighlights, tutorialTargets, type TutorialState, type TutorialEvent } from './game/tutorial';
 import './ui/Tutorial.css';
-import { drawFriendlyNetwork, issueFleetOrder } from './game/logistics';
+import { issueFleetOrder } from './game/logistics';
 
 function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled, isHardMode, setIsHardMode }: { selectedMode: ModeId, onSelectMode: (mode: ModeId) => void, progress: Progress, saveWarning: boolean, onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void, isHardMode: boolean, setIsHardMode: (val: boolean) => void }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1233,8 +1233,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
       // Draw game
       engine.draw(ctx, selectedBaseId, cameraX, cameraY, isOmniStrikeTargetingRef.current);
-      const playerNetworkSource = selectedBaseId && engine.bases.get(selectedBaseId)?.color === '#3b82f6' ? selectedBaseId : null;
-      if (!isOmniStrikeTargetingRef.current) drawFriendlyNetwork(ctx, engine.bases.values(), playerNetworkSource, engine.MAX_ATTACK_RANGE, cameraZoom);
       if (!isIntroPlaying && !isGameOver && !isPausedRef.current && !isOmniStrikeTargetingRef.current) {
         updateTutorial({ type: 'selection', playerSelected: selectedBaseId !== null && engine.bases.get(selectedBaseId)?.color === '#3b82f6' });
         if (tutorialRef.current.step !== 'done') {

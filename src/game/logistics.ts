@@ -45,39 +45,3 @@ export function issueFleetOrder(engine: FleetNetwork, fromId: string, toId: stri
   engine.sendUnits(fromId, toId, percentage);
   return true;
 }
-
-export function drawFriendlyNetwork(ctx: CanvasRenderingContext2D, bases: Iterable<Base>, sourceId: string | null, linkRange: number, zoom: number) {
-  if (!sourceId) return;
-  const planets = [...bases];
-  const source = planets.find(planet => planet.id === sourceId);
-  if (!source) return;
-  const connectedIds = connectedFriendlyIds(planets, sourceId, linkRange);
-  const connected = planets.filter(planet => connectedIds.has(planet.id));
-  if (connected.length < 2) return;
-
-  ctx.save();
-  ctx.strokeStyle = '#73dcff';
-  ctx.shadowColor = '#73dcff';
-  ctx.lineWidth = 1.5 / zoom;
-  ctx.globalAlpha = 0.25;
-  // Show the actual friendly links that make the network connected.
-  for (let i = 0; i < connected.length; i++) for (let j = i + 1; j < connected.length; j++) {
-    if (distance(connected[i], connected[j]) > linkRange) continue;
-    ctx.beginPath();
-    ctx.moveTo(connected[i].x, connected[i].y);
-    ctx.lineTo(connected[j].x, connected[j].y);
-    ctx.stroke();
-  }
-  // Every connected friendly planet is a valid direct transfer destination.
-  ctx.globalAlpha = 0.8;
-  ctx.lineWidth = 2 / zoom;
-  ctx.setLineDash([7 / zoom, 7 / zoom]);
-  for (const planet of connected) {
-    if (planet.id === sourceId) continue;
-    const radius = (planet.isCapital ? 40 : 20) + 17 + Math.sqrt(planet.pixelCount) * 5;
-    ctx.beginPath();
-    ctx.arc(planet.x, planet.y, radius, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  ctx.restore();
-}
