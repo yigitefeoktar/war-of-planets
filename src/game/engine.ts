@@ -52,31 +52,36 @@ interface DominionArk {
 function drawSuperweaponIcon(ctx: CanvasRenderingContext2D, weapon: SuperweaponId, x: number, y: number) {
   ctx.save();
   ctx.translate(x, y);
-  ctx.fillStyle = 'rgba(2, 6, 23, 0.92)';
-  ctx.strokeStyle = '#e0f2fe';
-  ctx.lineWidth = 1.5;
+  const color = weapon === 'aegis' ? '#00f5ff' : weapon === 'singularity' ? '#c45cff' : weapon === 'omni' ? '#ffe600' : '#ff3dad';
+  ctx.fillStyle = 'rgba(2, 6, 23, 0.78)';
   ctx.beginPath();
-  ctx.arc(0, 0, 8, 0, Math.PI * 2);
+  ctx.arc(0, 0, 15, 0, Math.PI * 2);
   ctx.fill();
-  ctx.stroke();
-  ctx.strokeStyle = weapon === 'aegis' ? '#67e8f9' : weapon === 'singularity' ? '#c084fc' : weapon === 'omni' ? '#fbbf24' : '#f9a8d4';
-  ctx.fillStyle = ctx.strokeStyle;
-  ctx.lineWidth = 1.7;
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 2.8;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 14;
 
   if (weapon === 'aegis') {
     ctx.beginPath();
-    ctx.moveTo(0, -5); ctx.lineTo(4.5, -2.5); ctx.lineTo(3, 3); ctx.lineTo(0, 5.5); ctx.lineTo(-3, 3); ctx.lineTo(-4.5, -2.5); ctx.closePath();
+    ctx.moveTo(0, -9); ctx.lineTo(7.5, -5); ctx.lineTo(5.5, 4); ctx.lineTo(0, 9); ctx.lineTo(-5.5, 4); ctx.lineTo(-7.5, -5); ctx.closePath();
     ctx.stroke();
   } else if (weapon === 'singularity') {
-    ctx.beginPath(); ctx.arc(0, 0, 4.5, 0, Math.PI * 2); ctx.stroke();
-    ctx.beginPath(); ctx.arc(0, 0, 1.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill();
   } else if (weapon === 'omni') {
     for (let angle = -Math.PI / 2; angle < Math.PI * 1.5; angle += Math.PI * 2 / 3) {
-      ctx.beginPath(); ctx.moveTo(Math.cos(angle) * 2, Math.sin(angle) * 2); ctx.lineTo(Math.cos(angle) * 5.5, Math.sin(angle) * 5.5); ctx.stroke();
+      const tipX = Math.cos(angle) * 9;
+      const tipY = Math.sin(angle) * 9;
+      ctx.beginPath(); ctx.moveTo(Math.cos(angle) * 3, Math.sin(angle) * 3); ctx.lineTo(tipX, tipY); ctx.stroke();
+      ctx.beginPath(); ctx.arc(tipX, tipY, 1.8, 0, Math.PI * 2); ctx.fill();
     }
-    ctx.beginPath(); ctx.arc(0, 0, 1.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, 2.5, 0, Math.PI * 2); ctx.fill();
   } else {
-    ctx.beginPath(); ctx.moveTo(0, -5.5); ctx.lineTo(3.5, 2); ctx.lineTo(1.5, 1.5); ctx.lineTo(0, 5); ctx.lineTo(-1.5, 1.5); ctx.lineTo(-3.5, 2); ctx.closePath(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(6, 3); ctx.lineTo(2.5, 2); ctx.lineTo(0, 9); ctx.lineTo(-2.5, 2); ctx.lineTo(-6, 3); ctx.closePath(); ctx.stroke();
   }
   ctx.restore();
 }
@@ -1212,9 +1217,9 @@ export class GameEngine {
       ctx.restore();
 
       if (base.superweaponUnlocks?.length) {
-        const gap = 18;
+        const gap = 34;
         const startX = -((base.superweaponUnlocks.length - 1) * gap) / 2;
-        const iconY = -(planetRadius + 15);
+        const iconY = -(planetRadius + 24);
         base.superweaponUnlocks.forEach((weapon, index) => drawSuperweaponIcon(ctx, weapon, drawX + startX + index * gap, drawY + iconY));
       }
     }
