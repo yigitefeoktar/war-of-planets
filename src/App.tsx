@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { Maximize, Minimize, Volume2, VolumeX, Music, Skull, Pause, Play, Flag } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
 import { ModeCard } from './ui/ModeCard';
+import { ResultScreen } from './ui/ResultScreen';
 import { advanceTutorial, drawTutorialHighlights, tutorialTargets, type TutorialState, type TutorialEvent } from './game/tutorial';
 import './ui/Tutorial.css';
 import { issueFleetOrder } from './game/logistics';
@@ -1572,93 +1573,18 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         </motion.div>
       )}
 
-      {/* Game Over Overlay */}
+      {/* Shared victory / defeat debrief */}
       {winner && (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1.5, delay: 1.5 }}
-          className={`absolute inset-0 z-50 flex flex-col items-center justify-center backdrop-blur-xl overflow-hidden font-sans ${winner.color === '#ef4444' ? 'bg-black/90' : 'bg-black/80'}`}
-        >
-          {/* Tactical Grid & Scanlines */}
-          <div className="absolute inset-0 z-0 bg-[linear-gradient(rgba(6,182,212,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(6,182,212,0.05)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none" />
-          <div className="absolute inset-0 z-0 pointer-events-none bg-[linear-gradient(rgba(255,255,255,0.02)_50%,transparent_50%)] bg-[length:100%_4px]" />
-
-          {/* Cinematic Letterbox Bars */}
-          <motion.div 
-            initial={{ y: '-100%' }}
-            animate={{ y: 0 }}
-            transition={{ duration: 1, delay: 1.5, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute top-0 left-0 right-0 h-24 md:h-32 bg-[#030305] z-0 border-b border-cyan-900/30"
-          />
-          <motion.div 
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            transition={{ duration: 1, delay: 1.5, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute bottom-0 left-0 right-0 h-24 md:h-32 bg-[#030305] z-0 border-t border-cyan-900/30"
-          />
-
-          <motion.div 
-            initial={{ scale: 0.9, opacity: 0, filter: 'blur(10px)' }}
-            animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
-            transition={{ duration: 1.5, delay: 2.0, ease: "easeOut" }}
-            className="relative z-10 flex flex-col items-center text-center px-6"
-          >
-            <div className="text-cyan-500/60 font-mono text-xs tracking-widest mb-8">
-              SYS.MSG_RECV <br/>
-              STATUS: <span className={winner.color === '#3b82f6' ? "text-green-400" : "text-red-500 animate-pulse"}>
-                {winner.color === '#3b82f6' ? 'SECURE' : 'CRITICAL'}
-              </span>
-            </div>
-
-            <div 
-              className="w-16 h-16 mx-auto mb-8 relative"
-              style={{ clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)' }}
-            >
-              <div className="absolute inset-0 animate-ping opacity-20" style={{ backgroundColor: winner.color }} />
-              <div className="absolute inset-0" style={{ backgroundColor: winner.color, boxShadow: `0 0 60px ${winner.color}` }} />
-            </div>
-            
-            <h2 className={`text-5xl md:text-7xl font-black tracking-tighter mb-4 drop-shadow-[0_0_20px_rgba(0,0,0,0.5)] ${winner.color === '#3b82f6' ? 'text-transparent bg-clip-text bg-gradient-to-b from-white to-cyan-400' : 'text-transparent bg-clip-text bg-gradient-to-b from-white to-red-500'}`}>
-              {winner.color === '#3b82f6' ? 'VICTORY' : 'DEFEAT'}
-            </h2>
-            
-            <div className="h-[2px] w-full max-w-xs bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-50 mb-4" />
-
-            <p className="max-w-md text-cyan-300/80 font-mono tracking-wide text-xs mb-6 uppercase">
-              {winner.color === '#3b82f6' 
-                ? resultDetail
-                : '> System Offline. Signal lost.'}
-            </p>
-            
-            <motion.button 
-              whileHover={{ scale: 1.05, backgroundColor: "rgba(6, 182, 212, 0.2)" }}
-              whileTap={{ scale: 0.95 }}
-              onMouseEnter={() => playSound('hover', isSoundEnabled)}
-              onClick={() => {
-                playSound('select', isSoundEnabled);
-                onRetry();
-              }}
-              className="group relative px-12 py-5 bg-cyan-950/60 border border-cyan-400 text-cyan-300 font-bold tracking-[0.3em] uppercase transition-all overflow-hidden shadow-[0_0_20px_rgba(6,182,212,0.2)] hover:shadow-[0_0_40px_rgba(6,182,212,0.4)] hover:text-white cursor-pointer rounded-sm"
-            >
-              <div className="absolute inset-0 bg-cyan-400/20 translate-y-[100%] group-hover:translate-y-0 transition-transform duration-300 ease-out" />
-              {/* Button corner accents */}
-              <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <span className="relative z-10 flex items-center gap-3">
-                {actionLabel}
-                <svg className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="square" strokeLinejoin="miter" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </span>
-            </motion.button>
-            <button type="button" onClick={onMenu} className="mt-5 px-6 py-3 text-cyan-200 underline underline-offset-4">Main menu</button>
-          </motion.div>
-        </motion.div>
+        <ResultScreen
+          won={winner.color === '#3b82f6'}
+          missionTitle={map?.title ?? 'Quick Match'}
+          detail={resultDetail}
+          actionLabel={actionLabel}
+          onHover={() => playSound('hover', isSoundEnabled)}
+          onContinue={() => { playSound('select', isSoundEnabled); onRetry(); }}
+          onMenu={() => { playSound('select', isSoundEnabled); onMenu(); }}
+        />
       )}
-
       {showUI && !winner && !isPaused && !showSurrenderConfirm && tutorial.step !== 'done' && tutorial.step !== 'watch' && <>
         {tutorial.step === 'zoom' && <div aria-hidden="true" className="tutorial-zoom-gesture"><span className="tutorial-zoom-circle" /><span className="tutorial-zoom-circle" /></div>}
         <section aria-label="How to play" className={`absolute ${tutorial.step === 'capitals' ? 'bottom-44' : 'top-24'} left-4 right-4 z-20 mx-auto max-w-md rounded-xl border border-[#73dcff]/50 bg-slate-950/95 p-4 text-white shadow-xl md:top-auto md:bottom-6 md:right-auto md:w-80`}>
