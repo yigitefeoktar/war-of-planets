@@ -1,5 +1,6 @@
 import { GameEngine } from './engine';
 import type { OrbitDefinition } from './campaign';
+import type { SuperweaponTargetMode } from './superweapons';
 
 // A rigid rotating system, not a gravity simulation. The star is scenery,
 // deliberately excluded from bases, selection, ship production and victory.
@@ -38,8 +39,8 @@ export class OrbitingGameEngine extends GameEngine {
     super.update(dt);
   }
 
-  override draw(ctx: CanvasRenderingContext2D, selectedBaseId: string | null, cameraX: number, cameraY: number, isOmniTargeting = false) {
-    super.draw(ctx, selectedBaseId, cameraX, cameraY, isOmniTargeting);
+  override draw(ctx: CanvasRenderingContext2D, selectedBaseId: string | null, cameraX: number, cameraY: number, targetingMode: SuperweaponTargetMode = null) {
+    super.draw(ctx, selectedBaseId, cameraX, cameraY, targetingMode);
     ctx.save();
     ctx.translate(this.orbit.x, this.orbit.y);
 

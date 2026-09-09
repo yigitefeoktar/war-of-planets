@@ -8,6 +8,8 @@ import { ModeCard } from './ui/ModeCard';
 import { advanceTutorial, drawTutorialHighlights, tutorialTargets, type TutorialState, type TutorialEvent } from './game/tutorial';
 import './ui/Tutorial.css';
 import { issueFleetOrder } from './game/logistics';
+import { GameEngine } from './game/engine';
+import { SUPERWEAPON_COSTS, SUPERWEAPON_MAX_ENERGY, type SuperweaponTargetMode } from './game/superweapons';
 
 function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled, isHardMode, setIsHardMode }: { selectedMode: ModeId, onSelectMode: (mode: ModeId) => void, progress: Progress, saveWarning: boolean, onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void, isHardMode: boolean, setIsHardMode: (val: boolean) => void }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -258,14 +260,15 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   };
   const [fleetSize, setFleetSize] = useState<number>(1.0);
   const fleetSizeRef = useRef<number>(1.0);
-  const [omniStrikeCooldown, setOmniStrikeCooldown] = useState(0);
-  const [isOmniStrikeTargeting, setIsOmniStrikeTargeting] = useState(false);
+  const [energy, setEnergy] = useState(0);
+  const [targetingMode, setTargetingMode] = useState<SuperweaponTargetMode>(null);
   const [playerPlanetCount, setPlayerPlanetCount] = useState(0);
-  const [wasOmniReady, setWasOmniReady] = useState(false);
+  const [wasWeaponReady, setWasWeaponReady] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isPaused, setIsPaused] = useState(false);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
-  const isOmniStrikeTargetingRef = useRef(false);
+  const targetingModeRef = useRef<SuperweaponTargetMode>(null);
+  const engineRef = useRef<GameEngine | null>(null);
   const isPausedRef = useRef(false);
   const surrenderRef = useRef(false);
 
@@ -327,15 +330,22 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     return () => window.removeEventListener('mousemove', handleGlobalMouseMove);
   }, []);
 
+  const chooseSuperweapon = (mode: SuperweaponTargetMode) => {
+    const next = targetingModeRef.current === mode ? null : mode;
+    targetingModeRef.current = next;
+    setTargetingMode(next);
+    playSound(next ? 'charge' : 'click', isSoundEnabledRef.current);
+  };
+
   useEffect(() => {
-    const isReady = omniStrikeCooldown === 0 && playerPlanetCount >= 5;
-    if (isReady && !wasOmniReady && showUI) {
+    const isReady = energy >= SUPERWEAPON_COSTS.aegis;
+    if (isReady && !wasWeaponReady && showUI) {
       playSound('select', isSoundEnabled);
-      setWasOmniReady(true);
-    } else if (!isReady && wasOmniReady) {
-      setWasOmniReady(false);
+      setWasWeaponReady(true);
+    } else if (!isReady && wasWeaponReady) {
+      setWasWeaponReady(false);
     }
-  }, [omniStrikeCooldown, playerPlanetCount, wasOmniReady, isSoundEnabled, showUI]);
+  }, [energy, wasWeaponReady, isSoundEnabled, showUI]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -364,6 +374,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
     // Initialize Game Engine
     const engine = createMatch(map);
+    engineRef.current = engine;
     let tutorialTime = 0; // Active play time; pauses do not consume lesson delays.
     engine.isHardMode = isHardMode;
     const activeFactionColors = new Set(Array.from(engine.bases.values()).filter(b => b.isCapital).map(b => b.color));
@@ -390,6 +401,10 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
     engine.onOmniStrike = (color) => {
       // Play the sonic boom sound whenever ANYONE uses Omni-Strike
+      playSound('omniLaunch', isSoundEnabledRef.current);
+    };
+
+    engine.onSuperweapon = () => {
       playSound('omniLaunch', isSoundEnabledRef.current);
     };
 
@@ -485,6 +500,28 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     let lastMouseY = 0;
     let mouseDownX = 0;
     let mouseDownY = 0;
+
+    const resolveSuperweaponTarget = (worldX: number, worldY: number, clickedBaseId: string | null) => {
+      const mode = targetingModeRef.current;
+      if (!mode) return false;
+      let activated = false;
+      if (mode === 'singularity') {
+        activated = engine.activateSingularityMine('#3b82f6', worldX, worldY);
+      } else if (clickedBaseId && mode === 'omni') {
+        activated = engine.activateOmniStrike('#3b82f6', clickedBaseId);
+      } else if (clickedBaseId && mode === 'dominion') {
+        activated = engine.activateDominionArk('#3b82f6', clickedBaseId);
+      }
+      if (!activated) {
+        playSound('error', isSoundEnabledRef.current);
+        return true;
+      }
+      targetingModeRef.current = null;
+      setTargetingMode(null);
+      setEnergy(engine.getEnergy('#3b82f6'));
+      selectedBaseId = null;
+      return true;
+    };
 
     // Game state
     let selectedBaseId: string | null = null;
@@ -603,25 +640,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
           }
         }
 
-        if (isOmniStrikeTargetingRef.current) {
-          if (clickedBaseId) {
-            const targetBase = engine.bases.get(clickedBaseId);
-            const playerBases = Array.from(engine.bases.values()).filter(b => b.color === '#3b82f6');
-            const isInRange = playerBases.some(b => Math.hypot(b.x - targetBase!.x, b.y - targetBase!.y) <= engine.MAX_ATTACK_RANGE);
-
-            if (targetBase && targetBase.color !== '#3b82f6' && isInRange) {
-              engine.omniStrike('#3b82f6', clickedBaseId);
-              playSound('omniLaunch', isSoundEnabled);
-              setOmniStrikeCooldown(60);
-            } else {
-              playSound('error', isSoundEnabled);
-            }
-          }
-          setIsOmniStrikeTargeting(false);
-          isOmniStrikeTargetingRef.current = false;
-          selectedBaseId = null;
-          return;
-        }
+        if (resolveSuperweaponTarget(worldX, worldY, clickedBaseId)) return;
 
         if (clickedBaseId) {
           const clickedBase = engine.bases.get(clickedBaseId);
@@ -858,25 +877,10 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
             }
           }
 
+          if (resolveSuperweaponTarget(worldX, worldY, clickedBaseId)) return;
+
           if (clickedBaseId) {
             const clickedBase = engine.bases.get(clickedBaseId);
-
-            if (isOmniStrikeTargetingRef.current) {
-              const playerBases = Array.from(engine.bases.values()).filter(b => b.color === '#3b82f6');
-              const isInRange = clickedBase ? playerBases.some(b => Math.hypot(b.x - clickedBase.x, b.y - clickedBase.y) <= engine.MAX_ATTACK_RANGE) : false;
-
-              if (clickedBase && clickedBase.color !== '#3b82f6' && isInRange) {
-                engine.omniStrike('#3b82f6', clickedBaseId);
-                playSound('omniLaunch', isSoundEnabled);
-                setOmniStrikeCooldown(60);
-              } else {
-                playSound('error', isSoundEnabled);
-              }
-              setIsOmniStrikeTargeting(false);
-              isOmniStrikeTargetingRef.current = false;
-              selectedBaseId = null;
-              return;
-            }
 
             if (!selectedBaseId) {
               if (clickedBase?.color === '#3b82f6') {
@@ -977,6 +981,13 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       if (e.repeat) return;
       const tag = (document.activeElement as HTMLElement | null)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (e.code === 'Escape' && targetingModeRef.current) {
+        targetingModeRef.current = null;
+        setTargetingMode(null);
+        playSound('click', isSoundEnabledRef.current);
+        e.preventDefault();
+        return;
+      }
       if (isIntroPlaying || isPausedRef.current) return;
 
       // Bookmarks: Shift+1..4 saves, plain 1..4 recalls.
@@ -1106,8 +1117,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
           // Tutorial prompts never stop the simulation; only Pause does.
           engine.update(safeDt);
           
-          // Update cooldown
-          setOmniStrikeCooldown(prev => Math.max(0, prev - safeDt));
         }
 
         // Apply momentum (Kinetic Scrolling)
@@ -1232,8 +1241,8 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       ctx.scale(cameraZoom, cameraZoom);
 
       // Draw game
-      engine.draw(ctx, selectedBaseId, cameraX, cameraY, isOmniStrikeTargetingRef.current);
-      if (!isIntroPlaying && !isGameOver && !isPausedRef.current && !isOmniStrikeTargetingRef.current) {
+      engine.draw(ctx, selectedBaseId, cameraX, cameraY, targetingModeRef.current);
+      if (!isIntroPlaying && !isGameOver && !isPausedRef.current && !targetingModeRef.current) {
         updateTutorial({ type: 'selection', playerSelected: selectedBaseId !== null && engine.bases.get(selectedBaseId)?.color === '#3b82f6' });
         if (tutorialRef.current.step !== 'done') {
           drawTutorialHighlights(ctx, tutorialTargets(tutorialRef.current, [...engine.bases.values()], selectedBaseId, map?.tutorial?.attackTargetId, engine.MAX_ATTACK_RANGE), cameraZoom, currentTime);
@@ -1243,6 +1252,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       // Update UI state periodically (every 250ms) to avoid React re-render spam
       const now = Date.now();
       if (now - lastUiUpdateTime > 250 && !isGameOver) {
+        setEnergy(engine.getEnergy('#3b82f6'));
         const currentFactions = [
           { color: '#3b82f6', isPlayer: true, isAlive: false, shipCount: 0, name: 'PLAYER' },
           { color: '#ef4444', isPlayer: false, isAlive: false, shipCount: 0, name: 'AI RED' },
@@ -1311,6 +1321,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     animationFrameId = requestAnimationFrame(loop);
 
     return () => {
+      engineRef.current = null;
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
       window.removeEventListener('mousemove', handleMouseMove);
@@ -1330,7 +1341,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   return (
     <div className="fixed inset-0 w-full h-[100dvh] overflow-hidden bg-[#05050a] touch-none overscroll-none select-none">
       {/* Domination UI */}
-      <div className={`absolute top-0 left-0 right-0 p-2 sm:p-4 md:p-6 pointer-events-none z-40 flex justify-center transition-all duration-1000 ease-out ${showUI && !isOmniStrikeTargeting ? 'translate-y-0 opacity-100' : '-translate-y-[150%] opacity-0'}`}>
+      <div className={`absolute top-0 left-0 right-0 p-2 sm:p-4 md:p-6 pointer-events-none z-40 flex justify-center transition-all duration-1000 ease-out ${showUI && !targetingMode ? 'translate-y-0 opacity-100' : '-translate-y-[150%] opacity-0'}`}>
         <div className="bg-cyan-950/40 backdrop-blur-md px-3 py-2 sm:px-6 sm:py-3 border border-cyan-500/30 shadow-[0_0_30px_rgba(6,182,212,0.1)] relative rounded-sm flex items-center gap-3 sm:gap-6 md:gap-8 pointer-events-auto">
           {/* Corner accents */}
           <div className="absolute -top-[1px] -left-[1px] w-2 h-2 border-t-2 border-l-2 border-cyan-400" />
@@ -1442,7 +1453,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       )}
 
       {/* Tactical Console (Bottom Right) */}
-      <div className={`absolute bottom-6 right-6 z-20 w-36 flex flex-col items-stretch gap-3 transition-all duration-1000 ease-out ${showUI && !isOmniStrikeTargeting ? 'translate-y-0 opacity-100' : 'translate-y-[150%] opacity-0'}`}>
+      <div className={`absolute bottom-3 right-3 sm:bottom-6 sm:right-6 z-20 w-52 sm:w-60 flex flex-col items-stretch gap-3 transition-all duration-1000 ease-out ${showUI && !targetingMode ? 'translate-y-0 opacity-100' : 'translate-y-[150%] opacity-0'}`}>
         
         {/* Fleet Deployment Section */}
         <div className="flex flex-col gap-1">
@@ -1474,90 +1485,55 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
           </div>
         </div>
 
-        {/* Omni-Strike Section */}
-        <div className="flex flex-col gap-1">
-          <div className="relative">
-            <motion.button
-              disabled={omniStrikeCooldown > 0 || playerPlanetCount < 5}
-              onMouseEnter={() => playSound('hover', isSoundEnabled)}
-              onClick={() => {
-                if (isOmniStrikeTargeting) {
-                  setIsOmniStrikeTargeting(false);
-                  isOmniStrikeTargetingRef.current = false;
-                  playSound('click', isSoundEnabled);
-                } else {
-                  setIsOmniStrikeTargeting(true);
-                  isOmniStrikeTargetingRef.current = true;
-                  playSound('charge', isSoundEnabled);
-                }
-              }}
-              animate={(!isOmniStrikeTargeting && omniStrikeCooldown === 0 && playerPlanetCount >= 5) ? {
-                boxShadow: [
-                  "0 0 10px rgba(34, 211, 238, 0.3)",
-                  "0 0 40px rgba(34, 211, 238, 0.8)",
-                  "0 0 10px rgba(34, 211, 238, 0.3)"
-                ],
-                borderColor: ["rgba(6, 182, 212, 0.4)", "rgba(34, 211, 238, 1)", "rgba(6, 182, 212, 0.4)"],
-                backgroundColor: ["rgba(8, 145, 178, 0.2)", "rgba(8, 145, 178, 0.6)", "rgba(8, 145, 178, 0.2)"],
-                scale: [1, 1.05, 1]
-              } : {}}
-              transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
-              className={`relative w-full py-4 font-mono text-xs font-black tracking-[0.1em] uppercase transition-all border backdrop-blur-md overflow-hidden rounded-sm ${
-                isOmniStrikeTargeting 
-                  ? 'bg-red-500/20 border-red-500 text-red-400 shadow-[0_0_20px_rgba(239,68,68,0.4)]' 
-                  : (omniStrikeCooldown > 0 || playerPlanetCount < 5)
-                    ? 'bg-gray-900/40 border-gray-800 text-gray-600 cursor-not-allowed'
-                    : 'bg-cyan-950/40 border-cyan-500/30 text-cyan-400 hover:border-cyan-400 hover:bg-cyan-900/40'
-              }`}
-            >
-              {/* Corner accents for button */}
-              <div className="absolute -top-[1px] -left-[1px] w-1.5 h-1.5 border-t border-l border-cyan-400 opacity-40" />
-              <div className="absolute -top-[1px] -right-[1px] w-1.5 h-1.5 border-t border-r border-cyan-400 opacity-40" />
-              <div className="absolute -bottom-[1px] -left-[1px] w-1.5 h-1.5 border-b border-l border-cyan-400 opacity-40" />
-              <div className="absolute -bottom-[1px] -right-[1px] w-1.5 h-1.5 border-b border-r border-cyan-400 opacity-40" />
-
-              {/* Cooldown Progress Overlay */}
-              {omniStrikeCooldown > 0 && (
-                <div 
-                  className="absolute inset-0 bg-black/60 z-0"
-                  style={{ clipPath: `inset(0 0 0 ${100 - (omniStrikeCooldown / 60 * 100)}%)` }}
-                />
-              )}
-              
-              {/* Scanning Line Animation (Only when ready) */}
-              {!isOmniStrikeTargeting && omniStrikeCooldown === 0 && playerPlanetCount >= 5 && (
-                <motion.div 
-                  animate={{ top: ['-10%', '110%'] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                  className="absolute left-0 right-0 h-[1px] bg-cyan-400/20 z-0 shadow-[0_0_4px_rgba(34,211,238,0.3)]"
-                />
-              )}
-
-              <span className="relative z-10 flex items-center justify-center gap-2 w-full">
-                <div className={`w-1.5 h-1.5 rounded-full animate-pulse shrink-0 ${isOmniStrikeTargeting ? 'bg-red-500' : (omniStrikeCooldown === 0 && playerPlanetCount >= 5 ? 'bg-cyan-400 shadow-[0_0_8px_#22d3ee]' : 'bg-cyan-900')}`} />
-                <span className="truncate">
-                  {isOmniStrikeTargeting ? 'Targeting...' : 'Omni-Strike'}
-                </span>
-              </span>
-            </motion.button>
+        <div className="bg-cyan-950/55 backdrop-blur-md border border-cyan-500/30 p-2 rounded-sm shadow-[0_0_24px_rgba(6,182,212,0.18)]">
+          <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-widest text-cyan-300">
+            <span>Superweapon Energy</span>
+            <span className="font-black text-white">{Math.floor(energy)} / {SUPERWEAPON_MAX_ENERGY}</span>
           </div>
-          
-          <div className="flex justify-center px-1">
-            {playerPlanetCount < 5 ? (
-              <div className="text-[10px] text-cyan-500/60 font-mono uppercase tracking-tight">
-                Req: 5 Planets ({playerPlanetCount}/5)
-              </div>
-            ) : omniStrikeCooldown > 0 ? (
-              <div className="text-[10px] text-cyan-500/60 font-mono uppercase tracking-tight">
-                Recharging: {Math.ceil(omniStrikeCooldown)}s
-              </div>
-            ) : null}
+          <div className="mt-1.5 h-2 overflow-hidden border border-cyan-400/40 bg-black/70">
+            <motion.div className="h-full bg-gradient-to-r from-cyan-700 via-cyan-300 to-white shadow-[0_0_12px_#22d3ee]" animate={{ width: `${energy}%` }} />
           </div>
+          <div className="mt-2 grid grid-cols-2 gap-1.5">
+            {([
+              { id: 'aegis', label: 'Aegis Nova', cost: SUPERWEAPON_COSTS.aegis, title: 'Destroy moving enemy ships within 600 of your planets.' },
+              { id: 'singularity', label: 'Singularity', cost: SUPERWEAPON_COSTS.singularity, title: 'Place a ten-second gravity well in accessible space.' },
+              { id: 'omni', label: 'Omni Strike', cost: SUPERWEAPON_COSTS.omni, title: 'Warp 30% of every idle fleet to an accessible enemy world.' },
+              { id: 'dominion', label: 'Dominion Ark', cost: SUPERWEAPON_COSTS.dominion, title: 'Launch a slow guaranteed capture vessel from your capital.' },
+            ] as const).map(weapon => {
+              const affordable = energy >= weapon.cost;
+              return (
+                <button
+                  key={weapon.id}
+                  type="button"
+                  disabled={!affordable}
+                  title={weapon.title}
+                  onMouseEnter={() => affordable && playSound('hover', isSoundEnabled)}
+                  onClick={() => {
+                    if (weapon.id === 'aegis') {
+                      const engine = engineRef.current;
+                      if (!engine || engine.activateAegisNova('#3b82f6') === 0) {
+                        playSound('error', isSoundEnabled);
+                        return;
+                      }
+                      setEnergy(engine.getEnergy('#3b82f6'));
+                    } else {
+                      chooseSuperweapon(weapon.id);
+                    }
+                  }}
+                  className={`min-h-12 border px-2 py-2 text-left font-mono uppercase transition-all rounded-sm ${affordable ? 'border-cyan-400/50 bg-cyan-900/45 text-cyan-100 hover:bg-cyan-700/55 hover:shadow-[0_0_14px_rgba(34,211,238,0.35)]' : 'cursor-not-allowed border-slate-800 bg-black/35 text-slate-600'}`}
+                >
+                  <span className="block text-[9px] font-black leading-tight tracking-wide">{weapon.label}</span>
+                  <span className="mt-1 block text-[9px] text-cyan-400/75">{weapon.cost} EN</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-1.5 text-center font-mono text-[9px] uppercase tracking-wider text-cyan-500/60">+{(playerPlanetCount * 0.2).toFixed(1)} energy/sec</div>
         </div>
       </div>
 
       {/* Targeting Overlay (Satellite View) */}
-      {isOmniStrikeTargeting && (
+      {targetingMode && (
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -1569,11 +1545,22 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
           {/* HUD Header */}
           <div className="absolute top-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
             <div className="px-6 py-2 bg-red-950/80 border border-red-500 text-red-400 font-mono text-xs tracking-[0.3em] uppercase shadow-[0_0_20px_rgba(239,68,68,0.3)]">
-              Omni-Strike Protocol Active
+              {targetingMode === 'omni' ? 'Omni-Strike Protocol' : targetingMode === 'singularity' ? 'Singularity Deployment' : 'Dominion Ark Launch'}
             </div>
             <div className="text-red-500/60 font-mono text-[10px] uppercase tracking-widest animate-pulse">
-              Select Enemy Target Base
+              {targetingMode === 'singularity' ? 'Select Accessible Space · Esc To Cancel' : targetingMode === 'dominion' ? 'Select Any Enemy Planet · Esc To Cancel' : 'Select Accessible Enemy Planet · Esc To Cancel'}
             </div>
+            <button
+              type="button"
+              className="pointer-events-auto mt-1 border border-red-500/50 bg-black/70 px-4 py-2 font-mono text-[10px] uppercase tracking-widest text-red-300"
+              onClick={() => {
+                targetingModeRef.current = null;
+                setTargetingMode(null);
+                playSound('click', isSoundEnabled);
+              }}
+            >
+              Cancel
+            </button>
           </div>
 
           {/* Tactical Grid & Scanlines */}

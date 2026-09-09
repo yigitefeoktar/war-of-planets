@@ -1,5 +1,6 @@
 import { Base, Pixel } from './types';
 import { canIssueFleetOrder } from './logistics';
+import { aegisTargets, ENERGY_PER_PLANET_PER_SECOND, isPointAccessible, SUPERWEAPON_COSTS, SUPERWEAPON_MAX_ENERGY, type SuperweaponTargetMode } from './superweapons';
 
 interface Star {
   x: number;
@@ -30,12 +31,38 @@ interface Shockwave {
   thickness: number;
 }
 
+interface Singularity {
+  x: number;
+  y: number;
+  radius: number;
+  life: number;
+  maxLife: number;
+  color: string;
+}
+
+interface DominionArk {
+  x: number;
+  y: number;
+  targetBaseId: string;
+  originCapitalId: string;
+  color: string;
+  trail: { x: number; y: number }[];
+}
+
+type GameEngineOptions = {
+  rng?: () => number;
+  now?: () => number;
+};
+
 export class GameEngine {
   bases: Map<string, Base> = new Map();
   pixels: Pixel[] = [];
   stars: Star[] = [];
   particles: Particle[] = [];
   shockwaves: Shockwave[] = [];
+  singularities: Singularity[] = [];
+  dominionArks: DominionArk[] = [];
+  factionEnergy: Map<string, number> = new Map();
   width: number;
   height: number;
   lastSpawnTime: number = Date.now();
@@ -57,11 +84,26 @@ export class GameEngine {
   onLaunch?: (fromId: string, toId: string) => void;
   onCollision?: (x: number, y: number, color: string) => void;
   onOmniStrike?: (color: string) => void;
+  onSuperweapon?: (weapon: 'aegis' | 'singularity' | 'dominion', color: string) => void;
+  private rng: () => number;
+  private nowProvider: () => number;
 
-  constructor(width: number, height: number) {
+  constructor(width: number, height: number, options: GameEngineOptions = {}) {
     this.width = width;
     this.height = height;
+    this.rng = options.rng ?? Math.random;
+    this.nowProvider = options.now ?? Date.now;
+    this.lastSpawnTime = this.now();
+    this.lastAITime = this.now();
     this.init();
+  }
+
+  private random() {
+    return this.rng();
+  }
+
+  private now() {
+    return this.nowProvider();
   }
 
   init() {
@@ -82,8 +124,8 @@ export class GameEngine {
       let attempts = 0;
 
       while (!validPosition && attempts < 2000) {
-        x = this.width * 0.08 + Math.random() * this.width * 0.84;
-        y = this.height * 0.08 + Math.random() * this.height * 0.84;
+        x = this.width * 0.08 + this.random() * this.width * 0.84;
+        y = this.height * 0.08 + this.random() * this.height * 0.84;
         validPosition = true;
 
         for (const base of this.bases.values()) {
@@ -110,11 +152,11 @@ export class GameEngine {
 
     // Generate stars
     for (let i = 0; i < 800; i++) {
-      const alpha = Math.random() * 0.8 + 0.2;
+      const alpha = this.random() * 0.8 + 0.2;
       this.stars.push({
-        x: Math.random() * this.width,
-        y: Math.random() * this.height,
-        size: Math.random() * 1.5 + 0.5,
+        x: this.random() * this.width,
+        y: this.random() * this.height,
+        size: this.random() * 1.5 + 0.5,
         alpha,
         color: `rgba(255, 255, 255, ${alpha})`
       });
@@ -132,8 +174,8 @@ export class GameEngine {
     const base = this.bases.get(baseId);
     const planetRadius = base?.isCapital ? 40 : 20;
     const minRadius = planetRadius + 8;
-    const angle = Math.random() * Math.PI * 2;
-    const r = minRadius + Math.random() * 10;
+    const angle = this.random() * Math.PI * 2;
+    const r = minRadius + this.random() * 10;
     const x = startX + Math.cos(angle) * r;
     const y = startY + Math.sin(angle) * r;
 
@@ -145,9 +187,9 @@ export class GameEngine {
       color,
       targetX: x,
       targetY: y,
-      speed: 0.5 + Math.random() * 1.5, // Random speed between 0.5 and 2.0
+      speed: 0.5 + this.random() * 1.5, // Random speed between 0.5 and 2.0
       state: 'idle',
-      angle: Math.random() * Math.PI * 2,
+      angle: this.random() * Math.PI * 2,
     };
   }
 
@@ -166,15 +208,43 @@ export class GameEngine {
     }
   }
 
+  getEnergy(color: string) {
+    return this.factionEnergy.get(color) ?? 0;
+  }
+
+  setEnergy(color: string, amount: number) {
+    this.factionEnergy.set(color, Math.max(0, Math.min(SUPERWEAPON_MAX_ENERGY, amount)));
+  }
+
+  private spendEnergy(color: string, amount: number) {
+    const current = this.getEnergy(color);
+    if (current < amount) return false;
+    this.setEnergy(color, current - amount);
+    return true;
+  }
+
+  canOmniStrike(playerColor: string, toId: string) {
+    const targetBase = this.bases.get(toId);
+    if (!targetBase || targetBase.color === playerColor) return false;
+    return isPointAccessible(this.bases.values(), playerColor, targetBase.x, targetBase.y, this.MAX_ATTACK_RANGE);
+  }
+
+  activateOmniStrike(playerColor: string, toId: string) {
+    if (!this.canOmniStrike(playerColor, toId) || this.getEnergy(playerColor) < SUPERWEAPON_COSTS.omni) return false;
+    if (!this.omniStrike(playerColor, toId)) return false;
+    this.spendEnergy(playerColor, SUPERWEAPON_COSTS.omni);
+    return true;
+  }
+
   omniStrike(playerColor: string, toId: string) {
     const targetBase = this.bases.get(toId);
-    if (!targetBase) return;
+    if (!targetBase) return false;
 
     // Range check: Is the target in range of ANY player base?
     const playerBases = Array.from(this.bases.values()).filter(b => b.color === playerColor);
     const isInRange = playerBases.some(b => Math.hypot(b.x - targetBase.x, b.y - targetBase.y) <= this.MAX_ATTACK_RANGE);
     
-    if (!isInRange) return;
+    if (!isInRange || targetBase.color === playerColor) return false;
 
     let totalLaunched = 0;
     for (const base of playerBases) {
@@ -197,7 +267,51 @@ export class GameEngine {
       this.shakeAmount = 15;
       this.shakeDuration = 0.5;
       this.onOmniStrike?.(playerColor);
+      return true;
     }
+    return false;
+  }
+
+  activateAegisNova(playerColor: string) {
+    const targets = aegisTargets(this.pixels, this.bases.values(), playerColor, this.MAX_ATTACK_RANGE);
+    if (targets.length === 0 || !this.spendEnergy(playerColor, SUPERWEAPON_COSTS.aegis)) return 0;
+
+    for (const base of this.bases.values()) {
+      if (base.color !== playerColor) continue;
+      this.shockwaves.push({ x: base.x, y: base.y, radius: 10, maxRadius: this.MAX_ATTACK_RANGE, color: '#67e8f9', alpha: 1, thickness: 12 });
+    }
+    for (const pixel of targets) {
+      pixel.dead = true;
+      this.createExplosion(pixel.x, pixel.y, pixel.color, 4);
+    }
+    this.shakeAmount = 18;
+    this.shakeDuration = 0.7;
+    this.onSuperweapon?.('aegis', playerColor);
+    return targets.length;
+  }
+
+  activateSingularityMine(playerColor: string, x: number, y: number) {
+    if (!isPointAccessible(this.bases.values(), playerColor, x, y, this.MAX_ATTACK_RANGE)) return false;
+    if (!this.spendEnergy(playerColor, SUPERWEAPON_COSTS.singularity)) return false;
+    this.singularities.push({ x, y, radius: 360, life: 10, maxLife: 10, color: playerColor });
+    this.shockwaves.push({ x, y, radius: 10, maxRadius: 360, color: '#c084fc', alpha: 1, thickness: 16 });
+    this.shakeAmount = 22;
+    this.shakeDuration = 0.8;
+    this.onSuperweapon?.('singularity', playerColor);
+    return true;
+  }
+
+  activateDominionArk(playerColor: string, toId: string) {
+    const target = this.bases.get(toId);
+    const capital = Array.from(this.bases.values()).find(base => base.color === playerColor && base.isCapital);
+    if (!target || target.color === playerColor || target.color === '#6b7280' || !capital || this.dominionArks.some(ark => ark.color === playerColor)) return false;
+    if (!this.spendEnergy(playerColor, SUPERWEAPON_COSTS.dominion)) return false;
+    this.dominionArks.push({ x: capital.x, y: capital.y, targetBaseId: toId, originCapitalId: capital.id, color: playerColor, trail: [] });
+    this.shockwaves.push({ x: capital.x, y: capital.y, radius: 10, maxRadius: 500, color: playerColor, alpha: 1, thickness: 18 });
+    this.shakeAmount = 25;
+    this.shakeDuration = 1;
+    this.onSuperweapon?.('dominion', playerColor);
+    return true;
   }
 
   createExplosion(x: number, y: number, color: string, count: number = 10, isCapital: boolean = false) {
@@ -206,18 +320,51 @@ export class GameEngine {
       this.shockwaves.push({ x, y, radius: 10, maxRadius: 800, color, alpha: 1.0, thickness: 10 });
     }
     for (let i = 0; i < count; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = isCapital ? (Math.random() * 8 + 2) : (Math.random() * 3 + 1);
+      const angle = this.random() * Math.PI * 2;
+      const speed = isCapital ? (this.random() * 8 + 2) : (this.random() * 3 + 1);
       this.particles.push({
         x,
         y,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
         life: 1.0,
-        maxLife: isCapital ? (Math.random() * 2 + 1) : (Math.random() * 0.5 + 0.5),
+        maxLife: isCapital ? (this.random() * 2 + 1) : (this.random() * 0.5 + 0.5),
         color,
-        size: isCapital ? (Math.random() * 4 + 1) : (Math.random() * 2 + 1)
+        size: isCapital ? (this.random() * 4 + 1) : (this.random() * 2 + 1)
       });
+    }
+  }
+
+  private resolveDominionArrival(ark: DominionArk, target: Base) {
+    if (target.color === ark.color) {
+      for (let i = 0; i < 5; i++) this.pixels.push(this.createIdlePixel(target.id, target.x, target.y, ark.color));
+      return;
+    }
+
+    const oldColor = target.color;
+    for (const pixel of this.pixels) {
+      if (pixel.baseId === target.id && pixel.state === 'idle') pixel.dead = true;
+    }
+    target.color = ark.color;
+    target.lastAttackedTime = this.now();
+    for (let i = 0; i < 5; i++) this.pixels.push(this.createIdlePixel(target.id, target.x, target.y, ark.color));
+    this.createExplosion(target.x, target.y, ark.color, target.isCapital ? 200 : 80, target.isCapital);
+    this.shockwaves.push({ x: target.x, y: target.y, radius: 10, maxRadius: 900, color: ark.color, alpha: 1, thickness: 22 });
+    this.onCapture?.(target.id, ark.color);
+
+    if (target.isCapital) {
+      target.isCapital = false;
+      this.lastDestroyedCapital = { x: target.x, y: target.y, color: oldColor };
+      this.onCapitalDestroyed?.(oldColor);
+      for (const base of this.bases.values()) {
+        if (base.color === oldColor) {
+          base.color = '#6b7280';
+          base.isCapital = false;
+        }
+      }
+      for (const pixel of this.pixels) {
+        if (pixel.color === oldColor) pixel.dead = true;
+      }
     }
   }
 
@@ -251,7 +398,7 @@ export class GameEngine {
   }
 
   update(dt: number) {
-    const now = Date.now();
+    const now = this.now();
     const timeScale = dt * 60; // Normalize to 60 FPS
 
     // Update screen shake
@@ -267,6 +414,60 @@ export class GameEngine {
       if (cooldown > 0) {
         this.aiOmniCooldowns.set(color, cooldown - dt);
       }
+    }
+
+    const ownedPlanetCounts = new Map<string, number>();
+    for (const base of this.bases.values()) {
+      if (base.color === '#6b7280') continue;
+      ownedPlanetCounts.set(base.color, (ownedPlanetCounts.get(base.color) ?? 0) + 1);
+    }
+    for (const [color, count] of ownedPlanetCounts) {
+      this.setEnergy(color, this.getEnergy(color) + count * ENERGY_PER_PLANET_PER_SECOND * dt);
+    }
+
+    for (let i = this.singularities.length - 1; i >= 0; i--) {
+      const well = this.singularities[i];
+      well.life -= dt;
+      for (const pixel of this.pixels) {
+        if (pixel.dead || pixel.state !== 'moving' || pixel.color === well.color) continue;
+        const dx = well.x - pixel.x;
+        const dy = well.y - pixel.y;
+        const distance = Math.hypot(dx, dy);
+        if (distance > well.radius) continue;
+        if (distance < 28) {
+          pixel.dead = true;
+          this.createExplosion(pixel.x, pixel.y, pixel.color, 3);
+        } else {
+          const pull = (1 - distance / well.radius) * 180 * dt;
+          pixel.x += dx / distance * pull;
+          pixel.y += dy / distance * pull;
+        }
+      }
+      if (well.life <= 0) this.singularities.splice(i, 1);
+    }
+
+    for (let i = this.dominionArks.length - 1; i >= 0; i--) {
+      const ark = this.dominionArks[i];
+      const origin = this.bases.get(ark.originCapitalId);
+      const target = this.bases.get(ark.targetBaseId);
+      if (!origin || !origin.isCapital || origin.color !== ark.color || !target) {
+        this.createExplosion(ark.x, ark.y, ark.color, 50);
+        this.dominionArks.splice(i, 1);
+        continue;
+      }
+      const dx = target.x - ark.x;
+      const dy = target.y - ark.y;
+      const distance = Math.hypot(dx, dy);
+      if (distance < 24) {
+        this.resolveDominionArrival(ark, target);
+        this.dominionArks.splice(i, 1);
+        continue;
+      }
+      const step = Math.min(distance, 45 * dt);
+      ark.x += dx / distance * step;
+      ark.y += dy / distance * step;
+      ark.trail.push({ x: ark.x, y: ark.y });
+      if (ark.trail.length > 36) ark.trail.shift();
     }
 
     // Update particles
@@ -323,11 +524,12 @@ export class GameEngine {
             const cooldown = this.aiOmniCooldowns.get(color) || 0;
             
             if (isInRange && cooldown <= 0 && myBases.length >= 5) {
-              if (Math.random() > 0.05) { // 95% chance for revenge
-                this.omniStrike(color, target.id);
-                this.aiOmniCooldowns.set(color, 60);
-                this.lastOmniCaptureBaseId = null; // One AI reacts at a time
-                continue; // Skip standard logic for this faction this tick
+              if (this.random() > 0.05) { // 95% chance for revenge
+                if (this.activateOmniStrike(color, target.id)) {
+                  this.aiOmniCooldowns.set(color, 15);
+                  this.lastOmniCaptureBaseId = null; // One AI reacts at a time
+                  continue; // Skip standard logic for this faction this tick
+                }
               }
             }
           }
@@ -342,7 +544,7 @@ export class GameEngine {
             return myBases.some(mb => Math.hypot(b.x - mb.x, b.y - mb.y) <= this.MAX_ATTACK_RANGE);
           });
 
-          if (targets.length > 0 && Math.random() > 0.85) { // Lowered chance (15%) to save for revenge
+          if (targets.length > 0 && this.random() > 0.85) { // Lowered chance (15%) to save for revenge
             // Target the planet closest to an enemy capital
             const enemyCapitals = Array.from(this.bases.values()).filter(b => b.isCapital && b.color !== color);
             if (enemyCapitals.length > 0) {
@@ -356,14 +558,14 @@ export class GameEngine {
               targets.sort((a, b) => a.pixelCount - b.pixelCount);
             }
             
-            this.omniStrike(color, targets[0].id);
-            this.aiOmniCooldowns.set(color, 60); // AI cooldown matched to player (60s)
+            this.activateOmniStrike(color, targets[0].id);
+            this.aiOmniCooldowns.set(color, 15); // Brief decision lock; Energy is the real cost.
           }
         }
 
         // Standard AI Attack Logic
         for (const base of myBases) {
-          if (base.pixelCount > 120 && Math.random() > 0.3) {
+          if (base.pixelCount > 120 && this.random() > 0.3) {
             const targets = Array.from(this.bases.values()).filter(b => {
               if (b.id === base.id) return false;
               const dist = Math.hypot(b.x - base.x, b.y - base.y);
@@ -377,7 +579,7 @@ export class GameEngine {
                 const scoreB = distB + b.pixelCount * 10;
                 return scoreA - scoreB;
               });
-              const target = targets[Math.floor(Math.random() * Math.min(3, targets.length))];
+              const target = targets[Math.floor(this.random() * Math.min(3, targets.length))];
               this.sendUnits(base.id, target.id);
             }
           }
@@ -420,8 +622,8 @@ export class GameEngine {
           const planetRadius = base.isCapital ? 40 : 20;
           const minRadius = planetRadius + 8; 
           const maxRadius = minRadius + 10 + Math.sqrt(base.pixelCount) * 5; 
-          const angle = Math.random() * Math.PI * 2;
-          const r = minRadius + Math.random() * (maxRadius - minRadius);
+          const angle = this.random() * Math.PI * 2;
+          const r = minRadius + this.random() * (maxRadius - minRadius);
           
           p.targetX = base.x + Math.cos(angle) * r;
           p.targetY = base.y + Math.sin(angle) * r;
@@ -466,7 +668,7 @@ export class GameEngine {
               // Both die
               p.dead = true;
               defender.dead = true;
-              targetBase.lastAttackedTime = Date.now();
+              targetBase.lastAttackedTime = this.now();
               this.createExplosion(p.x, p.y, targetBase.color, 2);
               this.createExplosion(defender.x, defender.y, targetBase.color, 2);
               this.onCollision?.(p.x, p.y, targetBase.color);
@@ -475,7 +677,7 @@ export class GameEngine {
               const oldColor = targetBase.color;
               if (p.isWarp) {
                 this.lastOmniCaptureBaseId = targetBase.id;
-                this.lastOmniCaptureTime = Date.now();
+                this.lastOmniCaptureTime = this.now();
               }
               targetBase.color = p.color;
               p.baseId = targetBase.id;
@@ -484,7 +686,7 @@ export class GameEngine {
               p.targetY = p.y;
               p.isWarp = false;
               p.trail = [];
-              targetBase.lastAttackedTime = Date.now();
+              targetBase.lastAttackedTime = this.now();
               if (!targetBase.isCapital && !this.lastDestroyedCapital) {
                 this.createExplosion(targetBase.x, targetBase.y, targetBase.color, 10); // Big explosion on capture
               }
@@ -534,13 +736,13 @@ export class GameEngine {
     this.pixels = this.pixels.filter(p => !p.dead);
   }
 
-  draw(ctx: CanvasRenderingContext2D, selectedBaseId: string | null, cameraX: number, cameraY: number, isOmniTargeting: boolean = false) {
+  draw(ctx: CanvasRenderingContext2D, selectedBaseId: string | null, cameraX: number, cameraY: number, targetingMode: SuperweaponTargetMode = null) {
     ctx.save();
 
     // Apply screen shake
     if (this.shakeAmount > 0) {
-      const sx = (Math.random() - 0.5) * this.shakeAmount;
-      const sy = (Math.random() - 0.5) * this.shakeAmount;
+      const sx = (this.random() - 0.5) * this.shakeAmount;
+      const sy = (this.random() - 0.5) * this.shakeAmount;
       ctx.translate(sx, sy);
     }
 
@@ -582,6 +784,93 @@ export class GameEngine {
       }
     }
 
+    for (const well of this.singularities) {
+      const pulse = 0.82 + Math.sin(this.now() / 90) * 0.12;
+      const fade = Math.min(1, well.life / 1.5);
+      ctx.save();
+      ctx.translate(well.x, well.y);
+      ctx.globalAlpha = fade;
+      const halo = ctx.createRadialGradient(0, 0, 8, 0, 0, well.radius);
+      halo.addColorStop(0, 'rgba(0,0,0,1)');
+      halo.addColorStop(0.12, 'rgba(192,132,252,0.95)');
+      halo.addColorStop(0.35, 'rgba(126,34,206,0.3)');
+      halo.addColorStop(1, 'rgba(88,28,135,0)');
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(0, 0, well.radius * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(233,213,255,0.8)';
+      ctx.lineWidth = 5;
+      ctx.setLineDash([18, 12]);
+      ctx.rotate(-this.now() / 500);
+      ctx.beginPath();
+      ctx.arc(0, 0, well.radius * 0.34, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    for (const ark of this.dominionArks) {
+      const target = this.bases.get(ark.targetBaseId);
+      const origin = this.bases.get(ark.originCapitalId);
+      ctx.save();
+      if (target && origin) {
+        ctx.beginPath();
+        ctx.moveTo(origin.x, origin.y);
+        ctx.lineTo(target.x, target.y);
+        ctx.strokeStyle = `${ark.color}55`;
+        ctx.lineWidth = 4;
+        ctx.setLineDash([24, 18]);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(target.x, target.y, (target.isCapital ? 72 : 52) + Math.sin(this.now() / 120) * 8, 0, Math.PI * 2);
+        ctx.strokeStyle = '#f472b6';
+        ctx.lineWidth = 5;
+        ctx.stroke();
+      }
+      if (ark.trail.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(ark.trail[0].x, ark.trail[0].y);
+        for (const point of ark.trail) ctx.lineTo(point.x, point.y);
+        ctx.strokeStyle = ark.color;
+        ctx.lineWidth = 12;
+        ctx.shadowBlur = 24;
+        ctx.shadowColor = ark.color;
+        ctx.stroke();
+      }
+      ctx.translate(ark.x, ark.y);
+      ctx.rotate(this.now() / 600);
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowBlur = 35;
+      ctx.shadowColor = ark.color;
+      ctx.beginPath();
+      ctx.moveTo(28, 0);
+      ctx.lineTo(0, 18);
+      ctx.lineTo(-28, 0);
+      ctx.lineTo(0, -18);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = ark.color;
+      ctx.lineWidth = 7;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    if (targetingMode === 'singularity') {
+      ctx.save();
+      ctx.fillStyle = 'rgba(168,85,247,0.07)';
+      ctx.strokeStyle = 'rgba(216,180,254,0.55)';
+      ctx.lineWidth = 4;
+      ctx.setLineDash([20, 14]);
+      for (const base of this.bases.values()) {
+        if (base.color !== '#3b82f6') continue;
+        ctx.beginPath();
+        ctx.arc(base.x, base.y, this.MAX_ATTACK_RANGE, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
     // Draw shockwaves
     for (const sw of this.shockwaves) {
       ctx.save();
@@ -596,7 +885,7 @@ export class GameEngine {
       const segments = 40;
       for (let j = 0; j <= segments; j++) {
         const angle = (j / segments) * Math.PI * 2;
-        const jitter = (Math.random() - 0.5) * (sw.radius * 0.15); // Random jaggedness
+        const jitter = (this.random() - 0.5) * (sw.radius * 0.15); // Random jaggedness
         const r = Math.max(0, sw.radius + jitter);
         const px = sw.x + Math.cos(angle) * r;
         const py = sw.y + Math.sin(angle) * r;
@@ -611,7 +900,7 @@ export class GameEngine {
       ctx.lineWidth = sw.thickness * 0.5;
       for (let j = 0; j <= segments; j++) {
         const angle = (j / segments) * Math.PI * 2;
-        const jitter = (Math.random() - 0.5) * (sw.radius * 0.1);
+        const jitter = (this.random() - 0.5) * (sw.radius * 0.1);
         const r = Math.max(0, sw.radius * 0.7 + jitter);
         const px = sw.x + Math.cos(angle) * r;
         const py = sw.y + Math.sin(angle) * r;
@@ -710,7 +999,7 @@ export class GameEngine {
     for (const base of this.bases.values()) {
       let drawX = base.x;
       let drawY = base.y;
-      const timeSinceAttack = Date.now() - (base.lastAttackedTime || 0);
+      const timeSinceAttack = this.now() - (base.lastAttackedTime || 0);
       let isFlashing = false;
 
       // Attack animation (Clean Shield Flare)
@@ -741,20 +1030,20 @@ export class GameEngine {
       // Draw valid target highlight
       let isOutOfRange = false;
       
-      if (isOmniTargeting) {
-        // In Omni-Strike mode, a target is "In Range" if it's near ANY player planet
+      if (targetingMode === 'omni' || targetingMode === 'dominion') {
+        // Omni targets accessible worlds; Dominion can target any hostile world.
         const playerBases = Array.from(this.bases.values()).filter(b => b.color === '#3b82f6');
         const inRangeOfAny = playerBases.some(pb => Math.hypot(base.x - pb.x, base.y - pb.y) <= this.MAX_ATTACK_RANGE);
         
-        if (base.color !== '#3b82f6') { // Only highlight enemies/neutrals
-          if (inRangeOfAny) {
+        if (base.color !== '#3b82f6' && (targetingMode !== 'dominion' || base.color !== '#6b7280')) {
+          if (targetingMode === 'dominion' || inRangeOfAny) {
             ctx.save();
             ctx.translate(drawX, drawY);
             ctx.beginPath();
             const planetRadius = base.isCapital ? 40 : 20;
             const fleetRadius = planetRadius + 25 + Math.sqrt(base.pixelCount) * 5;
             ctx.arc(0, 0, fleetRadius, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(239, 68, 68, 0.8)'; // Red for Omni-Strike target
+            ctx.strokeStyle = targetingMode === 'dominion' ? 'rgba(244,114,182,0.9)' : 'rgba(239, 68, 68, 0.8)';
             ctx.lineWidth = 3;
             ctx.setLineDash([10, 5]);
             ctx.stroke();
@@ -813,7 +1102,7 @@ export class GameEngine {
         ctx.restore();
         
         // Pulsing center highlight
-        const pulse = (Math.sin(Date.now() / 150) + 1) / 2;
+        const pulse = (Math.sin(this.now() / 150) + 1) / 2;
         ctx.beginPath();
         ctx.arc(drawX, drawY, 20 + pulse * 5, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(255, 255, 255, ${0.15 + pulse * 0.15})`;
