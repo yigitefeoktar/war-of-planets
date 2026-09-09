@@ -1,6 +1,6 @@
-import { Base, Pixel } from './types';
+import { Base, Pixel, type SuperweaponId } from './types';
 import { canIssueFleetOrder } from './logistics';
-import { aegisTargets, ENERGY_PER_PLANET_PER_SECOND, isPointAccessible, SUPERWEAPON_COSTS, SUPERWEAPON_MAX_ENERGY, type SuperweaponTargetMode } from './superweapons';
+import { aegisTargets, assignQuickMatchSuperweaponPlanets, ENERGY_PER_PLANET_PER_SECOND, isPointAccessible, SUPERWEAPON_COSTS, SUPERWEAPON_MAX_ENERGY, type SuperweaponTargetMode } from './superweapons';
 
 interface Star {
   x: number;
@@ -49,9 +49,42 @@ interface DominionArk {
   trail: { x: number; y: number }[];
 }
 
+function drawSuperweaponIcon(ctx: CanvasRenderingContext2D, weapon: SuperweaponId, x: number, y: number) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = 'rgba(2, 6, 23, 0.92)';
+  ctx.strokeStyle = '#e0f2fe';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(0, 0, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.strokeStyle = weapon === 'aegis' ? '#67e8f9' : weapon === 'singularity' ? '#c084fc' : weapon === 'omni' ? '#fbbf24' : '#f9a8d4';
+  ctx.fillStyle = ctx.strokeStyle;
+  ctx.lineWidth = 1.7;
+
+  if (weapon === 'aegis') {
+    ctx.beginPath();
+    ctx.moveTo(0, -5); ctx.lineTo(4.5, -2.5); ctx.lineTo(3, 3); ctx.lineTo(0, 5.5); ctx.lineTo(-3, 3); ctx.lineTo(-4.5, -2.5); ctx.closePath();
+    ctx.stroke();
+  } else if (weapon === 'singularity') {
+    ctx.beginPath(); ctx.arc(0, 0, 4.5, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, 1.5, 0, Math.PI * 2); ctx.fill();
+  } else if (weapon === 'omni') {
+    for (let angle = -Math.PI / 2; angle < Math.PI * 1.5; angle += Math.PI * 2 / 3) {
+      ctx.beginPath(); ctx.moveTo(Math.cos(angle) * 2, Math.sin(angle) * 2); ctx.lineTo(Math.cos(angle) * 5.5, Math.sin(angle) * 5.5); ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(0, 0, 1.5, 0, Math.PI * 2); ctx.fill();
+  } else {
+    ctx.beginPath(); ctx.moveTo(0, -5.5); ctx.lineTo(3.5, 2); ctx.lineTo(1.5, 1.5); ctx.lineTo(0, 5); ctx.lineTo(-1.5, 1.5); ctx.lineTo(-3.5, 2); ctx.closePath(); ctx.stroke();
+  }
+  ctx.restore();
+}
+
 type GameEngineOptions = {
   rng?: () => number;
   now?: () => number;
+  superweaponUnlocksEnabled?: boolean;
 };
 
 export class GameEngine {
@@ -63,6 +96,8 @@ export class GameEngine {
   singularities: Singularity[] = [];
   dominionArks: DominionArk[] = [];
   factionEnergy: Map<string, number> = new Map();
+  factionSuperweaponUnlocks: Map<string, Set<SuperweaponId>> = new Map();
+  readonly superweaponUnlocksEnabled: boolean;
   width: number;
   height: number;
   lastSpawnTime: number = Date.now();
@@ -93,6 +128,7 @@ export class GameEngine {
     this.height = height;
     this.rng = options.rng ?? Math.random;
     this.nowProvider = options.now ?? Date.now;
+    this.superweaponUnlocksEnabled = options.superweaponUnlocksEnabled ?? true;
     this.lastSpawnTime = this.now();
     this.lastAITime = this.now();
     this.init();
@@ -161,6 +197,8 @@ export class GameEngine {
         color: `rgba(255, 255, 255, ${alpha})`
       });
     }
+
+    if (this.superweaponUnlocksEnabled) assignQuickMatchSuperweaponPlanets(this.bases.values());
   }
 
   addBase(id: string, x: number, y: number, color: string, initialPixels: number, isCapital: boolean = false) {
@@ -212,6 +250,24 @@ export class GameEngine {
     return this.factionEnergy.get(color) ?? 0;
   }
 
+  getUnlockedSuperweapons(color: string) {
+    return new Set(this.factionSuperweaponUnlocks.get(color) ?? []);
+  }
+
+  isSuperweaponUnlocked(color: string, weapon: SuperweaponId) {
+    return this.superweaponUnlocksEnabled && (this.factionSuperweaponUnlocks.get(color)?.has(weapon) ?? false);
+  }
+
+  recordPlanetCapture(baseId: string, color: string) {
+    if (!this.superweaponUnlocksEnabled) return [];
+    const unlocks = this.bases.get(baseId)?.superweaponUnlocks ?? [];
+    const factionUnlocks = this.factionSuperweaponUnlocks.get(color) ?? new Set<SuperweaponId>();
+    const newlyUnlocked = unlocks.filter(weapon => !factionUnlocks.has(weapon));
+    for (const weapon of unlocks) factionUnlocks.add(weapon);
+    if (unlocks.length > 0) this.factionSuperweaponUnlocks.set(color, factionUnlocks);
+    return newlyUnlocked;
+  }
+
   setEnergy(color: string, amount: number) {
     this.factionEnergy.set(color, Math.max(0, Math.min(SUPERWEAPON_MAX_ENERGY, amount)));
   }
@@ -230,7 +286,7 @@ export class GameEngine {
   }
 
   activateOmniStrike(playerColor: string, toId: string) {
-    if (!this.canOmniStrike(playerColor, toId) || this.getEnergy(playerColor) < SUPERWEAPON_COSTS.omni) return false;
+    if (!this.isSuperweaponUnlocked(playerColor, 'omni') || !this.canOmniStrike(playerColor, toId) || this.getEnergy(playerColor) < SUPERWEAPON_COSTS.omni) return false;
     if (!this.omniStrike(playerColor, toId)) return false;
     this.spendEnergy(playerColor, SUPERWEAPON_COSTS.omni);
     return true;
@@ -273,6 +329,7 @@ export class GameEngine {
   }
 
   activateAegisNova(playerColor: string) {
+    if (!this.isSuperweaponUnlocked(playerColor, 'aegis')) return 0;
     const targets = aegisTargets(this.pixels, this.bases.values(), playerColor, this.MAX_ATTACK_RANGE);
     if (targets.length === 0 || !this.spendEnergy(playerColor, SUPERWEAPON_COSTS.aegis)) return 0;
 
@@ -291,6 +348,7 @@ export class GameEngine {
   }
 
   activateSingularityMine(playerColor: string, x: number, y: number) {
+    if (!this.isSuperweaponUnlocked(playerColor, 'singularity')) return false;
     if (!isPointAccessible(this.bases.values(), playerColor, x, y, this.MAX_ATTACK_RANGE)) return false;
     if (!this.spendEnergy(playerColor, SUPERWEAPON_COSTS.singularity)) return false;
     this.singularities.push({ x, y, radius: 360, life: 10, maxLife: 10, color: playerColor });
@@ -302,6 +360,7 @@ export class GameEngine {
   }
 
   activateDominionArk(playerColor: string, toId: string) {
+    if (!this.isSuperweaponUnlocked(playerColor, 'dominion')) return false;
     const target = this.bases.get(toId);
     const capital = Array.from(this.bases.values()).find(base => base.color === playerColor && base.isCapital);
     if (!target || target.color === playerColor || target.color === '#6b7280' || !capital || this.dominionArks.some(ark => ark.color === playerColor)) return false;
@@ -346,6 +405,7 @@ export class GameEngine {
       if (pixel.baseId === target.id && pixel.state === 'idle') pixel.dead = true;
     }
     target.color = ark.color;
+    this.recordPlanetCapture(target.id, ark.color);
     target.lastAttackedTime = this.now();
     for (let i = 0; i < 5; i++) this.pixels.push(this.createIdlePixel(target.id, target.x, target.y, ark.color));
     this.createExplosion(target.x, target.y, ark.color, target.isCapital ? 200 : 80, target.isCapital);
@@ -421,7 +481,7 @@ export class GameEngine {
       if (base.color === '#6b7280') continue;
       ownedPlanetCounts.set(base.color, (ownedPlanetCounts.get(base.color) ?? 0) + 1);
     }
-    for (const [color, count] of ownedPlanetCounts) {
+    if (this.superweaponUnlocksEnabled) for (const [color, count] of ownedPlanetCounts) {
       this.setEnergy(color, this.getEnergy(color) + count * ENERGY_PER_PLANET_PER_SECOND * dt);
     }
 
@@ -523,7 +583,7 @@ export class GameEngine {
             const isInRange = myBases.some(mb => Math.hypot(target.x - mb.x, target.y - mb.y) <= this.MAX_ATTACK_RANGE);
             const cooldown = this.aiOmniCooldowns.get(color) || 0;
             
-            if (isInRange && cooldown <= 0 && myBases.length >= 5) {
+            if (isInRange && cooldown <= 0 && this.isSuperweaponUnlocked(color, 'omni')) {
               if (this.random() > 0.05) { // 95% chance for revenge
                 if (this.activateOmniStrike(color, target.id)) {
                   this.aiOmniCooldowns.set(color, 15);
@@ -537,7 +597,7 @@ export class GameEngine {
 
         // AI Omni-Strike Logic (Standard Expansion)
         const cooldown = this.aiOmniCooldowns.get(color) || 0;
-        if (cooldown <= 0 && myBases.length >= 5) {
+        if (cooldown <= 0 && this.isSuperweaponUnlocked(color, 'omni')) {
           // Find all targets in range of front line
           const targets = Array.from(this.bases.values()).filter(b => {
             if (b.color === color) return false;
@@ -680,6 +740,7 @@ export class GameEngine {
                 this.lastOmniCaptureTime = this.now();
               }
               targetBase.color = p.color;
+              this.recordPlanetCapture(targetBase.id, p.color);
               p.baseId = targetBase.id;
               p.state = 'idle';
               p.targetX = p.x;
@@ -1149,6 +1210,13 @@ export class GameEngine {
       ctx.stroke();
       
       ctx.restore();
+
+      if (base.superweaponUnlocks?.length) {
+        const gap = 18;
+        const startX = -((base.superweaponUnlocks.length - 1) * gap) / 2;
+        const iconY = -(planetRadius + 15);
+        base.superweaponUnlocks.forEach((weapon, index) => drawSuperweaponIcon(ctx, weapon, drawX + startX + index * gap, drawY + iconY));
+      }
     }
 
     ctx.restore(); // Restore from screen shake

@@ -8,7 +8,7 @@ export class OrbitingGameEngine extends GameEngine {
   private readonly orbitIds: Set<string>;
 
   constructor(width: number, height: number, private readonly orbit: OrbitDefinition) {
-    super(width, height);
+    super(width, height, { superweaponUnlocksEnabled: false });
     this.orbitIds = new Set(orbit.planetIds);
   }
 

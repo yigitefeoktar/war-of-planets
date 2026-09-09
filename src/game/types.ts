@@ -1,3 +1,5 @@
+export type SuperweaponId = 'aegis' | 'singularity' | 'omni' | 'dominion';
+
 export interface Base {
   id: string;
   x: number;
@@ -6,6 +8,7 @@ export interface Base {
   pixelCount: number;
   lastAttackedTime?: number;
   isCapital?: boolean;
+  superweaponUnlocks?: SuperweaponId[];
 }
 
 export interface Pixel {

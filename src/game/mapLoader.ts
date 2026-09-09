@@ -8,7 +8,7 @@ export function createMatch(map?: MapDefinition): GameEngine {
   if (map) validateMap(map);
   const engine = map?.orbit
     ? new OrbitingGameEngine(map.width, map.height, map.orbit)
-    : new GameEngine(map?.width ?? 3000, map?.height ?? 3000);
+    : new GameEngine(map?.width ?? 3000, map?.height ?? 3000, { superweaponUnlocksEnabled: !map });
   if (map) {
     engine.bases.clear();
     engine.pixels = [];

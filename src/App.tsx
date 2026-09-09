@@ -9,7 +9,7 @@ import { advanceTutorial, drawTutorialHighlights, tutorialTargets, type Tutorial
 import './ui/Tutorial.css';
 import { issueFleetOrder } from './game/logistics';
 import { GameEngine } from './game/engine';
-import { SUPERWEAPON_COSTS, SUPERWEAPON_MAX_ENERGY, type SuperweaponTargetMode } from './game/superweapons';
+import { SUPERWEAPON_COSTS, SUPERWEAPON_IDS, SUPERWEAPON_MAX_ENERGY, type SuperweaponId, type SuperweaponTargetMode } from './game/superweapons';
 
 function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled, isHardMode, setIsHardMode }: { selectedMode: ModeId, onSelectMode: (mode: ModeId) => void, progress: Progress, saveWarning: boolean, onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void, isHardMode: boolean, setIsHardMode: (val: boolean) => void }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -261,6 +261,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   const [fleetSize, setFleetSize] = useState<number>(1.0);
   const fleetSizeRef = useRef<number>(1.0);
   const [energy, setEnergy] = useState(0);
+  const [unlockedWeapons, setUnlockedWeapons] = useState<Set<SuperweaponId>>(() => new Set());
   const [targetingMode, setTargetingMode] = useState<SuperweaponTargetMode>(null);
   const [playerPlanetCount, setPlayerPlanetCount] = useState(0);
   const [wasWeaponReady, setWasWeaponReady] = useState(false);
@@ -338,14 +339,14 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   };
 
   useEffect(() => {
-    const isReady = energy >= SUPERWEAPON_COSTS.aegis;
+    const isReady = SUPERWEAPON_IDS.some(weapon => unlockedWeapons.has(weapon) && energy >= SUPERWEAPON_COSTS[weapon]);
     if (isReady && !wasWeaponReady && showUI) {
       playSound('select', isSoundEnabled);
       setWasWeaponReady(true);
     } else if (!isReady && wasWeaponReady) {
       setWasWeaponReady(false);
     }
-  }, [energy, wasWeaponReady, isSoundEnabled, showUI]);
+  }, [energy, unlockedWeapons, wasWeaponReady, isSoundEnabled, showUI]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -382,6 +383,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     const updatePlayerStats = () => {
       const pCount = Array.from(engine.bases.values()).filter(b => b.color === '#3b82f6').length;
       setPlayerPlanetCount(pCount);
+      setUnlockedWeapons(engine.getUnlockedSuperweapons('#3b82f6'));
     };
 
     engine.onLaunch = (fromId, toId) => {
@@ -1500,13 +1502,14 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
               { id: 'omni', label: 'Omni Strike', cost: SUPERWEAPON_COSTS.omni, title: 'Warp 30% of every idle fleet to an accessible enemy world.' },
               { id: 'dominion', label: 'Dominion Ark', cost: SUPERWEAPON_COSTS.dominion, title: 'Launch a slow guaranteed capture vessel from your capital.' },
             ] as const).map(weapon => {
-              const affordable = energy >= weapon.cost;
+              const unlocked = !map && unlockedWeapons.has(weapon.id);
+              const affordable = unlocked && energy >= weapon.cost;
               return (
                 <button
                   key={weapon.id}
                   type="button"
                   disabled={!affordable}
-                  title={weapon.title}
+                  title={unlocked ? weapon.title : map ? 'Superweapons are currently exclusive to Quick Match.' : `Capture a planet marked with the ${weapon.label} icon to unlock it.`}
                   onMouseEnter={() => affordable && playSound('hover', isSoundEnabled)}
                   onClick={() => {
                     if (weapon.id === 'aegis') {
@@ -1520,15 +1523,15 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
                       chooseSuperweapon(weapon.id);
                     }
                   }}
-                  className={`min-h-12 border px-2 py-2 text-left font-mono uppercase transition-all rounded-sm ${affordable ? 'border-cyan-400/50 bg-cyan-900/45 text-cyan-100 hover:bg-cyan-700/55 hover:shadow-[0_0_14px_rgba(34,211,238,0.35)]' : 'cursor-not-allowed border-slate-800 bg-black/35 text-slate-600'}`}
+                  className={`min-h-12 border px-2 py-2 text-left font-mono uppercase transition-all rounded-sm ${affordable ? 'border-cyan-400/50 bg-cyan-900/45 text-cyan-100 hover:bg-cyan-700/55 hover:shadow-[0_0_14px_rgba(34,211,238,0.35)]' : unlocked ? 'cursor-not-allowed border-cyan-950 bg-black/35 text-cyan-800' : 'cursor-not-allowed border-slate-800 bg-black/35 text-slate-600'}`}
                 >
                   <span className="block text-[9px] font-black leading-tight tracking-wide">{weapon.label}</span>
-                  <span className="mt-1 block text-[9px] text-cyan-400/75">{weapon.cost} EN</span>
+                  <span className="mt-1 block text-[9px] text-cyan-400/75">{unlocked ? `${weapon.cost} EN` : 'Locked'}</span>
                 </button>
               );
             })}
           </div>
-          <div className="mt-1.5 text-center font-mono text-[9px] uppercase tracking-wider text-cyan-500/60">+{(playerPlanetCount * 0.2).toFixed(1)} energy/sec</div>
+          <div className="mt-1.5 text-center font-mono text-[9px] uppercase tracking-wider text-cyan-500/60">{map ? 'Quick Match only' : `+${(playerPlanetCount * 0.2).toFixed(1)} energy/sec · Capture marked planets`}</div>
         </div>
       </div>
 

@@ -25,7 +25,7 @@ function CardContent({ mode, compact = false }: { mode: Mode; compact?: boolean 
         <ol className="mode-instructions">
           <li>Click your <strong>BLUE</strong> planet, then a target to attack.</li>
           <li>Protect your Capital at all costs.</li>
-          <li>Capture 5 planets to unlock Omni-Strike.</li>
+          <li>Capture marked planets to unlock superweapons.</li>
         </ol>
       ) : <p>{mode.description}</p>}
     </div>
