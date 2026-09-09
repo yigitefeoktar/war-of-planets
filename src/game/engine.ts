@@ -1,4 +1,5 @@
 import { Base, Pixel } from './types';
+import { canIssueFleetOrder } from './logistics';
 
 interface Star {
   x: number;
@@ -765,8 +766,7 @@ export class GameEngine {
       } else if (selectedBaseId && selectedBaseId !== base.id) {
         const selectedBase = this.bases.get(selectedBaseId);
         if (selectedBase) {
-          const dist = Math.hypot(base.x - selectedBase.x, base.y - selectedBase.y);
-          if (dist <= this.MAX_ATTACK_RANGE) {
+          if (canIssueFleetOrder(this.bases.values(), selectedBase.id, base.id, this.MAX_ATTACK_RANGE)) {
             ctx.save();
             ctx.translate(drawX, drawY);
             ctx.beginPath();
