@@ -16,7 +16,7 @@ export function createMatch(map?: MapDefinition): GameEngine {
     engine.MAX_ATTACK_RANGE = map.attackRange;
     for (const planet of map.planets) engine.addBase(planet.id, planet.x, planet.y, planet.owner, planet.ships, planet.capital);
     if (map.orbit?.dysonSphere) {
-      engine.addBase(DYSON_SPHERE_ID, map.orbit.x, map.orbit.y, '#6b7280', map.orbit.dysonSphere.guards);
+      engine.addBase(DYSON_SPHERE_ID, map.orbit.x, map.orbit.y, '#6b7280', 0);
       engine.bases.get(DYSON_SPHERE_ID)!.isDysonSphere = true;
     }
   }

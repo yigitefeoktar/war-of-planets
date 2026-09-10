@@ -60,7 +60,13 @@ export class OrbitingGameEngine extends GameEngine {
     if (this.orbit.dysonSphere) return;
     ctx.save();
     ctx.translate(this.orbit.x, this.orbit.y);
+    this.drawStar(ctx);
+    ctx.restore();
+  }
 
+  private drawStar(ctx: CanvasRenderingContext2D) {
+    ctx.save();
+    ctx.shadowBlur = 0;
     const halo = ctx.createRadialGradient(0, 0, 32, 0, 0, 115);
     halo.addColorStop(0, 'rgba(255,255,255,0.55)');
     halo.addColorStop(0.4, 'rgba(210,231,255,0.16)');
@@ -85,24 +91,11 @@ export class OrbitingGameEngine extends GameEngine {
 
   protected override drawSpecialBase(ctx: CanvasRenderingContext2D, base: Base) {
     if (!base.isDysonSphere) return false;
-    const accent = base.color === '#6b7280' ? '#fbbf24' : base.color;
+    const accent = base.color === '#6b7280' ? '#ffffff' : base.color;
     const rotation = Date.now() / 18000;
 
     ctx.save();
-    const halo = ctx.createRadialGradient(0, 0, 20, 0, 0, 105);
-    halo.addColorStop(0, 'rgba(255,247,189,0.75)');
-    halo.addColorStop(0.42, 'rgba(251,191,36,0.20)');
-    halo.addColorStop(1, 'rgba(251,191,36,0)');
-    ctx.fillStyle = halo;
-    ctx.beginPath(); ctx.arc(0, 0, 105, 0, Math.PI * 2); ctx.fill();
-
-    const star = ctx.createRadialGradient(-8, -8, 3, 0, 0, 29);
-    star.addColorStop(0, '#ffffff');
-    star.addColorStop(0.5, '#fff7bd');
-    star.addColorStop(1, '#f59e0b');
-    ctx.fillStyle = star;
-    ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 24;
-    ctx.beginPath(); ctx.arc(0, 0, 29, 0, Math.PI * 2); ctx.fill();
+    this.drawStar(ctx);
     ctx.shadowBlur = 0;
 
     ctx.save();
@@ -124,7 +117,7 @@ export class OrbitingGameEngine extends GameEngine {
       ctx.beginPath(); ctx.ellipse(0, 0, 64, 23, tilt + rotation * 0.18, 0, Math.PI * 2); ctx.stroke();
     }
     ctx.textAlign = 'center';
-    ctx.font = 'bold 13px monospace'; ctx.fillStyle = '#fff7d6';
+    ctx.font = 'bold 13px monospace'; ctx.fillStyle = accent;
     ctx.fillText('DYSON SPHERE', 0, -82);
     ctx.font = '10px monospace'; ctx.fillStyle = accent;
     ctx.fillText(base.color === '#6b7280' ? 'CAPTURE FOR ENERGY' : `+${this.orbit.dysonSphere!.energyPerSecond} ENERGY / SEC`, 0, 84);

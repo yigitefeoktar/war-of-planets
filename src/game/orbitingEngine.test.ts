@@ -141,9 +141,9 @@ test('invalid orbit definitions are rejected', () => {
     { ...orbit, x: 800, y: 860 },
   ]) assert.throws(() => validateMap({ ...ORBIT_FIXTURE, orbit: invalid }));
   for (const dysonSphere of [
-    { guards: -1, energyPerSecond: 0.4 },
-    { guards: 10.5, energyPerSecond: 0.4 },
-    { guards: 10, energyPerSecond: 0 },
-    { guards: 10, energyPerSecond: NaN },
+    { energyPerSecond: -1 },
+    { energyPerSecond: Infinity },
+    { energyPerSecond: 0 },
+    { energyPerSecond: NaN },
   ]) assert.throws(() => validateMap({ ...ORBIT_FIXTURE, orbit: { ...orbit, dysonSphere } }));
 });

@@ -16,7 +16,8 @@ test('Turning Tide loads its authored planets, central Dyson sphere, orbit membe
   const engine = createMatch(TURNING_TIDE);
   assert.equal(engine.bases.size, 25);
   const sphere = engine.bases.get(DYSON_SPHERE_ID)!;
-  assert.deepEqual([sphere.x, sphere.y, sphere.color, sphere.pixelCount, sphere.isDysonSphere], [1300, 1300, NEUTRAL, 75, true]);
+  assert.deepEqual([sphere.x, sphere.y, sphere.color, sphere.pixelCount, sphere.isDysonSphere], [1300, 1300, NEUTRAL, 0, true]);
+  assert.equal(engine.pixels.some(ship => ship.baseId === DYSON_SPHERE_ID), false);
   assert.equal(TURNING_TIDE.orbit!.planetIds.length, 12);
   assert.equal([...engine.bases.values()].filter(p => p.isCapital).length, 3);
   assert.equal(getOutcome(engine.bases.values()), null);
@@ -24,6 +25,27 @@ test('Turning Tide loads its authored planets, central Dyson sphere, orbit membe
     const b = engine.bases.get(p.id)!;
     assert.deepEqual([b.x, b.y, b.color, b.pixelCount], [p.x, p.y, p.owner, p.ships]);
   }
+});
+
+test('a neutral Dyson sphere stays unguarded and the first arriving ship captures it', () => {
+  const engine = createMatch(TURNING_TIDE);
+  engine.lastAITime = Number.MAX_SAFE_INTEGER;
+  engine.lastSpawnTime = 0;
+  engine.update(1 / 60);
+  const sphere = engine.bases.get(DYSON_SPHERE_ID)!;
+  assert.equal(engine.pixels.some(ship => ship.baseId === sphere.id), false);
+
+  const ship = engine.pixels.find(ship => ship.color === PLAYER)!;
+  ship.state = 'moving';
+  ship.targetBaseId = sphere.id;
+  ship.x = sphere.x;
+  ship.y = sphere.y;
+  engine.update(1 / 60);
+  assert.equal(sphere.color, PLAYER);
+  assert.equal(ship.dead, undefined);
+  assert.equal(ship.state, 'idle');
+  assert.equal(ship.baseId, sphere.id);
+  assert.equal(engine.getEnergyRate(PLAYER), 1.4);
 });
 
 test('opening gives three affordable expansion choices without an immediate enemy attack', () => {
