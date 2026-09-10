@@ -1456,7 +1456,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       )}
 
       {/* Tactical Console (Bottom Right) */}
-      <div className={`absolute bottom-3 right-3 sm:bottom-6 sm:right-6 z-20 w-52 sm:w-60 flex flex-col items-stretch gap-3 transition-all duration-1000 ease-out ${showUI && !targetingMode ? 'translate-y-0 opacity-100' : 'translate-y-[150%] opacity-0'}`}>
+      <div className={`absolute bottom-3 right-3 sm:bottom-6 sm:right-6 z-20 w-40 sm:w-44 [@media(max-height:500px)]:w-72 flex flex-col items-stretch gap-3 transition-all duration-1000 ease-out ${showUI && !targetingMode ? 'translate-y-0 opacity-100' : 'translate-y-[150%] opacity-0'}`}>
         
         {/* Fleet Deployment Section */}
         <div className="flex flex-col gap-1">
@@ -1488,15 +1488,17 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
           </div>
         </div>
 
-        <div className="bg-cyan-950/55 backdrop-blur-md border border-cyan-500/30 p-2 rounded-sm shadow-[0_0_24px_rgba(6,182,212,0.18)]">
-          <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-widest text-cyan-300">
-            <span>Superweapon Energy</span>
-            <span className="font-black text-white">{Math.floor(energy)} / {SUPERWEAPON_MAX_ENERGY}</span>
+        <div className="flex flex-col gap-2">
+          <div className="font-mono text-[10px] uppercase text-cyan-400">
+            <div className="flex items-center justify-between tracking-widest">
+              <span>Energy</span>
+              <span className="font-bold text-cyan-100">{Math.floor(energy)} / {SUPERWEAPON_MAX_ENERGY}</span>
+            </div>
+            <div role="progressbar" aria-label="Superweapon energy" aria-valuemin={0} aria-valuemax={SUPERWEAPON_MAX_ENERGY} aria-valuenow={Math.floor(energy)} className="mt-1 h-1 overflow-hidden bg-cyan-950/70">
+              <motion.div initial={false} className="h-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]" animate={{ width: `${energy / SUPERWEAPON_MAX_ENERGY * 100}%` }} />
+            </div>
           </div>
-          <div className="mt-1.5 h-2 overflow-hidden border border-cyan-400/40 bg-black/70">
-            <motion.div className="h-full bg-gradient-to-r from-cyan-700 via-cyan-300 to-white shadow-[0_0_12px_#22d3ee]" animate={{ width: `${energy}%` }} />
-          </div>
-          <div className="mt-2 grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-1 gap-2 [@media(max-height:500px)]:grid-cols-2">
             {([
               { id: 'aegis', label: 'Aegis Nova', cost: SUPERWEAPON_COSTS.aegis, title: 'Destroy moving enemy ships within 600 of your planets.' },
               { id: 'singularity', label: 'Singularity', cost: SUPERWEAPON_COSTS.singularity, title: 'Place a ten-second gravity well in accessible space.' },
@@ -1505,34 +1507,61 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
             ] as const).map(weapon => {
               const unlocked = !map && unlockedWeapons.has(weapon.id);
               const affordable = unlocked && energy >= weapon.cost;
+              const status = !unlocked ? `Locked · ${weapon.cost} EN` : affordable ? `Ready · ${weapon.cost} EN` : `Charging · ${Math.floor(energy)} / ${weapon.cost} EN`;
               return (
-                <button
-                  key={weapon.id}
-                  type="button"
-                  disabled={!affordable}
-                  title={unlocked ? weapon.title : map ? 'Superweapons are currently exclusive to Quick Match.' : `Capture a planet marked with the ${weapon.label} icon to unlock it.`}
-                  onMouseEnter={() => affordable && playSound('hover', isSoundEnabled)}
-                  onClick={() => {
-                    if (weapon.id === 'aegis') {
-                      const engine = engineRef.current;
-                      if (!engine || engine.activateAegisNova('#3b82f6') === 0) {
-                        playSound('error', isSoundEnabled);
-                        return;
+                <div key={weapon.id} className="flex flex-col gap-1">
+                  <motion.button
+                    initial={false}
+                    type="button"
+                    disabled={!affordable}
+                    aria-label={`${weapon.label}: ${status}`}
+                    title={unlocked ? weapon.title : map ? 'Superweapons are currently exclusive to Quick Match.' : `Capture a planet marked with the ${weapon.label} icon to unlock it.`}
+                    onMouseEnter={() => affordable && playSound('hover', isSoundEnabled)}
+                    onClick={() => {
+                      if (weapon.id === 'aegis') {
+                        const engine = engineRef.current;
+                        if (!engine || engine.activateAegisNova('#3b82f6') === 0) {
+                          playSound('error', isSoundEnabled);
+                          return;
+                        }
+                        setEnergy(engine.getEnergy('#3b82f6'));
+                      } else {
+                        chooseSuperweapon(weapon.id);
                       }
-                      setEnergy(engine.getEnergy('#3b82f6'));
-                    } else {
-                      chooseSuperweapon(weapon.id);
-                    }
-                  }}
-                  className={`min-h-12 border px-2 py-2 text-left font-mono uppercase transition-all rounded-sm ${affordable ? 'border-cyan-400/50 bg-cyan-900/45 text-cyan-100 hover:bg-cyan-700/55 hover:shadow-[0_0_14px_rgba(34,211,238,0.35)]' : unlocked ? 'cursor-not-allowed border-cyan-950 bg-black/35 text-cyan-800' : 'cursor-not-allowed border-slate-800 bg-black/35 text-slate-600'}`}
-                >
-                  <span className="block text-[9px] font-black leading-tight tracking-wide">{weapon.label}</span>
-                  <span className="mt-1 block text-[9px] text-cyan-400/75">{unlocked ? `${weapon.cost} EN` : 'Locked'}</span>
-                </button>
+                    }}
+                    animate={affordable ? {
+                      boxShadow: ['0 0 10px rgba(34,211,238,0.3)', '0 0 24px rgba(34,211,238,0.6)', '0 0 10px rgba(34,211,238,0.3)'],
+                      borderColor: ['rgba(6,182,212,0.4)', 'rgba(34,211,238,1)', 'rgba(6,182,212,0.4)'],
+                      backgroundColor: ['rgba(8,145,178,0.2)', 'rgba(8,145,178,0.45)', 'rgba(8,145,178,0.2)'],
+                    } : {
+                      boxShadow: '0 0 0px rgba(34,211,238,0)',
+                      borderColor: unlocked ? 'rgba(6,182,212,0.3)' : 'rgba(31,41,55,1)',
+                      backgroundColor: 'rgba(17,24,39,0.4)',
+                    }}
+                    transition={{ duration: 1.2, repeat: affordable ? Infinity : 0, ease: 'easeInOut' }}
+                    className={`relative w-full min-h-11 sm:min-h-12 px-2 font-mono text-[11px] font-black tracking-[0.1em] uppercase border backdrop-blur-md overflow-hidden rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 ${affordable ? 'text-cyan-400 hover:text-cyan-100' : unlocked ? 'text-cyan-500 cursor-not-allowed' : 'text-slate-500 cursor-not-allowed'}`}
+                  >
+                    <span aria-hidden="true" className="absolute -top-px -left-px w-1.5 h-1.5 border-t border-l border-cyan-400 opacity-40" />
+                    <span aria-hidden="true" className="absolute -top-px -right-px w-1.5 h-1.5 border-t border-r border-cyan-400 opacity-40" />
+                    <span aria-hidden="true" className="absolute -bottom-px -left-px w-1.5 h-1.5 border-b border-l border-cyan-400 opacity-40" />
+                    <span aria-hidden="true" className="absolute -bottom-px -right-px w-1.5 h-1.5 border-b border-r border-cyan-400 opacity-40" />
+                    {unlocked && !affordable && (
+                      <span aria-hidden="true" className="absolute inset-0 bg-black/40" style={{ clipPath: `inset(0 0 0 ${Math.min(100, energy / weapon.cost * 100)}%)` }} />
+                    )}
+                    {affordable && (
+                      <motion.span aria-hidden="true" animate={{ top: ['-10%', '110%'] }} transition={{ duration: 3, repeat: Infinity, ease: 'linear' }} className="absolute left-0 right-0 h-px bg-cyan-400/20 shadow-[0_0_4px_rgba(34,211,238,0.3)]" />
+                    )}
+                    <span className="relative z-10 flex items-center justify-center gap-2">
+                      <span aria-hidden="true" className={`w-1.5 h-1.5 rounded-full shrink-0 ${affordable ? 'bg-cyan-400 animate-pulse shadow-[0_0_8px_#22d3ee]' : 'bg-cyan-900'}`} />
+                      <span>{weapon.label}</span>
+                    </span>
+                  </motion.button>
+                  <div className="text-center font-mono text-[9px] uppercase tracking-tight text-cyan-500/80">{status}</div>
+                </div>
               );
             })}
           </div>
-          <div className="mt-1.5 text-center font-mono text-[9px] uppercase tracking-wider text-cyan-500/60">{map ? 'Quick Match only' : `+${(playerPlanetCount * 0.2).toFixed(1)} energy/sec · Capture marked planets`}</div>
+          <div className="text-center font-mono text-[9px] uppercase tracking-wide text-cyan-500/70">{map ? 'Quick Match only' : `+${(playerPlanetCount * 0.2).toFixed(1)} energy/sec`}</div>
         </div>
       </div>
 
