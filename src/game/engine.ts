@@ -1,5 +1,6 @@
 import { Base, Pixel, type SuperweaponId } from './types';
 import { canIssueFleetOrder } from './logistics';
+import { TacticalAI } from './ai';
 import { aegisTargets, assignQuickMatchSuperweaponPlanets, ENERGY_PER_PLANET_PER_SECOND, isPointAccessible, SUPERWEAPON_COSTS, SUPERWEAPON_MAX_ENERGY, type SuperweaponTargetMode } from './superweapons';
 
 interface Star {
@@ -113,6 +114,8 @@ export class GameEngine {
   shakeAmount: number = 0;
   shakeDuration: number = 0;
   aiOmniCooldowns: Map<string, number> = new Map();
+  private tacticalAI = new TacticalAI();
+  private aiSeconds = 0;
   lastOmniCaptureBaseId: string | null = null;
   lastOmniCaptureTime: number = 0;
   lastDestroyedCapital: { x: number, y: number, color: string } | null = null;
@@ -237,7 +240,7 @@ export class GameEngine {
   }
 
   sendUnits(fromId: string, toId: string, percentage: number = 0.9) {
-    const idlePixels = this.pixels.filter(p => p.baseId === fromId && p.state === 'idle');
+    const idlePixels = this.pixels.filter(p => !p.dead && p.baseId === fromId && p.state === 'idle');
     const countToSend = Math.floor(idlePixels.length * percentage);
     
     if (countToSend > 0) {
@@ -576,93 +579,26 @@ export class GameEngine {
       for (const base of this.bases.values()) {
         if (base.color !== '#6b7280' && !base.isDysonSphere) { // Spawn without limit
           this.pixels.push(this.createIdlePixel(base.id, base.x, base.y, base.color));
-          
-          if (this.isHardMode && base.color !== '#3b82f6') {
-            // AI spawns twice as fast in hard mode
-            this.pixels.push(this.createIdlePixel(base.id, base.x, base.y, base.color));
-          }
         }
       }
       this.lastSpawnTime = now;
     }
 
-    // AI logic every 2 seconds
+    this.aiSeconds += dt;
     if (now - this.lastAITime > 2000) {
-      const factions = ['#ef4444', '#22c55e', '#eab308'];
-      
-      for (const color of factions) {
-        const myBases = Array.from(this.bases.values()).filter(b => b.color === color);
-        if (myBases.length === 0) continue;
-
-        // AI Counter-Omni Logic (Revenge)
-        // If player recently took a planet with Omni-Strike, AI has a high chance to take it back
-        if (this.lastOmniCaptureBaseId && (now - this.lastOmniCaptureTime < 10000)) {
-          const target = this.bases.get(this.lastOmniCaptureBaseId);
-          if (target && target.color === '#3b82f6') { // Player currently owns it
-            const isInRange = myBases.some(mb => Math.hypot(target.x - mb.x, target.y - mb.y) <= this.MAX_ATTACK_RANGE);
-            const cooldown = this.aiOmniCooldowns.get(color) || 0;
-            
-            if (isInRange && cooldown <= 0 && this.isSuperweaponUnlocked(color, 'omni')) {
-              if (this.random() > 0.05) { // 95% chance for revenge
-                if (this.activateOmniStrike(color, target.id)) {
-                  this.aiOmniCooldowns.set(color, 15);
-                  this.lastOmniCaptureBaseId = null; // One AI reacts at a time
-                  continue; // Skip standard logic for this faction this tick
-                }
-              }
-            }
+      const plans = this.tacticalAI.plan({
+        bases: [...this.bases.values()], pixels: this.pixels,
+        range: this.MAX_ATTACK_RANGE, seconds: this.aiSeconds, hard: this.isHardMode,
+        canOmni: color => this.isSuperweaponUnlocked(color, 'omni') && this.getEnergy(color) >= SUPERWEAPON_COSTS.omni,
+      });
+      for (const [color, plan] of plans) {
+        for (const order of plan.orders) {
+          const idle = this.pixels.filter(p => !p.dead && p.baseId === order.from && p.state === 'idle').length;
+          if (idle > 0 && canIssueFleetOrder(this.bases.values(), order.from, order.to, this.MAX_ATTACK_RANGE)) {
+            this.sendUnits(order.from, order.to, Math.min(1, (order.count + 0.001) / idle));
           }
         }
-
-        // AI Omni-Strike Logic (Standard Expansion)
-        const cooldown = this.aiOmniCooldowns.get(color) || 0;
-        if (cooldown <= 0 && this.isSuperweaponUnlocked(color, 'omni')) {
-          // Find all targets in range of front line
-          const targets = Array.from(this.bases.values()).filter(b => {
-            if (b.color === color) return false;
-            return myBases.some(mb => Math.hypot(b.x - mb.x, b.y - mb.y) <= this.MAX_ATTACK_RANGE);
-          });
-
-          if (targets.length > 0 && this.random() > 0.85) { // Lowered chance (15%) to save for revenge
-            // Target the planet closest to an enemy capital
-            const enemyCapitals = Array.from(this.bases.values()).filter(b => b.isCapital && b.color !== color);
-            if (enemyCapitals.length > 0) {
-              targets.sort((a, b) => {
-                const minDistA = Math.min(...enemyCapitals.map(c => Math.hypot(a.x - c.x, a.y - c.y)));
-                const minDistB = Math.min(...enemyCapitals.map(c => Math.hypot(b.x - c.x, b.y - c.y)));
-                return minDistA - minDistB;
-              });
-            } else {
-              // Fallback to weakest if no capitals found
-              targets.sort((a, b) => a.pixelCount - b.pixelCount);
-            }
-            
-            this.activateOmniStrike(color, targets[0].id);
-            this.aiOmniCooldowns.set(color, 15); // Brief decision lock; Energy is the real cost.
-          }
-        }
-
-        // Standard AI Attack Logic
-        for (const base of myBases) {
-          if (base.pixelCount > 120 && this.random() > 0.3) {
-            const targets = Array.from(this.bases.values()).filter(b => {
-              if (b.id === base.id) return false;
-              const dist = Math.hypot(b.x - base.x, b.y - base.y);
-              return dist <= this.MAX_ATTACK_RANGE;
-            });
-            if (targets.length > 0) {
-              targets.sort((a, b) => {
-                const distA = Math.hypot(a.x - base.x, a.y - base.y);
-                const distB = Math.hypot(b.x - base.x, b.y - base.y);
-                const scoreA = distA + a.pixelCount * 10;
-                const scoreB = distB + b.pixelCount * 10;
-                return scoreA - scoreB;
-              });
-              const target = targets[Math.floor(this.random() * Math.min(3, targets.length))];
-              this.sendUnits(base.id, target.id);
-            }
-          }
-        }
+        if (plan.omniTarget) this.activateOmniStrike(color, plan.omniTarget);
       }
       this.lastAITime = now;
     }
