@@ -5,7 +5,6 @@ import { motion } from 'motion/react';
 import { Maximize, Minimize, Volume2, VolumeX, Music, Skull, Pause, Play, Flag } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
 import { ModeCard } from './ui/ModeCard';
-import { ResultScreen } from './ui/ResultScreen';
 import { advanceTutorial, drawTutorialHighlights, tutorialTargets, type TutorialState, type TutorialEvent } from './game/tutorial';
 import './ui/Tutorial.css';
 import { issueFleetOrder } from './game/logistics';
@@ -1607,17 +1606,79 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         </motion.div>
       )}
 
-      {/* Shared victory / defeat debrief */}
+      {/* Game Over Overlay */}
       {winner && (
-        <ResultScreen
-          won={winner.color === '#3b82f6'}
-          missionTitle={map?.title ?? 'Quick Match'}
-          detail={resultDetail}
-          actionLabel={actionLabel}
-          onHover={() => playSound('hover', isSoundEnabled)}
-          onContinue={() => { playSound('select', isSoundEnabled); onRetry(); }}
-          onMenu={() => { playSound('select', isSoundEnabled); onMenu(); }}
-        />
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.8, delay: 0.6 }}
+          className="classic-result-overlay absolute inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/90 px-5 py-8 font-sans backdrop-blur-xl max-[500px]:py-4"
+        >
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(6,182,212,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(6,182,212,0.05)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none" />
+          <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(255,255,255,0.02)_50%,transparent_50%)] bg-[length:100%_4px]" />
+
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.8, ease: 'easeOut' }}
+            className="classic-result-content relative z-10 my-auto flex w-full max-w-md flex-col items-center text-center"
+          >
+            <div className="classic-result-status mb-5 font-mono text-[11px] tracking-widest text-cyan-500/70 max-[500px]:mb-3 max-[500px]:text-[9px]">
+              SYS.MSG_RECV <br />
+              STATUS: <span className={winner.color === '#3b82f6' ? 'text-green-400' : 'text-red-500'}>
+                {winner.color === '#3b82f6' ? 'SECURE' : 'CRITICAL'}
+              </span>
+            </div>
+
+            <div
+              className="classic-result-icon relative mb-5 h-14 w-14 max-[500px]:mb-3 max-[500px]:h-10 max-[500px]:w-10"
+              style={{ clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)' }}
+            >
+              <div className="absolute inset-0 animate-ping opacity-20" style={{ backgroundColor: winner.color }} />
+              <div className="absolute inset-0" style={{ backgroundColor: winner.color, boxShadow: `0 0 45px ${winner.color}` }} />
+            </div>
+
+            <h2 className={`classic-result-title mb-3 text-5xl font-black tracking-tighter md:text-7xl max-[500px]:mb-2 max-[500px]:text-4xl ${winner.color === '#3b82f6' ? 'bg-gradient-to-b from-white to-cyan-400' : 'bg-gradient-to-b from-white to-red-500'} bg-clip-text text-transparent`}>
+              {winner.color === '#3b82f6' ? 'VICTORY' : 'DEFEAT'}
+            </h2>
+
+            <div className={`classic-result-divider mb-3 h-px w-full max-w-xs bg-gradient-to-r from-transparent ${winner.color === '#3b82f6' ? 'via-cyan-500' : 'via-red-500'} to-transparent opacity-60`} />
+
+            <p className="classic-result-message mb-5 min-h-5 max-w-sm font-mono text-xs uppercase leading-relaxed tracking-wide text-cyan-200/80 max-[500px]:mb-3 max-[500px]:text-[10px]">
+              {winner.color === '#3b82f6' ? resultDetail : '> System Offline. Signal lost.'}
+            </p>
+
+            <motion.button
+              whileHover={{ scale: 1.03, backgroundColor: 'rgba(6, 182, 212, 0.2)' }}
+              whileTap={{ scale: 0.97 }}
+              onMouseEnter={() => playSound('hover', isSoundEnabled)}
+              onClick={() => {
+                playSound('select', isSoundEnabled);
+                onRetry();
+              }}
+              className="classic-result-action group relative flex min-h-14 w-full max-w-sm cursor-pointer items-center justify-center overflow-hidden rounded-sm border border-cyan-400 bg-cyan-950/60 px-7 py-4 font-bold uppercase tracking-[0.22em] text-cyan-200 shadow-[0_0_20px_rgba(6,182,212,0.2)] transition-all hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300 max-[500px]:min-h-11 max-[500px]:py-3 max-[500px]:text-xs"
+            >
+              <span className="relative z-10 flex items-center gap-3">
+                {actionLabel}
+                <svg className="h-5 w-5 transition-transform duration-500 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="square" strokeLinejoin="miter" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </span>
+            </motion.button>
+
+            <button
+              type="button"
+              onMouseEnter={() => playSound('hover', isSoundEnabled)}
+              onClick={() => {
+                playSound('select', isSoundEnabled);
+                onMenu();
+              }}
+              className="classic-result-menu mt-3 min-h-11 rounded-sm px-6 py-3 text-sm text-cyan-200/80 underline decoration-cyan-500/50 underline-offset-4 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-cyan-300 max-[500px]:mt-1 max-[500px]:py-2"
+            >
+              Main menu
+            </button>
+          </motion.div>
+        </motion.div>
       )}
       {showUI && !winner && !isPaused && !showSurrenderConfirm && tutorial.step !== 'done' && tutorial.step !== 'watch' && <>
         {tutorial.step === 'zoom' && <div aria-hidden="true" className="tutorial-zoom-gesture"><span className="tutorial-zoom-circle" /><span className="tutorial-zoom-circle" /></div>}

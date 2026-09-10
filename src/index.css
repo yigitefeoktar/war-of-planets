@@ -10,3 +10,55 @@ html, body {
   user-select: none;
   -webkit-user-select: none;
 }
+
+@media (max-height: 500px) {
+  .classic-result-overlay {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  .classic-result-status,
+  .classic-result-icon {
+    margin-bottom: 8px;
+  }
+
+  .classic-result-status {
+    font-size: 9px;
+  }
+
+  .classic-result-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .classic-result-title {
+    margin-bottom: 6px;
+    font-size: 40px;
+    line-height: 1;
+  }
+
+  .classic-result-divider,
+  .classic-result-message {
+    margin-bottom: 8px;
+  }
+
+  .classic-result-message {
+    min-height: 0;
+    font-size: 9px;
+  }
+
+  .classic-result-action {
+    min-height: 42px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    font-size: 11px;
+  }
+
+  .classic-result-menu {
+    min-height: 36px;
+    margin-top: 2px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    font-size: 12px;
+  }
+}
