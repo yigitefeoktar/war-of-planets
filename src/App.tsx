@@ -262,6 +262,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   const [fleetSize, setFleetSize] = useState<number>(1.0);
   const fleetSizeRef = useRef<number>(1.0);
   const [energy, setEnergy] = useState(0);
+  const [availableWeapons, setAvailableWeapons] = useState<Set<SuperweaponId>>(() => new Set());
   const [unlockedWeapons, setUnlockedWeapons] = useState<Set<SuperweaponId>>(() => new Set());
   const [targetingMode, setTargetingMode] = useState<SuperweaponTargetMode>(null);
   const [wasWeaponReady, setWasWeaponReady] = useState(false);
@@ -376,6 +377,12 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     // Initialize Game Engine
     const engine = createMatch(map);
     engineRef.current = engine;
+    // Availability includes weapons that can be unlocked later in this match.
+    setAvailableWeapons(new Set<SuperweaponId>(engine.superweaponUnlocksEnabled
+      ? map?.orbit?.dysonSphere
+        ? ['omni']
+        : Array.from(engine.bases.values()).flatMap(base => base.superweaponUnlocks ?? [])
+      : []));
     let tutorialTime = 0; // Active play time; pauses do not consume lesson delays.
     engine.isHardMode = isHardMode;
     const activeFactionColors = new Set(Array.from(engine.bases.values()).filter(b => b.isCapital).map(b => b.color));
@@ -1484,7 +1491,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
           </div>
         </div>
 
-        <div className="flex flex-col gap-2">
+        {availableWeapons.size > 0 && <div className="flex flex-col gap-2">
           <div className="font-mono text-[10px] uppercase text-cyan-400">
             <div className="flex items-center justify-between tracking-widest">
               <span>Energy</span>
@@ -1500,7 +1507,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
               { id: 'singularity', label: 'Singularity', cost: SUPERWEAPON_COSTS.singularity, title: 'Place a ten-second gravity well in accessible space.' },
               { id: 'omni', label: 'Omni Strike', cost: SUPERWEAPON_COSTS.omni, title: 'Warp 30% of every idle fleet to an accessible enemy world.' },
               { id: 'dominion', label: 'Dominion Ark', cost: SUPERWEAPON_COSTS.dominion, title: 'Launch a slow guaranteed capture vessel from your capital.' },
-            ] as const).map(weapon => {
+            ] as const).filter(weapon => availableWeapons.has(weapon.id)).map(weapon => {
               const unlocked = unlockedWeapons.has(weapon.id);
               const affordable = unlocked && energy >= weapon.cost;
               const status = !unlocked ? `Locked · ${weapon.cost} EN` : affordable ? `Ready · ${weapon.cost} EN` : `Charging · ${Math.floor(energy)} / ${weapon.cost} EN`;
@@ -1511,7 +1518,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
                     type="button"
                     disabled={!affordable}
                     aria-label={`${weapon.label}: ${status}`}
-                    title={unlocked ? weapon.title : map?.orbit?.dysonSphere ? 'Hold five planets to unlock Omni Strike.' : map ? 'Superweapons are unavailable in this mission.' : `Capture a planet marked with the ${weapon.label} icon to unlock it.`}
+                    title={unlocked ? weapon.title : map?.orbit?.dysonSphere ? 'Hold five planets to unlock Omni Strike.' : `Capture a planet marked with the ${weapon.label} icon to unlock it.`}
                     onMouseEnter={() => affordable && playSound('hover', isSoundEnabled)}
                     onClick={() => {
                       if (weapon.id === 'aegis') {
@@ -1560,7 +1567,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
           <div className="text-center font-mono text-[9px] uppercase tracking-wide text-cyan-500/70">
             {engineRef.current?.getEnergyRate('#3b82f6') ? `+${engineRef.current.getEnergyRate('#3b82f6').toFixed(1)} energy/sec${map?.orbit?.dysonSphere && engineRef.current.bases.get(DYSON_SPHERE_ID)?.color === '#3b82f6' ? ' · Dyson bonus active' : ''}` : 'Superweapons unavailable'}
           </div>
-        </div>
+        </div>}
       </div>
 
       {/* Targeting Overlay (Satellite View) */}
