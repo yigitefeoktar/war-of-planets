@@ -1,19 +1,35 @@
 import { GameEngine } from './engine';
-import type { OrbitDefinition } from './campaign';
+import { DYSON_SPHERE_ID, type OrbitDefinition } from './campaign';
 import type { SuperweaponTargetMode } from './superweapons';
+import type { Base } from './types';
 
-// A rigid rotating system, not a gravity simulation. The star is scenery,
-// deliberately excluded from bases, selection, ship production and victory.
+const ORBITING_PASSIVE_ENERGY_PER_SECOND = 1;
+
+// A rigid rotating system, not a gravity simulation. The center is either a
+// decorative star or an optional capturable Dyson sphere defined by the map.
 export class OrbitingGameEngine extends GameEngine {
   private readonly orbitIds: Set<string>;
 
   constructor(width: number, height: number, private readonly orbit: OrbitDefinition) {
-    super(width, height, { superweaponUnlocksEnabled: false });
+    super(width, height, { superweaponUnlocksEnabled: Boolean(orbit.dysonSphere) });
     this.orbitIds = new Set(orbit.planetIds);
+  }
+
+  override getEnergyRate(color: string) {
+    if (!this.orbit.dysonSphere || !Array.from(this.bases.values()).some(base => base.isCapital && base.color === color)) return 0;
+    const ownsSphere = this.bases.get(DYSON_SPHERE_ID)?.color === color;
+    return ORBITING_PASSIVE_ENERGY_PER_SECOND + (ownsSphere ? this.orbit.dysonSphere.energyPerSecond : 0);
   }
 
   override update(dt: number) {
     if (!Number.isFinite(dt) || dt <= 0) return;
+    if (this.orbit.dysonSphere) {
+      const worldCounts = new Map<string, number>();
+      for (const base of this.bases.values()) {
+        if (!base.isDysonSphere && base.color !== '#6b7280') worldCounts.set(base.color, (worldCounts.get(base.color) ?? 0) + 1);
+      }
+      for (const [color, count] of worldCounts) if (count >= 5) this.grantSuperweapon(color, 'omni');
+    }
     const angle = (Math.PI * 2 * dt) / this.orbit.periodSeconds;
     const cos = Math.cos(angle), sin = Math.sin(angle);
     const { x: cx, y: cy } = this.orbit;
@@ -41,6 +57,7 @@ export class OrbitingGameEngine extends GameEngine {
 
   override draw(ctx: CanvasRenderingContext2D, selectedBaseId: string | null, cameraX: number, cameraY: number, targetingMode: SuperweaponTargetMode = null) {
     super.draw(ctx, selectedBaseId, cameraX, cameraY, targetingMode);
+    if (this.orbit.dysonSphere) return;
     ctx.save();
     ctx.translate(this.orbit.x, this.orbit.y);
 
@@ -64,5 +81,54 @@ export class OrbitingGameEngine extends GameEngine {
     ctx.arc(0, 0, 42, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
+  }
+
+  protected override drawSpecialBase(ctx: CanvasRenderingContext2D, base: Base) {
+    if (!base.isDysonSphere) return false;
+    const accent = base.color === '#6b7280' ? '#fbbf24' : base.color;
+    const rotation = Date.now() / 18000;
+
+    ctx.save();
+    const halo = ctx.createRadialGradient(0, 0, 20, 0, 0, 105);
+    halo.addColorStop(0, 'rgba(255,247,189,0.75)');
+    halo.addColorStop(0.42, 'rgba(251,191,36,0.20)');
+    halo.addColorStop(1, 'rgba(251,191,36,0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.arc(0, 0, 105, 0, Math.PI * 2); ctx.fill();
+
+    const star = ctx.createRadialGradient(-8, -8, 3, 0, 0, 29);
+    star.addColorStop(0, '#ffffff');
+    star.addColorStop(0.5, '#fff7bd');
+    star.addColorStop(1, '#f59e0b');
+    ctx.fillStyle = star;
+    ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 24;
+    ctx.beginPath(); ctx.arc(0, 0, 29, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    ctx.save();
+    ctx.rotate(rotation);
+    for (let index = 0; index < 12; index++) {
+      const start = index * Math.PI / 6 + 0.04;
+      const end = (index + 1) * Math.PI / 6 - 0.04;
+      ctx.beginPath();
+      ctx.arc(0, 0, 62, start, end);
+      ctx.arc(0, 0, 48, end, start, true);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(15,23,42,0.96)'; ctx.fill();
+      ctx.strokeStyle = accent; ctx.lineWidth = 2; ctx.stroke();
+    }
+    ctx.restore();
+
+    ctx.strokeStyle = accent; ctx.lineWidth = 2;
+    for (const tilt of [-0.58, 0.58]) {
+      ctx.beginPath(); ctx.ellipse(0, 0, 64, 23, tilt + rotation * 0.18, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 13px monospace'; ctx.fillStyle = '#fff7d6';
+    ctx.fillText('DYSON SPHERE', 0, -82);
+    ctx.font = '10px monospace'; ctx.fillStyle = accent;
+    ctx.fillText(base.color === '#6b7280' ? 'CAPTURE FOR ENERGY' : `+${this.orbit.dysonSphere!.energyPerSecond} ENERGY / SEC`, 0, 84);
+    ctx.restore();
+    return true;
   }
 }

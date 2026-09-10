@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { TURNING_TIDE, PLAYER, NEUTRAL, validateMap, getOutcome } from './campaign';
+import { DYSON_SPHERE_ID, TURNING_TIDE, PLAYER, NEUTRAL, validateMap, getOutcome } from './campaign';
 import { createMatch } from './mapLoader';
 
 function quietMap() {
@@ -11,10 +11,12 @@ function quietMap() {
   return engine;
 }
 
-test('Turning Tide loads 24 authored planets, 12 orbit members, and three factions', () => {
+test('Turning Tide loads its authored planets, central Dyson sphere, orbit members, and three factions', () => {
   validateMap(TURNING_TIDE);
   const engine = createMatch(TURNING_TIDE);
-  assert.equal(engine.bases.size, 24);
+  assert.equal(engine.bases.size, 25);
+  const sphere = engine.bases.get(DYSON_SPHERE_ID)!;
+  assert.deepEqual([sphere.x, sphere.y, sphere.color, sphere.pixelCount, sphere.isDysonSphere], [1300, 1300, NEUTRAL, 75, true]);
   assert.equal(TURNING_TIDE.orbit!.planetIds.length, 12);
   assert.equal([...engine.bases.values()].filter(p => p.isCapital).length, 3);
   assert.equal(getOutcome(engine.bases.values()), null);
@@ -38,6 +40,10 @@ test('full rotation preserves clear spacing, fixed fortresses, and map connectiv
   for (let second = 0; second <= 180; second++) {
     const bases = [...engine.bases.values()];
     for (const p of bases) {
+      if (p.isDysonSphere) {
+        assert.deepEqual([p.x, p.y], [TURNING_TIDE.orbit!.x, TURNING_TIDE.orbit!.y]);
+        continue;
+      }
       if (!orbitIds.has(p.id)) {
         const original = TURNING_TIDE.planets.find(q => q.id === p.id)!;
         assert.equal(p.x, original.x); assert.equal(p.y, original.y);
@@ -51,6 +57,22 @@ test('full rotation preserves clear spacing, fixed fortresses, and map connectiv
     assert.equal(reached.size, bases.length, `Disconnected map at ${second}s`);
     engine.update(1);
   }
+});
+
+test('Dyson sphere grants configurable bonus energy, makes no ships, and five worlds unlock Omni Strike', () => {
+  const engine = quietMap();
+  const sphere = engine.bases.get(DYSON_SPHERE_ID)!;
+  sphere.color = PLAYER;
+  engine.setEnergy(PLAYER, 0);
+  engine.lastSpawnTime = 0;
+  const sphereShips = () => engine.pixels.filter(ship => ship.baseId === DYSON_SPHERE_ID).length;
+  engine.update(1);
+  assert.equal(engine.getEnergy(PLAYER), 1.4);
+  assert.equal(sphereShips(), 0);
+
+  for (const base of [...engine.bases.values()].filter(base => !base.isDysonSphere).slice(0, 5)) base.color = PLAYER;
+  engine.update(1 / 60);
+  assert.equal(engine.isSuperweaponUnlocked(PLAYER, 'omni'), true);
 });
 
 test('a boarding world leaves home range and opens an attack on the red command', () => {

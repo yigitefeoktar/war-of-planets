@@ -1,6 +1,6 @@
 import { GameEngine } from './engine';
 import { OrbitingGameEngine } from './orbitingEngine';
-import { validateMap, type MapDefinition } from './campaign';
+import { DYSON_SPHERE_ID, validateMap, type MapDefinition } from './campaign';
 
 // Keep the legacy random generator for Quick Match. Authored games replace
 // only the initial planets and ships; stars, combat, AI, and controls are shared.
@@ -15,6 +15,10 @@ export function createMatch(map?: MapDefinition): GameEngine {
     engine.nextPixelId = 0;
     engine.MAX_ATTACK_RANGE = map.attackRange;
     for (const planet of map.planets) engine.addBase(planet.id, planet.x, planet.y, planet.owner, planet.ships, planet.capital);
+    if (map.orbit?.dysonSphere) {
+      engine.addBase(DYSON_SPHERE_ID, map.orbit.x, map.orbit.y, '#6b7280', map.orbit.dysonSphere.guards);
+      engine.bases.get(DYSON_SPHERE_ID)!.isDysonSphere = true;
+    }
   }
   return engine;
 }

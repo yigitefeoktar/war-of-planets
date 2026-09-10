@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createMatch } from './game/mapLoader';
-import { CHAPTERS, completeMission, followingMission, getOutcome, launchMission, loadProgress, nextMission, saveProgress, type MapDefinition, type ModeId, type Progress } from './game/campaign';
+import { CHAPTERS, DYSON_SPHERE_ID, completeMission, followingMission, getOutcome, launchMission, loadProgress, nextMission, saveProgress, type MapDefinition, type ModeId, type Progress } from './game/campaign';
 import { motion } from 'motion/react';
 import { Maximize, Minimize, Volume2, VolumeX, Music, Skull, Pause, Play, Flag } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
@@ -264,7 +264,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   const [energy, setEnergy] = useState(0);
   const [unlockedWeapons, setUnlockedWeapons] = useState<Set<SuperweaponId>>(() => new Set());
   const [targetingMode, setTargetingMode] = useState<SuperweaponTargetMode>(null);
-  const [playerPlanetCount, setPlayerPlanetCount] = useState(0);
   const [wasWeaponReady, setWasWeaponReady] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isPaused, setIsPaused] = useState(false);
@@ -382,8 +381,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     const activeFactionColors = new Set(Array.from(engine.bases.values()).filter(b => b.isCapital).map(b => b.color));
 
     const updatePlayerStats = () => {
-      const pCount = Array.from(engine.bases.values()).filter(b => b.color === '#3b82f6').length;
-      setPlayerPlanetCount(pCount);
       setUnlockedWeapons(engine.getUnlockedSuperweapons('#3b82f6'));
     };
 
@@ -622,9 +619,8 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         const mouseY = e.clientY - rect.top;
         const worldX = (mouseX / cameraZoom) + cameraX;
         const worldY = (mouseY / cameraZoom) + cameraY;
-        // The white star is scenery, even when a nearby planet's generous
-        // selection padding overlaps it.
-        if (map?.orbit && Math.hypot(worldX - map.orbit.x, worldY - map.orbit.y) <= 52) return;
+        // Decorative stars cannot be selected. A configured Dyson sphere can.
+        if (map?.orbit && !map.orbit.dysonSphere && Math.hypot(worldX - map.orbit.x, worldY - map.orbit.y) <= 52) return;
 
         let clickedBaseId: string | null = null;
         let minDistance = Infinity;
@@ -860,7 +856,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
           const worldX = (touchX / cameraZoom) + cameraX;
           const worldY = (touchY / cameraZoom) + cameraY;
-          if (map?.orbit && Math.hypot(worldX - map.orbit.x, worldY - map.orbit.y) <= 52) return;
+          if (map?.orbit && !map.orbit.dysonSphere && Math.hypot(worldX - map.orbit.x, worldY - map.orbit.y) <= 52) return;
 
           let clickedBaseId: string | null = null;
           let minDistance = Infinity;
@@ -1505,7 +1501,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
               { id: 'omni', label: 'Omni Strike', cost: SUPERWEAPON_COSTS.omni, title: 'Warp 30% of every idle fleet to an accessible enemy world.' },
               { id: 'dominion', label: 'Dominion Ark', cost: SUPERWEAPON_COSTS.dominion, title: 'Launch a slow guaranteed capture vessel from your capital.' },
             ] as const).map(weapon => {
-              const unlocked = !map && unlockedWeapons.has(weapon.id);
+              const unlocked = unlockedWeapons.has(weapon.id);
               const affordable = unlocked && energy >= weapon.cost;
               const status = !unlocked ? `Locked · ${weapon.cost} EN` : affordable ? `Ready · ${weapon.cost} EN` : `Charging · ${Math.floor(energy)} / ${weapon.cost} EN`;
               return (
@@ -1515,7 +1511,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
                     type="button"
                     disabled={!affordable}
                     aria-label={`${weapon.label}: ${status}`}
-                    title={unlocked ? weapon.title : map ? 'Superweapons are currently exclusive to Quick Match.' : `Capture a planet marked with the ${weapon.label} icon to unlock it.`}
+                    title={unlocked ? weapon.title : map?.orbit?.dysonSphere ? 'Hold five planets to unlock Omni Strike.' : map ? 'Superweapons are unavailable in this mission.' : `Capture a planet marked with the ${weapon.label} icon to unlock it.`}
                     onMouseEnter={() => affordable && playSound('hover', isSoundEnabled)}
                     onClick={() => {
                       if (weapon.id === 'aegis') {
@@ -1561,7 +1557,9 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
               );
             })}
           </div>
-          <div className="text-center font-mono text-[9px] uppercase tracking-wide text-cyan-500/70">{map ? 'Quick Match only' : `+${(playerPlanetCount * 0.2).toFixed(1)} energy/sec`}</div>
+          <div className="text-center font-mono text-[9px] uppercase tracking-wide text-cyan-500/70">
+            {engineRef.current?.getEnergyRate('#3b82f6') ? `+${engineRef.current.getEnergyRate('#3b82f6').toFixed(1)} energy/sec${map?.orbit?.dysonSphere && engineRef.current.bases.get(DYSON_SPHERE_ID)?.color === '#3b82f6' ? ' · Dyson bonus active' : ''}` : 'Superweapons unavailable'}
+          </div>
         </div>
       </div>
 

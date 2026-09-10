@@ -215,7 +215,7 @@ export class GameEngine {
 
   createIdlePixel(baseId: string, startX: number, startY: number, color: string): Pixel {
     const base = this.bases.get(baseId);
-    const planetRadius = base?.isCapital ? 40 : 20;
+    const planetRadius = base?.isDysonSphere ? 62 : base?.isCapital ? 40 : 20;
     const minRadius = planetRadius + 8;
     const angle = this.random() * Math.PI * 2;
     const r = minRadius + this.random() * 10;
@@ -255,8 +255,22 @@ export class GameEngine {
     return this.factionEnergy.get(color) ?? 0;
   }
 
+  getEnergyRate(color: string) {
+    if (!this.superweaponUnlocksEnabled) return 0;
+    return Array.from(this.bases.values()).filter(base => base.color === color).length * ENERGY_PER_PLANET_PER_SECOND;
+  }
+
   getUnlockedSuperweapons(color: string) {
     return new Set(this.factionSuperweaponUnlocks.get(color) ?? []);
+  }
+
+  grantSuperweapon(color: string, weapon: SuperweaponId) {
+    if (!this.superweaponUnlocksEnabled) return false;
+    const unlocks = this.factionSuperweaponUnlocks.get(color) ?? new Set<SuperweaponId>();
+    const newlyUnlocked = !unlocks.has(weapon);
+    unlocks.add(weapon);
+    this.factionSuperweaponUnlocks.set(color, unlocks);
+    return newlyUnlocked;
   }
 
   isSuperweaponUnlocked(color: string, weapon: SuperweaponId) {
@@ -486,8 +500,8 @@ export class GameEngine {
       if (base.color === '#6b7280') continue;
       ownedPlanetCounts.set(base.color, (ownedPlanetCounts.get(base.color) ?? 0) + 1);
     }
-    if (this.superweaponUnlocksEnabled) for (const [color, count] of ownedPlanetCounts) {
-      this.setEnergy(color, this.getEnergy(color) + count * ENERGY_PER_PLANET_PER_SECOND * dt);
+    if (this.superweaponUnlocksEnabled) for (const color of ownedPlanetCounts.keys()) {
+      this.setEnergy(color, this.getEnergy(color) + this.getEnergyRate(color) * dt);
     }
 
     for (let i = this.singularities.length - 1; i >= 0; i--) {
@@ -560,7 +574,7 @@ export class GameEngine {
     // Spawn units every 250ms (4x faster)
     if (now - this.lastSpawnTime > 250) {
       for (const base of this.bases.values()) {
-        if (base.color !== '#6b7280') { // Spawn without limit
+        if (base.color !== '#6b7280' && !base.isDysonSphere) { // Spawn without limit
           this.pixels.push(this.createIdlePixel(base.id, base.x, base.y, base.color));
           
           if (this.isHardMode && base.color !== '#3b82f6') {
@@ -684,7 +698,7 @@ export class GameEngine {
 
         if (dist < 2) {
           // Pick a new target outside the base's radius
-          const planetRadius = base.isCapital ? 40 : 20;
+          const planetRadius = base.isDysonSphere ? 62 : base.isCapital ? 40 : 20;
           const minRadius = planetRadius + 8; 
           const maxRadius = minRadius + 10 + Math.sqrt(base.pixelCount) * 5; 
           const angle = this.random() * Math.PI * 2;
@@ -1075,7 +1089,7 @@ export class GameEngine {
         ctx.save();
         ctx.translate(drawX, drawY);
         
-        const planetRadius = 20;
+        const planetRadius = base.isDysonSphere ? 62 : base.isCapital ? 40 : 20;
         const shieldRadius = planetRadius + 4 + (progress * 8);
         
         ctx.beginPath();
@@ -1106,7 +1120,7 @@ export class GameEngine {
             ctx.save();
             ctx.translate(drawX, drawY);
             ctx.beginPath();
-            const planetRadius = base.isCapital ? 40 : 20;
+            const planetRadius = base.isDysonSphere ? 62 : base.isCapital ? 40 : 20;
             const fleetRadius = planetRadius + 25 + Math.sqrt(base.pixelCount) * 5;
             ctx.arc(0, 0, fleetRadius, 0, Math.PI * 2);
             ctx.strokeStyle = targetingMode === 'dominion' ? 'rgba(244,114,182,0.9)' : 'rgba(239, 68, 68, 0.8)';
@@ -1125,7 +1139,7 @@ export class GameEngine {
             ctx.save();
             ctx.translate(drawX, drawY);
             ctx.beginPath();
-            const planetRadius = base.isCapital ? 40 : 20;
+            const planetRadius = base.isDysonSphere ? 62 : base.isCapital ? 40 : 20;
             const fleetRadius = planetRadius + 25 + Math.sqrt(base.pixelCount) * 5;
             ctx.arc(0, 0, fleetRadius, 0, Math.PI * 2);
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
@@ -1141,7 +1155,7 @@ export class GameEngine {
 
       // Draw selection ring (Orbit)
       if (selectedBaseId === base.id) {
-        const planetRadius = base.isCapital ? 40 : 20;
+        const planetRadius = base.isDysonSphere ? 62 : base.isCapital ? 40 : 20;
         const fleetRadius = planetRadius + 25 + Math.sqrt(base.pixelCount) * 5;
         
         ctx.save();
@@ -1183,36 +1197,30 @@ export class GameEngine {
         ctx.globalAlpha = 0.3;
       }
 
-      // Capitals are just larger planets
-      const planetRadius = base.isCapital ? 40 : 20;
+      const planetRadius = base.isDysonSphere ? 62 : base.isCapital ? 40 : 20;
 
       // Planet glow
       ctx.shadowBlur = base.isCapital ? 25 : 15;
       ctx.shadowColor = base.color;
       
-      // Planet body
-      ctx.beginPath();
-      ctx.arc(0, 0, planetRadius, 0, Math.PI * 2);
-      
-      // Create a gradient for a 3D sphere effect
-      const gradient = ctx.createRadialGradient(-planetRadius/3, -planetRadius/3, planetRadius/6, 0, 0, planetRadius);
-      gradient.addColorStop(0, '#ffffff');
-      gradient.addColorStop(0.3, base.color);
-      gradient.addColorStop(1, '#000000');
-      
-      ctx.fillStyle = gradient;
-      ctx.fill();
-      
-      // Reset shadow for the rest
-      ctx.shadowBlur = 0;
-      
-      // Draw a subtle atmosphere ring
-      ctx.beginPath();
-      ctx.arc(0, 0, planetRadius + 2, 0, Math.PI * 2);
-      ctx.strokeStyle = base.color;
-      ctx.globalAlpha = 0.3;
-      ctx.lineWidth = 2;
-      ctx.stroke();
+      if (!this.drawSpecialBase(ctx, base)) {
+        // Planet body
+        ctx.beginPath();
+        ctx.arc(0, 0, planetRadius, 0, Math.PI * 2);
+        const gradient = ctx.createRadialGradient(-planetRadius/3, -planetRadius/3, planetRadius/6, 0, 0, planetRadius);
+        gradient.addColorStop(0, '#ffffff');
+        gradient.addColorStop(0.3, base.color);
+        gradient.addColorStop(1, '#000000');
+        ctx.fillStyle = gradient;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.arc(0, 0, planetRadius + 2, 0, Math.PI * 2);
+        ctx.strokeStyle = base.color;
+        ctx.globalAlpha = 0.3;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
       
       ctx.restore();
 
@@ -1225,5 +1233,9 @@ export class GameEngine {
     }
 
     ctx.restore(); // Restore from screen shake
+  }
+
+  protected drawSpecialBase(_ctx: CanvasRenderingContext2D, _base: Base) {
+    return false;
   }
 }

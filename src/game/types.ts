@@ -8,6 +8,7 @@ export interface Base {
   pixelCount: number;
   lastAttackedTime?: number;
   isCapital?: boolean;
+  isDysonSphere?: boolean;
   superweaponUnlocks?: SuperweaponId[];
 }
 

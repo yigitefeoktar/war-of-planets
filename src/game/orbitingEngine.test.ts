@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEUTRAL, PLAYER, getOutcome, validateMap, type MapDefinition } from './campaign';
+import { DYSON_SPHERE_ID, NEUTRAL, PLAYER, getOutcome, validateMap, type MapDefinition } from './campaign';
 import { createMatch } from './mapLoader';
 import { OrbitingGameEngine } from './orbitingEngine';
 
@@ -125,6 +125,12 @@ test('Quick Match and non-member planets stay fixed', () => {
   near(partial.bases.get('player_1')!.y, ORBIT_FIXTURE.planets[0].y);
 });
 
+test('an orbit without Dyson configuration keeps the star decorative', () => {
+  const engine = quietEngine(ORBIT_FIXTURE);
+  assert.equal(engine.bases.has(DYSON_SPHERE_ID), false);
+  assert.equal(engine.getEnergyRate(PLAYER), 0);
+});
+
 test('invalid orbit definitions are rejected', () => {
   const orbit = ORBIT_FIXTURE.orbit!;
   for (const invalid of [
@@ -134,4 +140,10 @@ test('invalid orbit definitions are rejected', () => {
     { ...orbit, x: 0 }, { ...orbit, y: Infinity },
     { ...orbit, x: 800, y: 860 },
   ]) assert.throws(() => validateMap({ ...ORBIT_FIXTURE, orbit: invalid }));
+  for (const dysonSphere of [
+    { guards: -1, energyPerSecond: 0.4 },
+    { guards: 10.5, energyPerSecond: 0.4 },
+    { guards: 10, energyPerSecond: 0 },
+    { guards: 10, energyPerSecond: NaN },
+  ]) assert.throws(() => validateMap({ ...ORBIT_FIXTURE, orbit: { ...orbit, dysonSphere } }));
 });
