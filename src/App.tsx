@@ -1,3 +1,4 @@
+import { FACTION_TRAITS } from './game/factions';
 import React, { useEffect, useRef, useState } from 'react';
 import { createMatch } from './game/mapLoader';
 import { CHAPTERS, DYSON_SPHERE_ID, completeMission, followingMission, getOutcome, launchMission, loadProgress, nextMission, saveProgress, type MapDefinition, type ModeId, type Progress } from './game/campaign';
@@ -162,12 +163,20 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
           </span>
         </motion.button>
 
+        <div aria-label="Faction specialties" className="mt-5 grid w-[760px] grid-cols-4 gap-2 text-left">
+          {FACTION_TRAITS.map(trait => (
+            <div key={trait.color} title={trait.detail} className="rounded border border-white/10 bg-white/5 px-3 py-2">
+              <div className="text-xs font-bold" style={{ color: trait.color }}>{trait.name}</div>
+              <div className="mt-1 text-xs text-slate-200">{trait.bonus}</div>
+            </div>
+          ))}
+        </div>
         {/* Utility Toggles */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1, delay: 0.8 }}
-          className="mt-10 flex flex-wrap justify-center items-center gap-4"
+          className="mt-5 flex flex-wrap justify-center items-center gap-4"
         >
           <button
             onMouseEnter={() => playSound('hover', isSoundEnabled)}

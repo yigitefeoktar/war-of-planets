@@ -1,3 +1,4 @@
+import { energyMultiplier } from './factions';
 import { GameEngine } from './engine';
 import { DYSON_SPHERE_ID, type OrbitDefinition } from './campaign';
 import type { SuperweaponTargetMode } from './superweapons';
@@ -18,7 +19,7 @@ export class OrbitingGameEngine extends GameEngine {
   override getEnergyRate(color: string) {
     if (!this.orbit.dysonSphere || !Array.from(this.bases.values()).some(base => base.isCapital && base.color === color)) return 0;
     const ownsSphere = this.bases.get(DYSON_SPHERE_ID)?.color === color;
-    return ORBITING_PASSIVE_ENERGY_PER_SECOND + (ownsSphere ? this.orbit.dysonSphere.energyPerSecond : 0);
+    return (ORBITING_PASSIVE_ENERGY_PER_SECOND + (ownsSphere ? this.orbit.dysonSphere.energyPerSecond : 0)) * energyMultiplier(color);
   }
 
   override update(dt: number) {

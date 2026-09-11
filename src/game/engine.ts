@@ -1,6 +1,7 @@
 import { Base, Pixel, type SuperweaponId } from './types';
 import { canIssueFleetOrder } from './logistics';
 import { TacticalAI } from './ai';
+import { FactionBonuses, energyMultiplier } from './factions';
 import { aegisTargets, assignQuickMatchSuperweaponPlanets, ENERGY_PER_PLANET_PER_SECOND, isPointAccessible, SUPERWEAPON_COSTS, SUPERWEAPON_MAX_ENERGY, type SuperweaponTargetMode } from './superweapons';
 
 interface Star {
@@ -115,6 +116,7 @@ export class GameEngine {
   shakeDuration: number = 0;
   aiOmniCooldowns: Map<string, number> = new Map();
   private tacticalAI = new TacticalAI();
+  private factionBonuses = new FactionBonuses();
   private aiSeconds = 0;
   lastOmniCaptureBaseId: string | null = null;
   lastOmniCaptureTime: number = 0;
@@ -260,7 +262,7 @@ export class GameEngine {
 
   getEnergyRate(color: string) {
     if (!this.superweaponUnlocksEnabled) return 0;
-    return Array.from(this.bases.values()).filter(base => base.color === color).length * ENERGY_PER_PLANET_PER_SECOND;
+    return Array.from(this.bases.values()).filter(base => base.color === color).length * ENERGY_PER_PLANET_PER_SECOND * energyMultiplier(color);
   }
 
   getUnlockedSuperweapons(color: string) {
@@ -281,6 +283,7 @@ export class GameEngine {
   }
 
   recordPlanetCapture(baseId: string, color: string) {
+    this.factionBonuses.reset(baseId);
     if (!this.superweaponUnlocksEnabled) return [];
     const unlocks = this.bases.get(baseId)?.superweaponUnlocks ?? [];
     const factionUnlocks = this.factionSuperweaponUnlocks.get(color) ?? new Set<SuperweaponId>();
@@ -578,7 +581,8 @@ export class GameEngine {
     if (now - this.lastSpawnTime > 250) {
       for (const base of this.bases.values()) {
         if (base.color !== '#6b7280' && !base.isDysonSphere) { // Spawn without limit
-          this.pixels.push(this.createIdlePixel(base.id, base.x, base.y, base.color));
+          const count = this.factionBonuses.production(base.id, base.color);
+          for (let i = 0; i < count; i++) this.pixels.push(this.createIdlePixel(base.id, base.x, base.y, base.color));
         }
       }
       this.lastSpawnTime = now;
@@ -680,9 +684,14 @@ export class GameEngine {
             const defender = defenders?.pop();
             
             if (defender) {
-              // Both die
+              const bonus = this.factionBonuses.clash(targetBase.id, targetBase.color, p.color);
               p.dead = true;
-              defender.dead = true;
+              defender.dead = !bonus.saveDefender;
+              if (bonus.saveDefender) defenders!.push(defender);
+              if (bonus.extraDefender) {
+                const extra = defenders?.pop();
+                if (extra) extra.dead = true;
+              }
               targetBase.lastAttackedTime = this.now();
               this.createExplosion(p.x, p.y, targetBase.color, 2);
               this.createExplosion(defender.x, defender.y, targetBase.color, 2);

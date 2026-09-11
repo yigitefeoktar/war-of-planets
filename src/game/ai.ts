@@ -1,3 +1,4 @@
+import { attackMultiplier, defenceMultiplier, productionMultiplier } from './factions';
 import type { Base, Pixel } from './types';
 
 const NEUTRAL = '#6b7280';
@@ -41,7 +42,7 @@ export class TacticalAI {
       plans.set(color, plan);
       const enemies = world.bases.filter(b => b.color !== color && b.color !== NEUTRAL);
       const targets = world.bases.filter(b => b.color !== color);
-      const threat = (b: Base) => [...(incoming.get(b.id) ?? [])].reduce((n, [c, count]) => n + (c !== color ? count : 0), 0);
+      const threat = (b: Base) => [...(incoming.get(b.id) ?? [])].reduce((n, [c, count]) => n + (c !== color ? count * attackMultiplier(c) / defenceMultiplier(color) : 0), 0);
       const frontierDistance = (b: Base) => Math.min(...targets.map(t => distance(b, t)));
       const available = new Map<string, number>();
       for (const b of owned) {
@@ -78,11 +79,11 @@ export class TacticalAI {
             .sort((a, b) => distance(a, target) - distance(b, target)).slice(0, world.hard ? 3 : 2);
           const nearest = donors.length ? distance(donors[0], target) : Infinity;
           // Ships travel at mixed speeds. Budget production during the approach.
-          const growth = target.color === NEUTRAL || target.isDysonSphere ? 0 : nearest / 24;
-          const need = Math.ceil((ships(target) + growth) * (world.hard ? 1.15 : 1.3) + 8 - arriving(target, color));
+          const growth = target.color === NEUTRAL || target.isDysonSphere ? 0 : nearest / 24 * productionMultiplier(target.color);
+          const need = Math.ceil((ships(target) + growth) * defenceMultiplier(target.color) / attackMultiplier(color) * (world.hard ? 1.15 : 1.3) + 8 - arriving(target, color));
           const total = donors.reduce((sum, b) => sum + available.get(b.id)!, 0);
-          const value = (target.isCapital ? 95 : 0) + (target.isDysonSphere ? 70 : 0)
-            + (target.superweaponUnlocks?.length ? 35 : 0)
+          const value = (target.isCapital ? 95 : 0) + (target.isDysonSphere ? (index === 2 ? 110 : 70) : 0)
+            + (target.superweaponUnlocks?.length ? (index === 2 ? 55 : 35) : 0)
             + (target.color === NEUTRAL ? (index === 1 ? 45 : 20) : index === 2 ? 30 : 15);
           return { target, donors, need, total, score: value - need * 0.6 - nearest * 0.04 };
         }).filter(c => c.need > 0 && c.total >= c.need);
@@ -114,7 +115,7 @@ export class TacticalAI {
         const strength = owned.reduce((sum, b) => sum + Math.floor(ships(b) * 0.3), 0);
         const safe = owned.every(b => ships(b) - Math.floor(ships(b) * 0.3) + arriving(b, color) >= threat(b) + (b.isCapital ? 45 : 10));
         const target = targets.filter(t => owned.some(b => distance(b, t) <= world.range)
-          && arriving(t, color) === 0 && strength >= ships(t) * 1.35 + 20)
+          && arriving(t, color) === 0 && strength >= ships(t) * defenceMultiplier(t.color) / attackMultiplier(color) * 1.35 + 20)
           .sort((a, b) => (Number(Boolean(b.isCapital)) * 100 + Number(Boolean(b.isDysonSphere)) * 60 - ships(b))
             - (Number(Boolean(a.isCapital)) * 100 + Number(Boolean(a.isDysonSphere)) * 60 - ships(a)))[0];
         if (safe && target) {

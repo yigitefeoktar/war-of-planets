@@ -17,7 +17,7 @@ function world(bases: Base[]) {
 test('captures cheap worlds with a small force and leaves capital reserves', () => {
   const w = world([base('home', 0, RED, 200, true), base('neutral', 400, GREY, 10)]);
   const plan = new TacticalAI().plan(w).get(RED)!;
-  assert.deepEqual(plan.orders, [{ from: 'home', to: 'neutral', count: 21 }]);
+  assert.deepEqual(plan.orders, [{ from: 'home', to: 'neutral', count: 20 }]);
 });
 
 test('coordinates two fleets against a target neither could take alone', () => {
@@ -93,10 +93,10 @@ test('Omni uses distant reserves only when affordable, useful and safe', () => {
   assert.equal(unavailable.plan(w).get(RED)!.omniTarget, undefined);
 });
 
-test('targeting treats blue and other rivals equally; dead ships are not resources', () => {
+test('targeting budgets faction defences; dead ships are not resources', () => {
   const blue = world([base('home', 0, RED, 200, true), base('enemy', 400, BLUE, 20)]);
   const green = world([base('home', 0, RED, 200, true), base('enemy', 400, '#22c55e', 20)]);
-  assert.deepEqual(new TacticalAI().plan(blue).get(RED), new TacticalAI().plan(green).get(RED));
+  assert.ok(new TacticalAI().plan(blue).get(RED)!.orders[0].count >= new TacticalAI().plan(green).get(RED)!.orders[0].count);
   blue.pixels.filter(p => p.color === RED).forEach(p => { p.dead = true; });
   assert.equal(new TacticalAI().plan(blue).get(RED)!.orders.length, 0);
 });
@@ -110,7 +110,7 @@ test('engine executes the planned fleet size and hard mode grants no extra produ
   engine.lastSpawnTime = Number.MAX_SAFE_INTEGER;
   now = 2001;
   engine.update(0.016);
-  assert.equal(engine.pixels.filter(p => p.state === 'moving').length, 21);
+  assert.equal(engine.pixels.filter(p => p.state === 'moving').length, 20);
   engine.lastAITime = Number.MAX_SAFE_INTEGER;
   engine.lastSpawnTime = 0;
   engine.isHardMode = true;
