@@ -113,15 +113,6 @@ export class OrbitingGameEngine extends GameEngine {
     }
     ctx.restore();
 
-    ctx.strokeStyle = accent; ctx.lineWidth = 2;
-    for (const tilt of [-0.58, 0.58]) {
-      ctx.beginPath(); ctx.ellipse(0, 0, 64, 23, tilt + rotation * 0.18, 0, Math.PI * 2); ctx.stroke();
-    }
-    ctx.textAlign = 'center';
-    ctx.font = 'bold 13px monospace'; ctx.fillStyle = accent;
-    ctx.fillText('DYSON SPHERE', 0, -82);
-    ctx.font = '10px monospace'; ctx.fillStyle = accent;
-    ctx.fillText(base.color === '#6b7280' ? 'CAPTURE FOR ENERGY' : `+${this.orbit.dysonSphere!.energyPerSecond} ENERGY / SEC`, 0, 84);
     ctx.restore();
     return true;
   }
