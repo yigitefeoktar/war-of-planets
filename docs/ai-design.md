@@ -42,5 +42,5 @@ more energy, including Dyson income, only in modes with energy enabled.
 Bonuses follow current faction ownership rather than a planet's original colour.
 AI force estimates include combat and production advantages. Green prioritises
 expansion; red maintains its frequent offensives; yellow places extra value on
-Dyson spheres and weapon unlock sites. The menu lists all four specialties.
+Dyson spheres and weapon unlock sites. Faction specialties are gameplay rules; no faction legend is shown in the menu.
 These are initial balance values, not evidence that the factions are equally strong.
