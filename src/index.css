@@ -1,5 +1,32 @@
 @import "tailwindcss";
 
+.planet-command {
+  position: absolute; z-index: 30; width: min(294px, calc(100vw - 16px));
+  max-height: calc(100dvh - 90px); overflow-y: auto; visibility: hidden;
+  padding: 10px; color: #c4ebf5; background: rgba(3, 12, 25, .96);
+  border: 1px solid #43869a; border-radius: 12px;
+  box-shadow: 0 12px 40px #000b, 0 0 24px #22d3ee20;
+  font-family: monospace; font-size: 11px; touch-action: manipulation;
+}
+.planet-command-heading, .planet-energy, .planet-ability-title { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.planet-command-heading { font-size: 11px; font-weight: bold; letter-spacing: .06em; }
+.planet-command-heading button { min-width: 40px; min-height: 36px; font-size: 22px; color: #b7dce9; }
+.planet-fleet-sizes { display: flex; gap: 5px; }
+.planet-fleet-sizes button { flex: 1; min-height: 44px; border: 1px solid #255269; border-radius: 6px; font-size: 14px; }
+.planet-fleet-sizes button[aria-pressed="true"] { background: #67e8f9; border-color: #a5f3fc; color: #082333; font-weight: bold; }
+.planet-command-hint { color: #99b6c5; font-size: 10px; margin: 8px 0; }
+.planet-energy { margin-top: 8px; color: #95cfe2; font-size: 10px; }
+.planet-energy-track { height: 3px; background: #14344b; margin: 5px 0 10px; }
+.planet-energy-track > div { height: 100%; background: #67e8f9; transition: width .2s; }
+.planet-ability { display: flex; flex-direction: column; gap: 4px; width: 100%; padding: 10px; margin-top: 7px; text-align: left; border: 1px solid #306279; border-radius: 7px; background: #0b2538; color: #b9efff; }
+.planet-ability-title { width: 100%; font-size: 12px; font-weight: bold; }
+.planet-ability-title strong { white-space: nowrap; }
+.planet-ability.overdrive { color: #ffcf8c; border-color: #735331; background: #2b2118; }
+.planet-ability small { font-size: 10px; opacity: .8; }
+.planet-ability:disabled { opacity: .55; cursor: default; }
+.planet-command button:not(:disabled):hover { filter: brightness(1.25); }
+.planet-command button:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+
 html, body {
   margin: 0;
   padding: 0;

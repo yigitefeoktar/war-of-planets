@@ -1,22 +1,22 @@
-import type { Base, Pixel, SuperweaponId } from './types';
+import type { Base, SuperweaponId } from './types';
 
 export type { SuperweaponId } from './types';
 
 export const SUPERWEAPON_MAX_ENERGY = 100;
 export const ENERGY_PER_PLANET_PER_SECOND = 0.2;
 
-export type SuperweaponTargetMode = Exclude<SuperweaponId, 'aegis'> | null;
+export type SuperweaponTargetMode = 'omni' | null;
 
-export const SUPERWEAPON_IDS: SuperweaponId[] = ['aegis', 'singularity', 'omni', 'dominion'];
+export const SUPERWEAPON_IDS: SuperweaponId[] = ['omni', 'overdrive', 'repulse'];
 
 const QUICK_MATCH_UNLOCK_GROUPS: SuperweaponId[][] = [
-  ['aegis'],
-  ['singularity'],
-  ['omni'],
-  ['dominion'],
-  ['aegis', 'omni'],
-  ['singularity', 'dominion'],
+  ['overdrive'], ['repulse'], ['omni'],
+  ['overdrive'], ['repulse'], ['omni'],
 ];
+
+export const OVERDRIVE_DURATION = 15;
+export const OVERDRIVE_MULTIPLIER = 3;
+export const REPULSE_DURATION = 6;
 
 /** Spread two unlock sites for every weapon across a generated Quick Match map. */
 export function assignQuickMatchSuperweaponPlanets(bases: Iterable<Base>) {
@@ -29,10 +29,9 @@ export function assignQuickMatchSuperweaponPlanets(bases: Iterable<Base>) {
 }
 
 export const SUPERWEAPON_COSTS: Record<SuperweaponId, number> = {
-  aegis: 30,
-  singularity: 50,
+  overdrive: 50,
+  repulse: 40,
   omni: 70,
-  dominion: 100,
 };
 
 export function isPointAccessible(
@@ -46,20 +45,4 @@ export function isPointAccessible(
     if (base.color === color && Math.hypot(base.x - x, base.y - y) <= range) return true;
   }
   return false;
-}
-
-export function aegisTargets(
-  pixels: Iterable<Pixel>,
-  bases: Iterable<Base>,
-  color: string,
-  range: number,
-): Pixel[] {
-  const owned = Array.from(bases).filter(base => base.color === color);
-  if (owned.length === 0) return [];
-  return Array.from(pixels).filter(pixel =>
-    !pixel.dead &&
-    pixel.state === 'moving' &&
-    pixel.color !== color &&
-    owned.some(base => Math.hypot(base.x - pixel.x, base.y - pixel.y) <= range)
-  );
 }

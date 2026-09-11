@@ -44,7 +44,7 @@ export const resumeAudioContext = async () => {
   startKeepAlive(ctx);
 };
 
-export type SoundType = 'hover' | 'click' | 'select' | 'error' | 'launch' | 'capture' | 'charge' | 'omniLaunch' | 'capitalDestroyed' | 'win' | 'lose';
+export type SoundType = 'overdrive' | 'repulse' | 'productionBurst' | 'shieldImpact' | 'hover' | 'click' | 'select' | 'error' | 'launch' | 'capture' | 'charge' | 'omniLaunch' | 'capitalDestroyed' | 'win' | 'lose';
 
 export const playSound = (type: SoundType, enabled: boolean) => {
   if (!enabled) return;
@@ -61,7 +61,21 @@ export const playSound = (type: SoundType, enabled: boolean) => {
     // and avoid "late" sound warnings/delays in the audio thread.
     const now = ctx.currentTime + 0.01;
     
-    if (type === 'hover') {
+    if (type === 'overdrive' || type === 'repulse' || type === 'productionBurst' || type === 'shieldImpact') {
+      const reactor = type === 'overdrive' || type === 'productionBurst';
+      const short = type === 'productionBurst' || type === 'shieldImpact';
+      const duration = short ? 0.12 : 0.65;
+      for (const harmonic of [1, 1.5, 2]) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = reactor ? 'triangle' : 'sine';
+        osc.frequency.setValueAtTime((reactor ? 90 : 650) * harmonic, now);
+        osc.frequency.exponentialRampToValueAtTime((reactor ? 420 : 100) * harmonic, now + duration);
+        gain.gain.setValueAtTime(short ? 0.008 : 0.04, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        osc.connect(gain); gain.connect(masterGain!); osc.start(now); osc.stop(now + duration);
+      }
+    } else if (type === 'hover') {
       // Crystalline Blip (detuned high-frequency sines)
       [1600, 1610].forEach((freq) => {
         const osc = ctx.createOscillator();

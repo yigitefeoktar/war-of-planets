@@ -1,4 +1,10 @@
-export type SuperweaponId = 'aegis' | 'singularity' | 'omni' | 'dominion';
+export type SuperweaponId = 'overdrive' | 'repulse' | 'omni';
+
+export interface PlanetEffect {
+  color: string;
+  remaining: number;
+  pulse: number;
+}
 
 export interface Base {
   id: string;
@@ -10,6 +16,8 @@ export interface Base {
   isCapital?: boolean;
   isDysonSphere?: boolean;
   superweaponUnlocks?: SuperweaponId[];
+  overdrive?: PlanetEffect;
+  repulse?: PlanetEffect;
 }
 
 export interface Pixel {
