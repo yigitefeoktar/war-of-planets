@@ -1,31 +1,51 @@
 @import "tailwindcss";
 
 .planet-command {
-  position: absolute; z-index: 30; width: min(294px, calc(100vw - 16px));
-  max-height: calc(100dvh - 90px); overflow-y: auto; visibility: hidden;
-  padding: 10px; color: #c4ebf5; background: rgba(3, 12, 25, .96);
+  position: absolute; z-index: 30; left: 50%; bottom: 12px; transform: translateX(-50%);
+  display: flex; align-items: stretch; gap: 12px; width: min(980px, calc(100vw - 24px));
+  padding: 10px 52px 10px 12px; color: #c4ebf5; background: rgba(3, 12, 25, .96);
   border: 1px solid #43869a; border-radius: 12px;
   box-shadow: 0 12px 40px #000b, 0 0 24px #22d3ee20;
   font-family: monospace; font-size: 11px; touch-action: manipulation;
 }
+.planet-command-summary { display: flex; flex: 0 0 150px; flex-direction: column; justify-content: center; border-right: 1px solid #285269; padding-right: 12px; }
 .planet-command-heading, .planet-energy, .planet-ability-title { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .planet-command-heading { font-size: 11px; font-weight: bold; letter-spacing: .06em; }
-.planet-command-heading button { min-width: 40px; min-height: 36px; font-size: 22px; color: #b7dce9; }
+.planet-command-heading strong { color: white; font-size: 18px; }
+.planet-fleet-control { flex: 0 0 230px; }
+.planet-control-label { display: block; margin-bottom: 5px; color: #95cfe2; font-size: 10px; }
 .planet-fleet-sizes { display: flex; gap: 5px; }
-.planet-fleet-sizes button { flex: 1; min-height: 44px; border: 1px solid #255269; border-radius: 6px; font-size: 14px; }
+.planet-fleet-sizes button { flex: 1; min-height: 42px; border: 1px solid #255269; border-radius: 6px; font-size: 14px; }
 .planet-fleet-sizes button[aria-pressed="true"] { background: #67e8f9; border-color: #a5f3fc; color: #082333; font-weight: bold; }
-.planet-command-hint { color: #99b6c5; font-size: 10px; margin: 8px 0; }
-.planet-energy { margin-top: 8px; color: #95cfe2; font-size: 10px; }
+.planet-command-hint { color: #99b6c5; font-size: 10px; margin: 5px 0 0; }
+.planet-energy-block { flex: 0 0 120px; display: flex; flex-direction: column; justify-content: center; }
+.planet-energy { color: #95cfe2; font-size: 10px; }
 .planet-energy-track { height: 3px; background: #14344b; margin: 5px 0 10px; }
 .planet-energy-track > div { height: 100%; background: #67e8f9; transition: width .2s; }
-.planet-ability { display: flex; flex-direction: column; gap: 4px; width: 100%; padding: 10px; margin-top: 7px; text-align: left; border: 1px solid #306279; border-radius: 7px; background: #0b2538; color: #b9efff; }
+.planet-abilities { display: flex; flex: 1; gap: 8px; min-width: 0; }
+.planet-ability { display: flex; flex: 1; flex-direction: column; justify-content: center; gap: 3px; min-width: 0; padding: 8px 10px; text-align: left; border: 1px solid #306279; border-radius: 7px; background: #0b2538; color: #b9efff; }
 .planet-ability-title { width: 100%; font-size: 12px; font-weight: bold; }
 .planet-ability-title strong { white-space: nowrap; }
 .planet-ability.overdrive { color: #ffcf8c; border-color: #735331; background: #2b2118; }
 .planet-ability small { font-size: 10px; opacity: .8; }
 .planet-ability:disabled { opacity: .55; cursor: default; }
+.planet-command-close { position: absolute; right: 8px; top: 50%; width: 36px; height: 44px; transform: translateY(-50%); color: #b7dce9; font-size: 24px; }
 .planet-command button:not(:disabled):hover { filter: brightness(1.25); }
 .planet-command button:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+
+@media (max-width: 760px) {
+  .planet-command { bottom: 8px; flex-wrap: wrap; gap: 7px; width: calc(100vw - 16px); padding: 8px 42px 8px 8px; }
+  .planet-command-summary { flex: 1 1 120px; min-width: 0; border-right: 0; padding-right: 0; }
+  .planet-command-heading strong { font-size: 15px; }
+  .planet-fleet-control { flex: 1 1 190px; }
+  .planet-fleet-sizes button { min-height: 40px; }
+  .planet-energy-block { flex: 0 0 100%; }
+  .planet-energy-track { margin-bottom: 0; }
+  .planet-abilities { flex: 0 0 100%; }
+  .planet-ability { min-height: 64px; padding: 7px 8px; }
+  .planet-ability > span:not(.planet-ability-title) { display: none; }
+  .planet-command-close { right: 4px; top: 8px; transform: none; }
+}
 
 html, body {
   margin: 0;

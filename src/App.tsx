@@ -9,7 +9,6 @@ import { advanceTutorial, drawTutorialHighlights, tutorialTargets, type Tutorial
 import './ui/Tutorial.css';
 import { issueFleetOrder } from './game/logistics';
 import { GameEngine } from './game/engine';
-import { planetCommandPosition } from './game/planetCommands';
 import { SUPERWEAPON_COSTS, SUPERWEAPON_IDS, SUPERWEAPON_MAX_ENERGY, type SuperweaponId } from './game/superweapons';
 
 function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled, isHardMode, setIsHardMode }: { selectedMode: ModeId, onSelectMode: (mode: ModeId) => void, progress: Progress, saveWarning: boolean, onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void, isHardMode: boolean, setIsHardMode: (val: boolean) => void }) {
@@ -266,7 +265,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   const [unlockedWeapons, setUnlockedWeapons] = useState<Set<SuperweaponId>>(() => new Set());
   const [commandPlanet, setCommandPlanet] = useState<string | null>(null);
   const commandPlanetRef = useRef<string | null>(null);
-  const commandPanelRef = useRef<HTMLDivElement>(null);
   const clearSelectionRef = useRef<() => void>(() => {});
   const [wasWeaponReady, setWasWeaponReady] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -1194,18 +1192,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
       // Draw game
       engine.draw(ctx, selectedBaseId, cameraX, cameraY);
-      const selected = selectedBaseId ? engine.bases.get(selectedBaseId) : null;
-      const panel = commandPanelRef.current;
-      if (panel && selected) {
-        const x = (selected.x - cameraX) * cameraZoom;
-        const y = (selected.y - cameraY) * cameraZoom;
-        const gap = (selected.isCapital ? 40 : selected.isDysonSphere ? 62 : 20) * cameraZoom + 24;
-        const placement = planetCommandPosition(x, y, gap, width, height, panel.offsetWidth, panel.scrollHeight + 2);
-        panel.style.left = `${placement.left}px`;
-        panel.style.top = `${placement.top}px`;
-        panel.style.maxHeight = `${placement.maxHeight}px`;
-        panel.style.visibility = x < 0 || x > width || y < 0 || y > height ? 'hidden' : 'visible';
-      }
       if (!isIntroPlaying && !isGameOver && !isPausedRef.current) {
         updateTutorial({ type: 'selection', playerSelected: selectedBaseId !== null && engine.bases.get(selectedBaseId)?.color === '#3b82f6' });
         if (tutorialRef.current.step !== 'done') {
@@ -1424,38 +1410,48 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         const weapons = (owned ? ['overdrive', 'repulse'] : ['omni']) as SuperweaponId[];
         const labels = { omni: 'Omni Strike', overdrive: 'Production Overdrive', repulse: 'Repulse Shield' };
         const descriptions = { omni: 'Warp 30% of every idle fleet here.', overdrive: '3x production / 15 seconds', repulse: 'Repel and destroy arrivals / 6 seconds' };
-        return <div ref={commandPanelRef} className="planet-command" role="region" aria-label="Planet commands"
+        return <div className="planet-command" role="region" aria-label="Planet commands"
           onPointerDown={event => event.stopPropagation()} onTouchStart={event => event.stopPropagation()}>
-          <div className="planet-command-heading">
-            <span style={{ color: planet.color }}>{owned ? 'YOUR' : planet.color === '#6b7280' ? 'NEUTRAL' : 'ENEMY'} {planet.isCapital ? 'CAPITAL' : planet.isDysonSphere ? 'DYSON SPHERE' : 'PLANET'} / {planet.pixelCount}</span>
-            <button aria-label="Close planet commands" onClick={() => clearSelectionRef.current()}>×</button>
-          </div>
-          {!!planet.superweaponUnlocks?.length && <p className="planet-command-hint">Unlocks: {planet.superweaponUnlocks.map(weapon => labels[weapon]).join(', ')}</p>}
-          {owned && <>
-            <div className="planet-fleet-sizes" aria-label="Fleet deployment size">
-              {[0.1, 0.5, 1].map(size => <button key={size} aria-pressed={fleetSize === size} onClick={() => handleFleetSizeChange(size)}>{size * 100}%</button>)}
+          <div className="planet-command-summary">
+            <div className="planet-command-heading">
+              <span style={{ color: planet.color }}>{owned ? 'YOUR' : planet.color === '#6b7280' ? 'NEUTRAL' : 'ENEMY'} {planet.isCapital ? 'CAPITAL' : planet.isDysonSphere ? 'DYSON SPHERE' : 'PLANET'}</span>
+              <strong>{planet.pixelCount}</strong>
             </div>
-            <p className="planet-command-hint">Choose a destination to send your fleet.</p>
+            {!!planet.superweaponUnlocks?.length && <p className="planet-command-hint">Unlocks: {planet.superweaponUnlocks.map(weapon => labels[weapon]).join(', ')}</p>}
+          </div>
+          {owned && <>
+            <div className="planet-fleet-control">
+              <span className="planet-control-label">FLEET</span>
+              <div className="planet-fleet-sizes" aria-label="Fleet deployment size">
+                {[0.1, 0.5, 1].map(size => <button key={size} aria-pressed={fleetSize === size} onClick={() => handleFleetSizeChange(size)}>{size * 100}%</button>)}
+              </div>
+              <p className="planet-command-hint">Choose a destination</p>
+            </div>
           </>}
           {availableWeapons.size > 0 && <>
-            <div className="planet-energy"><span>ENERGY</span><strong>{Math.floor(energy)} / {SUPERWEAPON_MAX_ENERGY}</strong></div>
-            <div className="planet-energy-track" role="progressbar" aria-label="Ability energy" aria-valuemin={0} aria-valuemax={SUPERWEAPON_MAX_ENERGY} aria-valuenow={Math.floor(energy)}><div style={{ width: `${energy}%` }} /></div>
-            {weapons.filter(weapon => availableWeapons.has(weapon)).map(weapon => {
-              const active = weapon === 'omni' ? undefined : planet[weapon];
-              const unlocked = unlockedWeapons.has(weapon);
-              const status = active ? `Active / ${Math.ceil(active.remaining)}s`
-                : !unlocked ? map?.orbit?.dysonSphere ? 'Own 5 worlds to unlock' : 'Capture a matching ability planet'
-                : weapon === 'overdrive' && planet.isDysonSphere ? 'This sphere does not produce ships'
-                : energy < SUPERWEAPON_COSTS[weapon] ? `Charging / ${Math.ceil(SUPERWEAPON_COSTS[weapon] - energy)} more energy`
-                : weapon === 'omni' && !engine.canOmniStrike('#3b82f6', planet.id) ? 'Outside your attack range'
-                : weapon === 'omni' && !engine.hasOmniFleet('#3b82f6') ? 'Need at least 4 idle ships on a world'
-                : 'Ready';
-              return <button key={weapon} className={`planet-ability ${weapon}`} disabled={status !== 'Ready'} onClick={() => activateAbility(weapon)}>
-                <span className="planet-ability-title"><span>{weapon === 'omni' ? '\u2726' : weapon === 'overdrive' ? '\u03df' : '\u2b21'} {labels[weapon]}</span><strong>{SUPERWEAPON_COSTS[weapon]} E</strong></span>
-                <span>{descriptions[weapon]}</span><small>{status}</small>
-              </button>;
-            })}
+            <div className="planet-energy-block">
+              <div className="planet-energy"><span>ENERGY</span><strong>{Math.floor(energy)} / {SUPERWEAPON_MAX_ENERGY}</strong></div>
+              <div className="planet-energy-track" role="progressbar" aria-label="Ability energy" aria-valuemin={0} aria-valuemax={SUPERWEAPON_MAX_ENERGY} aria-valuenow={Math.floor(energy)}><div style={{ width: `${energy}%` }} /></div>
+            </div>
+            <div className="planet-abilities">
+              {weapons.filter(weapon => availableWeapons.has(weapon)).map(weapon => {
+                const active = weapon === 'omni' ? undefined : planet[weapon];
+                const unlocked = unlockedWeapons.has(weapon);
+                const status = active ? `Active / ${Math.ceil(active.remaining)}s`
+                  : !unlocked ? map?.orbit?.dysonSphere ? 'Own 5 worlds to unlock' : 'Capture a matching ability planet'
+                  : weapon === 'overdrive' && planet.isDysonSphere ? 'This sphere does not produce ships'
+                  : energy < SUPERWEAPON_COSTS[weapon] ? `Charging / ${Math.ceil(SUPERWEAPON_COSTS[weapon] - energy)} more energy`
+                  : weapon === 'omni' && !engine.canOmniStrike('#3b82f6', planet.id) ? 'Outside your attack range'
+                  : weapon === 'omni' && !engine.hasOmniFleet('#3b82f6') ? 'Need at least 4 idle ships on a world'
+                  : 'Ready';
+                return <button key={weapon} className={`planet-ability ${weapon}`} disabled={status !== 'Ready'} onClick={() => activateAbility(weapon)}>
+                  <span className="planet-ability-title"><span>{weapon === 'omni' ? '\u2726' : weapon === 'overdrive' ? '\u03df' : '\u2b21'} {labels[weapon]}</span><strong>{SUPERWEAPON_COSTS[weapon]} E</strong></span>
+                  <span>{descriptions[weapon]}</span><small>{status}</small>
+                </button>;
+              })}
+            </div>
           </>}
+          <button className="planet-command-close" aria-label="Close planet commands" onClick={() => clearSelectionRef.current()}>×</button>
         </div>;
       })()}
 
