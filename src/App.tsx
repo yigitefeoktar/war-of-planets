@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createMatch } from './game/mapLoader';
 import { CHAPTERS, DYSON_SPHERE_ID, completeMission, followingMission, getOutcome, launchMission, loadProgress, nextMission, saveProgress, type MapDefinition, type ModeId, type Progress } from './game/campaign';
 import { motion } from 'motion/react';
-import { Maximize, Minimize, Volume2, VolumeX, Music, Skull, Pause, Play, Flag } from 'lucide-react';
+import { Maximize, Minimize, Volume2, VolumeX, Music, Skull, Pause, Play, Flag, Shield, Zap } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
 import { ModeCard } from './ui/ModeCard';
 import { advanceTutorial, drawTutorialHighlights, tutorialTargets, type TutorialState, type TutorialEvent } from './game/tutorial';
@@ -265,7 +265,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   const [unlockedWeapons, setUnlockedWeapons] = useState<Set<SuperweaponId>>(() => new Set());
   const [commandPlanet, setCommandPlanet] = useState<string | null>(null);
   const commandPlanetRef = useRef<string | null>(null);
-  const clearSelectionRef = useRef<() => void>(() => {});
   const [wasWeaponReady, setWasWeaponReady] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isPaused, setIsPaused] = useState(false);
@@ -522,7 +521,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       commandPlanetRef.current = id;
       setCommandPlanet(id);
     };
-    clearSelectionRef.current = () => selectPlanet(null);
     const handlePlanetClick = (id: string | null) => {
       if (!id || selectedBaseId === id) { selectPlanet(null); return; }
       const source = selectedBaseId && engine.bases.get(selectedBaseId);
@@ -1413,10 +1411,8 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         return <div className="planet-command" role="region" aria-label="Planet commands"
           onPointerDown={event => event.stopPropagation()} onTouchStart={event => event.stopPropagation()}>
           <div className="planet-command-summary">
-            <div className="planet-command-heading">
-              <span style={{ color: planet.color }}>{owned ? 'YOUR' : planet.color === '#6b7280' ? 'NEUTRAL' : 'ENEMY'} {planet.isCapital ? 'CAPITAL' : planet.isDysonSphere ? 'DYSON SPHERE' : 'PLANET'}</span>
-              <strong>{planet.pixelCount}</strong>
-            </div>
+            <span className="planet-command-kicker" style={{ color: planet.color }}>{owned ? 'YOUR' : planet.color === '#6b7280' ? 'NEUTRAL' : 'ENEMY'} {planet.isCapital ? 'CAPITAL' : planet.isDysonSphere ? 'DYSON SPHERE' : 'PLANET'}</span>
+            <strong className="planet-command-count">{planet.pixelCount}</strong>
             {!!planet.superweaponUnlocks?.length && <p className="planet-command-hint">Unlocks: {planet.superweaponUnlocks.map(weapon => labels[weapon]).join(', ')}</p>}
           </div>
           {owned && <>
@@ -1445,13 +1441,18 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
                   : weapon === 'omni' && !engine.hasOmniFleet('#3b82f6') ? 'Need at least 4 idle ships on a world'
                   : 'Ready';
                 return <button key={weapon} className={`planet-ability ${weapon}`} disabled={status !== 'Ready'} onClick={() => activateAbility(weapon)}>
-                  <span className="planet-ability-title"><span>{weapon === 'omni' ? '\u2726' : weapon === 'overdrive' ? '\u03df' : '\u2b21'} {labels[weapon]}</span><strong>{SUPERWEAPON_COSTS[weapon]} E</strong></span>
-                  <span>{descriptions[weapon]}</span><small>{status}</small>
+                  <span className="planet-ability-icon" aria-hidden="true">
+                    {weapon === 'repulse' ? <Shield size={30} strokeWidth={2.3} /> : <Zap size={30} strokeWidth={2.3} />}
+                  </span>
+                  <span className="planet-ability-copy">
+                    <span className="planet-ability-title"><span>{labels[weapon]}</span><strong>{SUPERWEAPON_COSTS[weapon]} E</strong></span>
+                    <span className="planet-ability-description">{descriptions[weapon]}</span>
+                    <small>{status}</small>
+                  </span>
                 </button>;
               })}
             </div>
           </>}
-          <button className="planet-command-close" aria-label="Close planet commands" onClick={() => clearSelectionRef.current()}>×</button>
         </div>;
       })()}
 
