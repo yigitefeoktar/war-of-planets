@@ -10,6 +10,7 @@ import './ui/Tutorial.css';
 import { issueFleetOrder } from './game/logistics';
 import { GameEngine } from './game/engine';
 import { SUPERWEAPON_COSTS, SUPERWEAPON_IDS, SUPERWEAPON_MAX_ENERGY, type SuperweaponId } from './game/superweapons';
+import type { Base } from './game/types';
 
 function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled, isHardMode, setIsHardMode }: { selectedMode: ModeId, onSelectMode: (mode: ModeId) => void, progress: Progress, saveWarning: boolean, onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void, isHardMode: boolean, setIsHardMode: (val: boolean) => void }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -265,6 +266,8 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   const [unlockedWeapons, setUnlockedWeapons] = useState<Set<SuperweaponId>>(() => new Set());
   const [commandPlanet, setCommandPlanet] = useState<string | null>(null);
   const commandPlanetRef = useRef<string | null>(null);
+  const [omniTargeting, setOmniTargeting] = useState(false);
+  const omniTargetingRef = useRef(false);
   const [wasWeaponReady, setWasWeaponReady] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isPaused, setIsPaused] = useState(false);
@@ -335,8 +338,14 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     const engine = engineRef.current;
     const id = commandPlanetRef.current;
     if (!engine || !id || isPausedRef.current || winner) return;
-    const activated = weapon === 'omni' ? engine.activateOmniStrike('#3b82f6', id)
-      : engine.activatePlanetAbility('#3b82f6', id, weapon);
+    if (weapon === 'omni') {
+      const next = !omniTargetingRef.current;
+      omniTargetingRef.current = next;
+      setOmniTargeting(next);
+      playSound(next ? 'charge' : 'click', isSoundEnabledRef.current);
+      return;
+    }
+    const activated = engine.activatePlanetAbility('#3b82f6', id, weapon);
     if (!activated) playSound('error', isSoundEnabledRef.current);
     setEnergy(engine.getEnergy('#3b82f6'));
   };
@@ -522,15 +531,31 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       setCommandPlanet(id);
     };
     const handlePlanetClick = (id: string | null) => {
+      if (omniTargetingRef.current) {
+        const target = id ? engine.bases.get(id) : null;
+        if (target && target.color !== '#3b82f6' && engine.activateOmniStrike('#3b82f6', target.id)) {
+          omniTargetingRef.current = false;
+          setOmniTargeting(false);
+          setEnergy(engine.getEnergy('#3b82f6'));
+          selectPlanet(null);
+        } else if (id) {
+          playSound('error', isSoundEnabledRef.current);
+        }
+        return;
+      }
       if (!id || selectedBaseId === id) { selectPlanet(null); return; }
       const source = selectedBaseId && engine.bases.get(selectedBaseId);
       if (source && source.color === '#3b82f6') {
         if (!issueFleetOrder(engine, source.id, id, fleetSizeRef.current)) playSound('error', isSoundEnabledRef.current);
-        // Hostile destinations expose Omni immediately after a normal attack.
-        selectPlanet(engine.bases.get(id)?.color === '#3b82f6' ? null : id);
+        selectPlanet(null);
       } else {
-        selectPlanet(id);
-        playSound('select', isSoundEnabledRef.current);
+        const target = engine.bases.get(id);
+        if (target?.color === '#3b82f6') {
+          selectPlanet(id);
+          playSound('select', isSoundEnabledRef.current);
+        } else {
+          selectPlanet(null);
+        }
       }
     };
 
@@ -933,7 +958,9 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       if (e.repeat) return;
       const tag = (document.activeElement as HTMLElement | null)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-      if (e.code === 'Escape' && selectedBaseId) {
+      if (e.code === 'Escape' && (selectedBaseId || omniTargetingRef.current)) {
+        omniTargetingRef.current = false;
+        setOmniTargeting(false);
         selectPlanet(null); e.preventDefault(); return;
       }
       if (isIntroPlaying || isPausedRef.current) return;
@@ -1189,7 +1216,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       ctx.scale(cameraZoom, cameraZoom);
 
       // Draw game
-      engine.draw(ctx, selectedBaseId, cameraX, cameraY);
+      engine.draw(ctx, selectedBaseId, cameraX, cameraY, omniTargetingRef.current ? 'omni' : null);
       if (!isIntroPlaying && !isGameOver && !isPausedRef.current) {
         updateTutorial({ type: 'selection', playerSelected: selectedBaseId !== null && engine.bases.get(selectedBaseId)?.color === '#3b82f6' });
         if (tutorialRef.current.step !== 'done') {
@@ -1403,19 +1430,18 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       {showUI && commandPlanet && !winner && !isPaused && (() => {
         const engine = engineRef.current;
         const planet = engine?.bases.get(commandPlanet);
-        if (!engine || !planet) return null;
-        const owned = planet.color === '#3b82f6';
-        const weapons = (owned ? ['overdrive', 'repulse'] : ['omni']) as SuperweaponId[];
+        if (!engine || !planet || planet.color !== '#3b82f6') return null;
+        const weapons = ['overdrive', 'repulse', 'omni'] as SuperweaponId[];
         const labels = { omni: 'Omni Strike', overdrive: 'Production Overdrive', repulse: 'Repulse Shield' };
         const descriptions = { omni: 'Warp 30% of every idle fleet here.', overdrive: '3x production / 15 seconds', repulse: 'Repel and destroy arrivals / 6 seconds' };
         return <div className="planet-command" role="region" aria-label="Planet commands"
           onPointerDown={event => event.stopPropagation()} onTouchStart={event => event.stopPropagation()}>
           <div className="planet-command-summary">
-            <span className="planet-command-kicker" style={{ color: planet.color }}>{owned ? 'YOUR' : planet.color === '#6b7280' ? 'NEUTRAL' : 'ENEMY'} {planet.isCapital ? 'CAPITAL' : planet.isDysonSphere ? 'DYSON SPHERE' : 'PLANET'}</span>
+            <span className="planet-command-kicker" style={{ color: planet.color }}>YOUR {planet.isCapital ? 'CAPITAL' : planet.isDysonSphere ? 'DYSON SPHERE' : 'PLANET'}</span>
             <strong className="planet-command-count">{planet.pixelCount}</strong>
             {!!planet.superweaponUnlocks?.length && <p className="planet-command-hint">Unlocks: {planet.superweaponUnlocks.map(weapon => labels[weapon]).join(', ')}</p>}
           </div>
-          {owned && <>
+          <>
             <div className="planet-fleet-control">
               <span className="planet-control-label">FLEET</span>
               <div className="planet-fleet-sizes" aria-label="Fleet deployment size">
@@ -1423,7 +1449,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
               </div>
               <p className="planet-command-hint">Choose a destination</p>
             </div>
-          </>}
+          </>
           {availableWeapons.size > 0 && <>
             <div className="planet-energy-block">
               <div className="planet-energy"><span>ENERGY</span><strong>{Math.floor(energy)} / {SUPERWEAPON_MAX_ENERGY}</strong></div>
@@ -1437,10 +1463,12 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
                   : !unlocked ? map?.orbit?.dysonSphere ? 'Own 5 worlds to unlock' : 'Capture a matching ability planet'
                   : weapon === 'overdrive' && planet.isDysonSphere ? 'This sphere does not produce ships'
                   : energy < SUPERWEAPON_COSTS[weapon] ? `Charging / ${Math.ceil(SUPERWEAPON_COSTS[weapon] - energy)} more energy`
-                  : weapon === 'omni' && !engine.canOmniStrike('#3b82f6', planet.id) ? 'Outside your attack range'
                   : weapon === 'omni' && !engine.hasOmniFleet('#3b82f6') ? 'Need at least 4 idle ships on a world'
+                  : weapon === 'omni' && !(Array.from(engine.bases.values()) as Base[]).some(target => target.color !== '#3b82f6' && engine.canOmniStrike('#3b82f6', target.id)) ? 'No target in attack range'
+                  : weapon === 'omni' && omniTargeting ? 'Select a target planet'
                   : 'Ready';
-                return <button key={weapon} className={`planet-ability ${weapon}`} disabled={status !== 'Ready'} onClick={() => activateAbility(weapon)}>
+                const canPress = status === 'Ready' || (weapon === 'omni' && omniTargeting);
+                return <button key={weapon} className={`planet-ability ${weapon} ${weapon === 'omni' && omniTargeting ? 'targeting' : ''}`} disabled={!canPress} aria-pressed={weapon === 'omni' ? omniTargeting : undefined} onClick={() => activateAbility(weapon)}>
                   <span className="planet-ability-icon" aria-hidden="true">
                     {weapon === 'repulse' ? <Shield size={30} strokeWidth={2.3} /> : <Zap size={30} strokeWidth={2.3} />}
                   </span>
