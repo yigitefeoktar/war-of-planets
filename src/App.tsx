@@ -1468,7 +1468,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
                   : weapon === 'omni' && omniTargeting ? 'Select a target planet'
                   : 'Ready';
                 const canPress = status === 'Ready' || (weapon === 'omni' && omniTargeting);
-                return <button key={weapon} className={`planet-ability ${weapon} ${weapon === 'omni' && omniTargeting ? 'targeting' : ''}`} disabled={!canPress} aria-pressed={weapon === 'omni' ? omniTargeting : undefined} onClick={() => activateAbility(weapon)}>
+                return <button key={weapon} className={`planet-ability ${weapon} ${weapon === 'omni' && omniTargeting ? 'targeting' : ''}`} disabled={!canPress} aria-label={`${labels[weapon]}, ${SUPERWEAPON_COSTS[weapon]} energy. ${status}`} aria-pressed={weapon === 'omni' ? omniTargeting : undefined} onClick={() => activateAbility(weapon)}>
                   <span className="planet-ability-icon" aria-hidden="true">
                     {weapon === 'repulse' ? <Shield size={30} strokeWidth={2.3} /> : <Zap size={30} strokeWidth={2.3} />}
                   </span>

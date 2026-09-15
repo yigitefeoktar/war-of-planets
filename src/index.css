@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 .planet-command {
-  position: absolute; z-index: 30; left: 50%; bottom: 22px; transform: translateX(-50%);
-  display: grid; grid-template-columns: minmax(150px, .8fr) minmax(240px, 1.45fr) minmax(150px, 1fr) minmax(390px, 2.1fr);
-  align-items: stretch; gap: 22px; width: min(1460px, calc(100vw - 64px)); min-height: 138px;
-  padding: 20px 24px; color: #c4ebf5;
+  position: absolute; z-index: 30; left: 50%; bottom: 16px; transform: translateX(-50%);
+  display: grid; grid-template-columns: 110px minmax(230px, 1.25fr) minmax(135px, .7fr) minmax(500px, 2.35fr);
+  align-items: stretch; gap: 14px; width: min(1280px, calc(100vw - 48px));
+  padding: 12px 14px; color: #c4ebf5;
   background: linear-gradient(100deg, rgba(4, 19, 34, .97), rgba(3, 13, 25, .95));
   border: 1px solid rgba(74, 160, 196, .38); border-radius: 17px;
   box-shadow: 0 20px 70px rgba(0, 0, 0, .62), inset 0 1px rgba(169, 231, 255, .05), 0 0 36px rgba(34, 211, 238, .06);
@@ -12,60 +12,61 @@
   backdrop-filter: blur(18px);
 }
 .planet-command::before { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; background: linear-gradient(90deg, rgba(59, 130, 246, .035), transparent 30%, transparent 70%, rgba(34, 211, 238, .025)); }
-.planet-command-summary { position: relative; display: flex; min-width: 0; flex-direction: column; justify-content: center; border-right: 1px solid rgba(83, 151, 180, .17); padding-right: 22px; }
-.planet-command-kicker { font-size: 13px; font-weight: 700; letter-spacing: .045em; text-shadow: 0 0 16px currentColor; }
-.planet-command-count { margin-top: 7px; color: #f2fbff; font-size: 38px; line-height: 1; letter-spacing: -.035em; text-shadow: 0 0 22px rgba(151, 225, 255, .25); }
+.planet-command-summary { position: relative; display: flex; min-width: 0; flex-direction: column; justify-content: center; border-right: 1px solid rgba(83, 151, 180, .17); padding-right: 14px; }
+.planet-command-kicker { font-size: 11px; font-weight: 700; letter-spacing: .045em; text-shadow: 0 0 16px currentColor; }
+.planet-command-count { margin-top: 4px; color: #f2fbff; font-size: 30px; line-height: 1; letter-spacing: -.035em; text-shadow: 0 0 22px rgba(151, 225, 255, .25); }
 .planet-energy, .planet-ability-title { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .planet-fleet-control { position: relative; display: flex; min-width: 0; flex-direction: column; justify-content: center; }
-.planet-control-label { display: block; margin-bottom: 8px; color: #80bee0; font-size: 13px; font-weight: 700; letter-spacing: .035em; }
+.planet-control-label { display: block; margin-bottom: 5px; color: #80bee0; font-size: 11px; font-weight: 700; letter-spacing: .035em; }
 .planet-fleet-sizes { display: flex; gap: 5px; }
-.planet-fleet-sizes button { flex: 1; min-height: 55px; border: 1px solid rgba(47, 105, 135, .38); border-radius: 11px; background: linear-gradient(180deg, rgba(19, 51, 75, .88), rgba(9, 31, 50, .92)); color: #acd8ed; font-size: 17px; font-weight: 700; box-shadow: inset 0 1px rgba(255, 255, 255, .025); transition: border-color .15s, filter .15s, transform .15s; }
+.planet-fleet-sizes button { flex: 1; min-height: 42px; border: 1px solid rgba(47, 105, 135, .38); border-radius: 9px; background: linear-gradient(180deg, rgba(19, 51, 75, .88), rgba(9, 31, 50, .92)); color: #acd8ed; font-size: 15px; font-weight: 700; box-shadow: inset 0 1px rgba(255, 255, 255, .025); transition: border-color .15s, filter .15s, transform .15s; }
 .planet-fleet-sizes button[aria-pressed="true"] { background: linear-gradient(180deg, #73e9f6, #4dcde2); border-color: #a5f3fc; color: #061a25; box-shadow: 0 0 20px rgba(65, 218, 238, .22), inset 0 1px rgba(255, 255, 255, .45); }
 .planet-fleet-sizes button:not([aria-pressed="true"]):hover { border-color: rgba(88, 177, 215, .7); transform: translateY(-1px); }
-.planet-command-hint { color: #69899d; font-size: 11px; line-height: 1.35; margin: 8px 0 0; }
+.planet-command-hint { color: #69899d; font-size: 9px; line-height: 1.25; margin: 5px 0 0; }
 .planet-energy-block { position: relative; display: flex; min-width: 0; flex-direction: column; justify-content: center; }
-.planet-energy { color: #80bee0; font-size: 13px; font-weight: 700; }
-.planet-energy strong { color: #c6e8f5; font-size: 15px; }
-.planet-energy-track { height: 9px; overflow: hidden; background: rgba(17, 53, 77, .85); margin: 13px 0 10px; border-radius: 999px; box-shadow: inset 0 1px 4px rgba(0, 0, 0, .5); }
+.planet-energy { color: #80bee0; font-size: 11px; font-weight: 700; }
+.planet-energy strong { color: #c6e8f5; font-size: 13px; }
+.planet-energy-track { height: 6px; overflow: hidden; background: rgba(17, 53, 77, .85); margin: 8px 0 6px; border-radius: 999px; box-shadow: inset 0 1px 4px rgba(0, 0, 0, .5); }
 .planet-energy-track > div { height: 100%; min-width: 3px; background: linear-gradient(90deg, #41d9e8, #79eff8); border-radius: inherit; box-shadow: 0 0 12px rgba(83, 225, 239, .55); transition: width .2s; }
-.planet-abilities { position: relative; display: flex; gap: 14px; min-width: 0; }
-.planet-ability { display: flex; flex: 1; align-items: flex-start; justify-content: flex-start; gap: 13px; min-width: 0; padding: 17px 16px; text-align: left; border: 1px solid rgba(48, 114, 150, .3); border-radius: 13px; background: linear-gradient(145deg, rgba(8, 40, 61, .93), rgba(7, 29, 47, .95)); color: #9eddf4; box-shadow: inset 0 1px rgba(255, 255, 255, .025); transition: border-color .15s, filter .15s, transform .15s; }
-.planet-ability-icon { display: grid; flex: 0 0 34px; place-items: center; padding-top: 2px; filter: drop-shadow(0 0 8px currentColor); }
-.planet-ability-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 7px; }
-.planet-ability-title { width: 100%; color: #d4f1fb; font-size: 14px; font-weight: 700; }
+.planet-abilities { position: relative; display: flex; gap: 8px; min-width: 0; }
+.planet-ability { display: flex; flex: 1; align-items: center; justify-content: flex-start; gap: 8px; min-width: 0; padding: 10px; text-align: left; border: 1px solid rgba(48, 114, 150, .3); border-radius: 10px; background: linear-gradient(145deg, rgba(8, 40, 61, .93), rgba(7, 29, 47, .95)); color: #9eddf4; box-shadow: inset 0 1px rgba(255, 255, 255, .025); transition: border-color .15s, filter .15s, transform .15s; }
+.planet-ability-icon { display: grid; flex: 0 0 26px; place-items: center; filter: drop-shadow(0 0 8px currentColor); }
+.planet-ability-icon svg { width: 24px; height: 24px; }
+.planet-ability-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 3px; }
+.planet-ability-title { width: 100%; color: #d4f1fb; font-size: 11px; font-weight: 700; }
 .planet-ability-title strong { white-space: nowrap; }
-.planet-ability-description { color: #7899aa; font-size: 11px; line-height: 1.35; }
+.planet-ability-description { display: none; }
 .planet-ability.overdrive { color: #ffbd59; border-color: rgba(153, 108, 45, .34); background: linear-gradient(145deg, rgba(48, 37, 22, .94), rgba(28, 27, 25, .95)); }
 .planet-ability.overdrive .planet-ability-title { color: #ffe7bd; }
 .planet-ability.omni { color: #67e8f9; }
 .planet-ability.targeting { border-color: #67e8f9; background: linear-gradient(145deg, rgba(10, 67, 88, .98), rgba(6, 35, 54, .98)); box-shadow: inset 0 1px rgba(255, 255, 255, .08), 0 0 22px rgba(34, 211, 238, .18); }
-.planet-ability small { color: #638395; font-size: 10px; line-height: 1.3; }
+.planet-ability small { color: #638395; font-size: 8px; line-height: 1.25; }
 .planet-ability:disabled { opacity: .72; cursor: default; }
 .planet-ability:not(:disabled):hover { border-color: currentColor; filter: brightness(1.12); transform: translateY(-1px); }
 .planet-command button:focus-visible { outline: 2px solid white; outline-offset: 2px; }
 
-@media (max-width: 1450px) {
-  .planet-command { grid-template-columns: 150px minmax(260px, 1fr) minmax(160px, .7fr); gap: 14px; width: calc(100vw - 32px); padding: 14px 18px; }
+@media (max-width: 1200px) {
+  .planet-command { grid-template-columns: 120px minmax(250px, 1fr) minmax(140px, .65fr); gap: 10px; width: calc(100vw - 32px); padding: 11px 14px; }
   .planet-abilities { grid-column: 1 / -1; }
-  .planet-ability { min-height: 92px; }
+  .planet-ability { min-height: 54px; }
 }
 
 @media (max-width: 1100px) {
-  .planet-command { grid-template-columns: 130px minmax(220px, 1.25fr) 130px; gap: 12px; width: calc(100vw - 24px); padding: 14px; }
+  .planet-command { grid-template-columns: 110px minmax(220px, 1.25fr) 120px; gap: 9px; width: calc(100vw - 24px); padding: 10px 12px; }
   .planet-command-summary { padding-right: 12px; }
-  .planet-command-count { font-size: 31px; }
-  .planet-ability { gap: 8px; padding: 13px 10px; }
+  .planet-command-count { font-size: 28px; }
+  .planet-ability { gap: 7px; padding: 9px; }
   .planet-ability-icon { flex-basis: 28px; }
   .planet-ability-icon svg { width: 25px; height: 25px; }
   .planet-ability-title { font-size: 12px; }
 }
 
 @media (max-width: 760px) {
-  .planet-command { bottom: 8px; grid-template-columns: minmax(92px, .65fr) minmax(210px, 1.35fr); gap: 9px 12px; width: calc(100vw - 16px); min-height: 0; padding: 12px; border-radius: 14px; }
+  .planet-command { bottom: 8px; grid-template-columns: minmax(82px, .55fr) minmax(210px, 1.45fr); gap: 7px 10px; width: calc(100vw - 16px); min-height: 0; padding: 9px 10px; border-radius: 13px; }
   .planet-command-summary { min-width: 0; border-right: 0; padding-right: 0; }
   .planet-command-kicker { font-size: 10px; }
   .planet-command-count { margin-top: 5px; font-size: 27px; }
-  .planet-fleet-sizes button { min-height: 40px; }
+  .planet-fleet-sizes button { min-height: 36px; }
   .planet-control-label { margin-bottom: 5px; font-size: 10px; }
   .planet-command-hint { margin-top: 5px; font-size: 9px; }
   .planet-energy-block { grid-column: 1 / -1; }
@@ -74,7 +75,7 @@
   .planet-energy-track { height: 5px; margin: 5px 0 0; }
   .planet-abilities { grid-column: 1 / -1; gap: 8px; }
   .planet-energy-track { margin-bottom: 0; }
-  .planet-ability { min-height: 66px; gap: 7px; padding: 10px 9px; border-radius: 10px; }
+  .planet-ability { min-height: 52px; gap: 6px; padding: 8px; border-radius: 9px; }
   .planet-ability-icon { flex-basis: 22px; }
   .planet-ability-icon svg { width: 21px; height: 21px; }
   .planet-ability-copy { gap: 4px; }
@@ -85,9 +86,10 @@
 
 @media (max-width: 480px) {
   .planet-abilities { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .planet-ability { flex-direction: column; min-height: 83px; }
+  .planet-ability { flex-direction: column; min-height: 62px; }
   .planet-ability-icon { display: none; }
   .planet-ability-title { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .planet-ability small { display: none; }
 }
 
 html, body {
