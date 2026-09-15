@@ -915,31 +915,33 @@ export class GameEngine {
       // Draw valid target highlight
       let isOutOfRange = false;
       
-      if (targetingMode === 'omni') {
-        // Highlight reachable Omni targets for callers that request it.
-        const playerBases = Array.from(this.bases.values()).filter(b => b.color === '#3b82f6');
-        const inRangeOfAny = playerBases.some(pb => Math.hypot(base.x - pb.x, base.y - pb.y) <= this.MAX_ATTACK_RANGE);
-        
-        if (base.color !== '#3b82f6') {
-          if (inRangeOfAny) {
-            ctx.save();
-            ctx.translate(drawX, drawY);
+      if (targetingMode) {
+        const valid = targetingMode === 'omni'
+          ? this.canOmniStrike('#3b82f6', base.id)
+          : this.canActivatePlanetAbility('#3b82f6', base.id, targetingMode);
+        if (valid) {
+          ctx.save();
+          ctx.translate(drawX, drawY);
+          const planetRadius = base.isDysonSphere ? 62 : base.isCapital ? 40 : 20;
+          const fleetRadius = planetRadius + 25 + Math.sqrt(base.pixelCount) * 5;
+          ctx.beginPath();
+          ctx.arc(0, 0, fleetRadius, 0, Math.PI * 2);
+          ctx.strokeStyle = targetingMode === 'omni' ? '#67e8f9' : targetingMode === 'overdrive' ? '#ffbd59' : '#a5e8ff';
+          ctx.lineWidth = 3;
+          ctx.setLineDash(targetingMode === 'omni' ? [10, 5] : targetingMode === 'overdrive' ? [3, 6] : []);
+          ctx.stroke();
+          if (targetingMode === 'repulse') {
             ctx.beginPath();
-            const planetRadius = base.isDysonSphere ? 62 : base.isCapital ? 40 : 20;
-            const fleetRadius = planetRadius + 25 + Math.sqrt(base.pixelCount) * 5;
-            ctx.arc(0, 0, fleetRadius, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(239, 68, 68, 0.8)';
-            ctx.lineWidth = 3;
-            ctx.setLineDash([10, 5]);
+            ctx.arc(0, 0, fleetRadius + 7, 0, Math.PI * 2);
             ctx.stroke();
-            ctx.restore();
-          } else {
-            isOutOfRange = true;
           }
+          ctx.restore();
+        } else {
+          isOutOfRange = true;
         }
       } else if (selectedBaseId && selectedBaseId !== base.id) {
         const selectedBase = this.bases.get(selectedBaseId);
-        if (selectedBase) {
+        if (selectedBase?.color === '#3b82f6') {
           if (canIssueFleetOrder(this.bases.values(), selectedBase.id, base.id, this.MAX_ATTACK_RANGE)) {
             ctx.save();
             ctx.translate(drawX, drawY);

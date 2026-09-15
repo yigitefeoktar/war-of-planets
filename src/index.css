@@ -92,6 +92,22 @@
   .planet-ability small { display: none; }
 }
 
+/* Reuse the command bar's controls in selection-specific layouts. */
+.planet-command.planet-command-friendly { width: min(580px, calc(100vw - 16px)); grid-template-columns: minmax(82px, .65fr) minmax(0, 2fr); }
+.planet-command.planet-command-enemy { width: min(300px, calc(100vw - 16px)); grid-template-columns: 1fr; }
+.planet-command-enemy .planet-command-summary { border-right: 0; padding-right: 0; }
+.planet-command.planet-command-empire { width: min(960px, calc(100vw - 16px)); grid-template-columns: minmax(135px, .65fr) minmax(0, 3fr); }
+.planet-command-empire .planet-abilities { grid-column: auto; }
+.empire-hint { grid-column: 1 / -1; }
+.empire-hint button { color: #c4ebf5; text-decoration: underline; padding: 5px; }
+.planet-ability.targeting { border-color: currentColor; }
+.planet-ability.overdrive.targeting { background: #382b18; }
+.planet-ability.repulse.targeting { background: #16384b; }
+@media (max-width: 760px) {
+  .planet-command.planet-command-empire { grid-template-columns: 1fr; }
+  .planet-command-empire .planet-abilities { grid-column: 1 / -1; }
+}
+
 html, body {
   margin: 0;
   padding: 0;

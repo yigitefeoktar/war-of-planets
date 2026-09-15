@@ -5,7 +5,7 @@ export type { SuperweaponId } from './types';
 export const SUPERWEAPON_MAX_ENERGY = 100;
 export const ENERGY_PER_PLANET_PER_SECOND = 0.2;
 
-export type SuperweaponTargetMode = 'omni' | null;
+export type SuperweaponTargetMode = SuperweaponId | null;
 
 export const SUPERWEAPON_IDS: SuperweaponId[] = ['omni', 'overdrive', 'repulse'];
 
