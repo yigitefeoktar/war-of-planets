@@ -118,3 +118,59 @@ test('engine executes the planned fleet size and hard mode grants no extra produ
   engine.update(0.016);
   assert.equal(engine.pixels.length, count + 1);
 });
+
+test('uses a strong reachable fleet instead of being blocked by the nearest small fleets', () => {
+  const w = world([base('small-a', 350, RED, 25), base('small-b', 300, RED, 25), base('strong', 0, RED, 220), base('enemy', 400, BLUE, 100)]);
+  assert.ok(new TacticalAI().plan(w).get(RED)!.orders.some(o => o.from === 'strong' && o.to === 'enemy'));
+});
+
+test('a quiet front escalates to a coordinated breakthrough without lowering reserves', () => {
+  const ai = new TacticalAI();
+  const w = world([base('a', 0, RED, 80), base('b', 100, RED, 80), base('c', 200, RED, 80), base('enemy', 400, BLUE, 100)]);
+  assert.equal(ai.plan(w).get(RED)!.orders.length, 0);
+  w.seconds = 30;
+  const orders = ai.plan(w).get(RED)!.orders;
+  assert.equal(orders.length, 3);
+  assert.ok(orders.every(o => o.to === 'enemy' && o.count <= 56));
+  w.seconds = 32;
+  assert.equal(ai.plan(w).get(RED)!.orders.length, 0);
+});
+
+test('musters across a friendly route that first moves away from the enemy, then attacks', () => {
+  const ai = new TacticalAI();
+  const w = world([base('rear', 0, RED, 300), base('bridge', -500, RED, 10),
+    { ...base('bend', -500, RED, 10), y: 500 }, { ...base('upper', -500, RED, 10), y: 1000 },
+    { ...base('stage', 0, RED, 35), y: 1000 }, { ...base('enemy', 400, BLUE, 140), y: 1300 }]);
+  ai.plan(w);
+  w.seconds = 30;
+  const orders = ai.plan(w).get(RED)!.orders;
+  assert.equal(orders.length, 1);
+  assert.equal(orders[0].from, 'rear');
+  assert.equal(orders[0].to, 'stage');
+  const fleet = w.pixels.filter(p => p.baseId === 'rear').slice(0, orders[0].count);
+  for (const p of fleet) { p.state = 'moving'; p.targetBaseId = 'stage'; }
+  w.seconds = 32;
+  assert.equal(ai.plan(w).get(RED)!.orders.length, 0, 'do not duplicate reinforcements');
+  for (const p of fleet) { p.state = 'idle'; p.baseId = 'stage'; }
+  w.seconds = 40;
+  assert.ok(ai.plan(w).get(RED)!.orders.some(o => o.to === 'enemy'));
+});
+
+test('routine logistics do not starve a viable Omni breakthrough', () => {
+  const ai = new TacticalAI();
+  const w = world([base('rear', -500, RED, 600, true), base('front', 0, RED, 50), base('enemy', 500, BLUE, 120)]);
+  w.canOmni = () => true;
+  ai.plan(w);
+  w.seconds = 20;
+  const plan = ai.plan(w).get(RED)!;
+  assert.equal(plan.omniTarget, 'enemy');
+  assert.deepEqual(plan.orders, []);
+});
+
+test('stalemate response cannot draw reserves across disconnected territory or force hopeless attacks', () => {
+  const ai = new TacticalAI();
+  const w = world([base('isolated', -1200, RED, 1000), base('front', 0, RED, 50), base('enemy', 500, BLUE, 1000)]);
+  ai.plan(w);
+  w.seconds = 120;
+  assert.deepEqual(ai.plan(w).get(RED)!.orders, []);
+});

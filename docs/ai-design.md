@@ -44,3 +44,18 @@ AI force estimates include combat and production advantages. Green prioritises
 expansion; red maintains its frequent offensives; yellow places extra value on
 Dyson spheres and weapon unlock sites. Faction specialties are gameplay rules; no faction legend is shown in the menu.
 These are initial balance values, not evidence that the factions are equally strong.
+
+## Breaking quiet fronts
+
+After 30 seconds without launching an offensive, a faction can coordinate four
+planets (five on hard). Donors are ranked by available strength rather than proximity;
+travel production estimates use the farthest participating donor. Normal reserves,
+combat safety margins and post-attack recovery still apply.
+
+If an attack remains unaffordable, the faction commits to a staging objective for
+up to 30 seconds and draws surplus through connected friendly territory. This can
+cross a route that initially leads away from enemies. Incoming reinforcements count
+against the build-up requirement, and ownership/range are reconsidered each decision.
+Omni decisions run before routine supply transfers so logistics cannot continually
+block a viable strike. No resource bonus or forced suicidal attack breaks ties.
+An isolated or genuinely outmatched faction can still be unable to advance.

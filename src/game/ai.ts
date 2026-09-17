@@ -1,3 +1,4 @@
+import { connectedFriendlyIds } from './logistics';
 import { attackMultiplier, defenceMultiplier, productionMultiplier } from './factions';
 import type { Base, Pixel } from './types';
 
@@ -6,7 +7,7 @@ const FACTIONS = ['#ef4444', '#22c55e', '#eab308'];
 const distance = (a: Base, b: Base) => Math.hypot(a.x - b.x, a.y - b.y);
 type Command = { from: string; to: string; count: number };
 export type AIPlan = { orders: Command[]; omniTarget?: string };
-type FactionState = { nextAttack: number; nextOmni: number };
+type FactionState = { nextAttack: number; nextOmni: number; lastOffensive: number; musterTarget?: string; musterUntil?: number };
 type World = {
   bases: Base[]; pixels: Pixel[]; range: number; seconds: number; hard: boolean;
   canOmni: (color: string) => boolean;
@@ -36,7 +37,7 @@ export class TacticalAI {
     for (const [index, color] of FACTIONS.entries()) {
       const owned = world.bases.filter(b => b.color === color);
       if (!owned.length) { this.states.delete(color); continue; }
-      const state = this.states.get(color) ?? { nextAttack: world.seconds + index * 2, nextOmni: world.seconds + 18 };
+      const state = this.states.get(color) ?? { nextAttack: world.seconds + index * 2, nextOmni: world.seconds + 18, lastOffensive: world.seconds };
       this.states.set(color, state);
       const plan: AIPlan = { orders: [] };
       plans.set(color, plan);
@@ -72,12 +73,13 @@ export class TacticalAI {
         }
       }
 
-      if (world.seconds >= state.nextAttack) {
-        // Red raids often, green values expansion, yellow favours weakened rivals.
-        const candidates = targets.map(target => {
+      const stalled = world.seconds - state.lastOffensive >= 30;
+      // Prefer useful fleet strength over the nearest tiny garrisons. A stalled
+      // faction can coordinate four planets (five on hard) for a breakthrough.
+      const candidates = targets.map(target => {
           const donors = owned.filter(b => distance(b, target) <= world.range && available.get(b.id)! > 0)
-            .sort((a, b) => distance(a, target) - distance(b, target)).slice(0, world.hard ? 3 : 2);
-          const nearest = donors.length ? distance(donors[0], target) : Infinity;
+            .sort((a, b) => available.get(b.id)! - available.get(a.id)! || distance(a, target) - distance(b, target)).slice(0, stalled ? (world.hard ? 5 : 4) : (world.hard ? 3 : 2));
+          const nearest = donors.length ? Math.max(...donors.map(b => distance(b, target))) : Infinity;
           // Ships travel at mixed speeds. Budget production during the approach.
           const growth = target.color === NEUTRAL || target.isDysonSphere ? 0 : nearest / 24 * productionMultiplier(target.color);
           const need = Math.ceil((ships(target) + growth) * defenceMultiplier(target.color) / attackMultiplier(color) * (world.hard ? 1.15 : 1.3) + 8 - arriving(target, color));
@@ -86,9 +88,9 @@ export class TacticalAI {
             + (target.superweaponUnlocks?.length ? (index === 2 ? 55 : 35) : 0)
             + (target.color === NEUTRAL ? (index === 1 ? 45 : 20) : index === 2 ? 30 : 15);
           return { target, donors, need, total, score: value - need * 0.6 - nearest * 0.04 };
-        }).filter(c => c.need > 0 && c.total >= c.need);
-        candidates.sort((a, b) => b.score - a.score);
-        const chosen = candidates[0];
+        }).filter(c => c.donors.length > 0 && c.need > 0);
+      if (world.seconds >= state.nextAttack) {
+        const chosen = candidates.filter(c => c.total >= c.need).sort((a, b) => b.score - a.score)[0];
         if (chosen) {
           let remaining = chosen.need;
           for (const donor of chosen.donors) {
@@ -98,15 +100,9 @@ export class TacticalAI {
             if (remaining <= 0) break;
           }
           state.nextAttack = world.seconds + (world.hard ? 7 : 10) + index * 3;
+          state.lastOffensive = world.seconds;
+          state.musterTarget = undefined;
         }
-      }
-
-      // Move rear reserves towards the frontier, never shuttle them backwards.
-      for (const donor of owned) {
-        if (available.get(donor.id)! < 20 || frontierDistance(donor) <= world.range) continue;
-        const receiver = owned.filter(b => b.id !== donor.id && distance(donor, b) <= world.range && frontierDistance(b) + 50 < frontierDistance(donor))
-          .sort((a, b) => frontierDistance(a) - frontierDistance(b))[0];
-        if (receiver && arriving(receiver, color) < 80) order(donor, receiver, available.get(donor.id)! * 0.7);
       }
 
       // Omni is a strategic commitment, not an automatic response to player success.
@@ -122,8 +118,49 @@ export class TacticalAI {
           plan.omniTarget = target.id;
           state.nextOmni = world.seconds + 30;
           state.nextAttack = world.seconds + 12;
+          state.lastOffensive = world.seconds;
+          state.musterTarget = undefined;
         }
       }
+      if (plan.omniTarget) continue;
+
+      // Gather through the friendly network even when the route initially moves
+      // away from the enemy. Keep one objective briefly, rather than shuttling
+      // reserves between fronts every decision. Re-evaluate moving map links.
+      if (stalled && state.lastOffensive !== world.seconds) {
+        const viable = candidates.filter(c => c.total < c.need);
+        const focus = (world.seconds < (state.musterUntil ?? 0)
+          ? viable.find(c => c.target.id === state.musterTarget) : undefined)
+          ?? viable.sort((a, b) => (a.need - a.total) - (b.need - b.total) || b.score - a.score)[0];
+        if (focus) {
+          if (state.musterTarget !== focus.target.id || world.seconds >= (state.musterUntil ?? 0)) {
+            state.musterTarget = focus.target.id;
+            state.musterUntil = world.seconds + 30;
+          }
+          const stage = focus.donors[0];
+          const connected = connectedFriendlyIds(owned, stage.id, world.range);
+          let shortage = focus.need - focus.total - focus.donors.reduce((sum, b) => sum + arriving(b, color), 0);
+          for (const donor of owned.filter(b => b.id !== stage.id && connected.has(b.id)
+            && distance(b, focus.target) > world.range).sort((a, b) => distance(a, stage) - distance(b, stage))) {
+            if (shortage <= 0) break;
+            const count = Math.min(Math.ceil(shortage), Math.floor(available.get(donor.id)! * 0.75));
+            if (count < 10) continue;
+            order(donor, stage, count);
+            shortage -= count;
+          }
+          // Preserve the build-up even while reinforcements are in transit.
+          continue;
+        }
+      }
+
+      // Move rear reserves towards the frontier, never shuttle them backwards.
+      for (const donor of owned) {
+        if (available.get(donor.id)! < 20 || frontierDistance(donor) <= world.range) continue;
+        const receiver = owned.filter(b => b.id !== donor.id && distance(donor, b) <= world.range && frontierDistance(b) + 50 < frontierDistance(donor))
+          .sort((a, b) => frontierDistance(a) - frontierDistance(b))[0];
+        if (receiver && arriving(receiver, color) < 80) order(donor, receiver, available.get(donor.id)! * 0.7);
+      }
+
     }
     return plans;
   }
