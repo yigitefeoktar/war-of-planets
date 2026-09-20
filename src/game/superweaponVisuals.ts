@@ -24,3 +24,15 @@ export const SUPERWEAPON_VISUALS: Record<SuperweaponId, { color: string; paths: 
     ],
   },
 };
+
+const ICON_DIAMETER = 30;
+
+export function superweaponIconLayout(zoom: number, planetRadius: number) {
+  // Keep badges readable at overview zoom without letting them dominate when zoomed in.
+  const screenDiameter = Math.max(20, Math.min(ICON_DIAMETER * zoom, 42));
+  return {
+    scale: screenDiameter / (ICON_DIAMETER * zoom),
+    gap: (screenDiameter + 4) / zoom,
+    y: -(planetRadius + (screenDiameter / 2 + 6) / zoom),
+  };
+}

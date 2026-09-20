@@ -4,7 +4,7 @@ import { canIssueFleetOrder } from './logistics';
 import { TacticalAI } from './ai';
 import { FactionBonuses, energyMultiplier } from './factions';
 import { assignQuickMatchSuperweaponPlanets, ENERGY_PER_PLANET_PER_SECOND, isPointAccessible, SUPERWEAPON_COSTS, SUPERWEAPON_MAX_ENERGY, OVERDRIVE_DURATION, OVERDRIVE_MULTIPLIER, REPULSE_DURATION, type SuperweaponTargetMode } from './superweapons';
-import { SUPERWEAPON_VISUALS } from './superweaponVisuals';
+import { SUPERWEAPON_VISUALS, superweaponIconLayout } from './superweaponVisuals';
 
 interface Star {
   x: number;
@@ -37,9 +37,10 @@ interface Shockwave {
 
 const superweaponPathCache = new Map<SuperweaponId, Path2D[]>();
 
-function drawSuperweaponIcon(ctx: CanvasRenderingContext2D, weapon: SuperweaponId, x: number, y: number) {
+function drawSuperweaponIcon(ctx: CanvasRenderingContext2D, weapon: SuperweaponId, x: number, y: number, scale: number) {
   ctx.save();
   ctx.translate(x, y);
+  ctx.scale(scale, scale);
   const { color, paths } = SUPERWEAPON_VISUALS[weapon];
   ctx.fillStyle = 'rgba(2, 6, 23, 0.78)';
   ctx.beginPath();
@@ -721,6 +722,7 @@ export class GameEngine {
     // Calculate visible bounds
     const transform = ctx.getTransform();
     const zoom = transform.a;
+    const iconZoom = Math.hypot(transform.a, transform.b);
     const viewLeft = -transform.e / zoom;
     const viewTop = -transform.f / zoom;
     const viewRight = viewLeft + ctx.canvas.width / zoom;
@@ -1032,10 +1034,9 @@ export class GameEngine {
       ctx.restore();
 
       if (base.superweaponUnlocks?.length) {
-        const gap = 34;
+        const { scale, gap, y: iconY } = superweaponIconLayout(iconZoom, planetRadius);
         const startX = -((base.superweaponUnlocks.length - 1) * gap) / 2;
-        const iconY = -(planetRadius + 24);
-        base.superweaponUnlocks.forEach((weapon, index) => drawSuperweaponIcon(ctx, weapon, drawX + startX + index * gap, drawY + iconY));
+        base.superweaponUnlocks.forEach((weapon, index) => drawSuperweaponIcon(ctx, weapon, drawX + startX + index * gap, drawY + iconY, scale));
       }
     }
 
