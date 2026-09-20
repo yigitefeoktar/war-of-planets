@@ -1,5 +1,5 @@
 import { connectedFriendlyIds } from './logistics';
-import { attackMultiplier, defenceMultiplier, productionMultiplier } from './factions';
+import { attackMultiplier, defenceMultiplier } from './factions';
 import type { Base, Pixel } from './types';
 
 const NEUTRAL = '#6b7280';
@@ -7,20 +7,22 @@ const FACTIONS = ['#ef4444', '#22c55e', '#eab308'];
 const distance = (a: Base, b: Base) => Math.hypot(a.x - b.x, a.y - b.y);
 type Command = { from: string; to: string; count: number };
 export type AIPlan = { orders: Command[]; omniTarget?: string };
-type FactionState = { nextAttack: number; nextOmni: number; lastOffensive: number; musterTarget?: string; musterUntil?: number };
+type FactionState = { lastAttack: number; nextOmni: number; lastRevengeSeen?: string };
 type World = {
   bases: Base[]; pixels: Pixel[]; range: number; seconds: number; hard: boolean;
   canOmni: (color: string) => boolean;
+  random?: () => number;
+  recentOmniCaptureId?: string | null;
+  recentOmniCaptureTime?: number;
 };
 
-/** Visible fleet commitments create pressure; fixed recovery windows create counterplay.
- * No player win/loss tracking, hidden resource gifts, or player-specific targeting.
- */
+/** The original per-planet, high-commitment AI with narrow capital and waste guards. */
 export class TacticalAI {
   private states = new Map<string, FactionState>();
 
   plan(world: World): Map<string, AIPlan> {
     const plans = new Map<string, AIPlan>();
+    const random = world.random ?? Math.random;
     const stationed = new Map<string, number>();
     const incoming = new Map<string, Map<string, number>>();
     for (const ship of world.pixels) {
@@ -32,135 +34,117 @@ export class TacticalAI {
         incoming.set(ship.targetBaseId, fleets);
       }
     }
-    const ships = (b: Base) => stationed.get(b.id) ?? 0;
-    const arriving = (b: Base, color: string) => incoming.get(b.id)?.get(color) ?? 0;
-    for (const [index, color] of FACTIONS.entries()) {
-      const owned = world.bases.filter(b => b.color === color);
+    const ships = (base: Base) => stationed.get(base.id) ?? 0;
+    const arriving = (base: Base, color: string) => incoming.get(base.id)?.get(color) ?? 0;
+    for (const color of FACTIONS) {
+      const owned = world.bases.filter(base => base.color === color);
       if (!owned.length) { this.states.delete(color); continue; }
-      const state = this.states.get(color) ?? { nextAttack: world.seconds + index * 2, nextOmni: world.seconds + 18, lastOffensive: world.seconds };
+      const state = this.states.get(color) ?? { lastAttack: world.seconds, nextOmni: world.seconds + 8 };
       this.states.set(color, state);
       const plan: AIPlan = { orders: [] };
       plans.set(color, plan);
-      const enemies = world.bases.filter(b => b.color !== color && b.color !== NEUTRAL);
-      const targets = world.bases.filter(b => b.color !== color);
-      const threat = (b: Base) => [...(incoming.get(b.id) ?? [])].reduce((n, [c, count]) => n + (c !== color ? count * attackMultiplier(c) / defenceMultiplier(color) : 0), 0);
-      const frontierDistance = (b: Base) => Math.min(...targets.map(t => distance(b, t)));
-      const available = new Map<string, number>();
-      for (const b of owned) {
-        const exposed = enemies.some(e => distance(b, e) <= world.range);
-        const reserve = Math.max(b.isCapital ? 45 : exposed ? 24 : 10, threat(b) > 0 ? threat(b) + 12 - arriving(b, color) : 0);
-        available.set(b.id, Math.max(0, ships(b) - reserve));
-      }
+      const targets = world.bases.filter(base => base.color !== color);
+      const capitals = owned.filter(base => base.isCapital);
+      const threat = (base: Base) => [...(incoming.get(base.id) ?? [])]
+        .reduce((sum, [attacker, count]) => sum + (attacker === color ? 0 : count * attackMultiplier(attacker) / defenceMultiplier(color)), 0);
+      const reserve = (base: Base) => base.isCapital ? Math.max(45, Math.ceil(threat(base) + 12 - arriving(base, color))) : 0;
+      const available = new Map(owned.map(base => [base.id, Math.max(0, ships(base) - reserve(base))]));
       const order = (from: Base, to: Base, count: number) => {
-        count = Math.min(Math.floor(count), available.get(from.id) ?? 0);
-        if (count < 1) return;
-        plan.orders.push({ from: from.id, to: to.id, count });
-        available.set(from.id, available.get(from.id)! - count);
+        const amount = Math.min(Math.floor(count), available.get(from.id) ?? 0);
+        if (amount < 1) return;
+        plan.orders.push({ from: from.id, to: to.id, count: amount });
+        available.set(from.id, available.get(from.id)! - amount);
         const fleets = incoming.get(to.id) ?? new Map<string, number>();
-        fleets.set(color, (fleets.get(color) ?? 0) + count);
+        fleets.set(color, (fleets.get(color) ?? 0) + amount);
         incoming.set(to.id, fleets);
       };
 
-      // Defence always runs, including while an offensive is recovering.
-      for (const target of [...owned].sort((a, b) => Number(Boolean(b.isCapital)) - Number(Boolean(a.isCapital)))) {
-        let deficit = threat(target) + 12 - ships(target) - arriving(target, color);
-        if (threat(target) === 0 || deficit <= 0) continue;
-        for (const donor of owned.filter(b => b.id !== target.id && distance(b, target) <= world.range).sort((a, b) => distance(a, target) - distance(b, target))) {
-          const count = Math.min(deficit, available.get(donor.id)!);
-          order(donor, target, count);
-          deficit -= count;
-          if (deficit <= 0) break;
+      // A capital under attack draws help before its neighbours make new attacks.
+      for (const capital of capitals) {
+        let missing = Math.ceil(threat(capital) + 12 - ships(capital) - arriving(capital, color));
+        if (threat(capital) <= 0 || missing <= 0) continue;
+        for (const donor of owned.filter(base => base.id !== capital.id && distance(base, capital) <= world.range)
+          .sort((a, b) => distance(a, capital) - distance(b, capital))) {
+          const send = Math.min(missing, Math.max(0, (available.get(donor.id) ?? 0) - 20));
+          order(donor, capital, send);
+          missing -= send;
+          if (missing <= 0) break;
         }
       }
 
-      const stalled = world.seconds - state.lastOffensive >= 30;
-      // Prefer useful fleet strength over the nearest tiny garrisons. A stalled
-      // faction can coordinate four planets (five on hard) for a breakthrough.
-      const candidates = targets.map(target => {
-          const donors = owned.filter(b => distance(b, target) <= world.range && available.get(b.id)! > 0)
-            .sort((a, b) => available.get(b.id)! - available.get(a.id)! || distance(a, target) - distance(b, target)).slice(0, stalled ? (world.hard ? 5 : 4) : (world.hard ? 3 : 2));
-          const nearest = donors.length ? Math.max(...donors.map(b => distance(b, target))) : Infinity;
-          // Ships travel at mixed speeds. Budget production during the approach.
-          const growth = target.color === NEUTRAL || target.isDysonSphere ? 0 : nearest / 24 * productionMultiplier(target.color);
-          const need = Math.ceil((ships(target) + growth) * defenceMultiplier(target.color) / attackMultiplier(color) * (world.hard ? 1.15 : 1.3) + 8 - arriving(target, color));
-          const total = donors.reduce((sum, b) => sum + available.get(b.id)!, 0);
-          const value = (target.isCapital ? 95 : 0) + (target.isDysonSphere ? (index === 2 ? 110 : 70) : 0)
-            + (target.superweaponUnlocks?.length ? (index === 2 ? 55 : 35) : 0)
-            + (target.color === NEUTRAL ? (index === 1 ? 45 : 20) : index === 2 ? 30 : 15);
-          return { target, donors, need, total, score: value - need * 0.6 - nearest * 0.04 };
-        }).filter(c => c.donors.length > 0 && c.need > 0);
-      if (world.seconds >= state.nextAttack) {
-        const chosen = candidates.filter(c => c.total >= c.need).sort((a, b) => b.score - a.score)[0];
+      // Keep the original 70% chance per planet and large, independent launches.
+      for (const source of owned) {
+        const idle = ships(source);
+        if (idle <= (world.hard ? 110 : 120) || random() <= (world.hard ? 0.15 : 0.3)) continue;
+        const count = Math.min(Math.floor(idle * 0.9), available.get(source.id) ?? 0);
+        if (count <= 0) continue;
+        const reachable = targets.filter(target => {
+          if (distance(source, target) > world.range) return false;
+          const defenders = ships(target) * defenceMultiplier(target.color) / attackMultiplier(color);
+          // Some risky attacks are welcome; overwhelming defences only waste a fleet.
+          if (defenders > count * 1.5) return false;
+          return arriving(target, color) < Math.max(12, defenders + 8);
+        });
+        if (!reachable.length) continue;
+        reachable.sort((a, b) => distance(source, a) + ships(a) * 10 - distance(source, b) - ships(b) * 10);
+        const target = reachable[Math.floor(random() * Math.min(3, reachable.length))];
+        order(source, target, count);
+        state.lastAttack = world.seconds;
+      }
+
+      // The old Omni could retaliate immediately. Keep its character, but make
+      // retaliation occasional and require a safe capital and enough ships.
+      if (world.seconds >= state.nextOmni && world.canOmni(color)) {
+        const safe = capitals.every(capital => ships(capital) * 0.7 + arriving(capital, color) >= Math.max(45, threat(capital) + 10));
+        const viable = targets.filter(target => owned.some(base => distance(base, target) <= world.range)
+          && arriving(target, color) < 12
+          && owned.reduce((sum, base) => sum + Math.floor(ships(base) * 0.3), 0)
+            >= ships(target) * defenceMultiplier(target.color) / attackMultiplier(color) + 10);
+        const revenge = viable.find(target => target.id === world.recentOmniCaptureId);
+        const revengeKey = revenge ? `${revenge.id}:${world.recentOmniCaptureTime ?? 0}` : undefined;
+        let chosen: Base | undefined;
+        if (safe && revenge && state.lastRevengeSeen !== revengeKey) {
+          state.lastRevengeSeen = revengeKey;
+          if (random() < 0.4) chosen = revenge;
+        }
+        const expansion = viable.filter(target => target.id !== world.recentOmniCaptureId);
+        if (!chosen && safe && expansion.length && random() < 0.15) {
+          const enemyCapitals = targets.filter(target => target.isCapital);
+          chosen = [...expansion].sort((a, b) => {
+            const priority = (target: Base) => enemyCapitals.length
+              ? Math.min(...enemyCapitals.map(capital => distance(target, capital))) : ships(target);
+            return priority(a) - priority(b);
+          })[0];
+        }
         if (chosen) {
-          let remaining = chosen.need;
-          for (const donor of chosen.donors) {
-            const count = Math.min(remaining, available.get(donor.id)!);
-            order(donor, chosen.target, count);
-            remaining -= count;
-            if (remaining <= 0) break;
-          }
-          state.nextAttack = world.seconds + (world.hard ? 7 : 10) + index * 3;
-          state.lastOffensive = world.seconds;
-          state.musterTarget = undefined;
+          // Warp consumes 30% of every idle fleet. Combining the earlier normal
+          // orders would silently strip the capital reserve in the same tick.
+          plan.orders = [];
+          plan.omniTarget = chosen.id;
+          state.nextOmni = world.seconds + 15;
+          state.lastAttack = world.seconds;
         }
       }
 
-      // Omni is a strategic commitment, not an automatic response to player success.
-      // Do not combine it with fleet orders: evaluate exactly the force it will use.
-      if (!plan.orders.length && world.seconds >= state.nextOmni && world.seconds >= state.nextAttack && world.canOmni(color)) {
-        const strength = owned.reduce((sum, b) => sum + Math.floor(ships(b) * 0.3), 0);
-        const safe = owned.every(b => ships(b) - Math.floor(ships(b) * 0.3) + arriving(b, color) >= threat(b) + (b.isCapital ? 45 : 10));
-        const target = targets.filter(t => owned.some(b => distance(b, t) <= world.range)
-          && arriving(t, color) === 0 && strength >= ships(t) * defenceMultiplier(t.color) / attackMultiplier(color) * 1.35 + 20)
-          .sort((a, b) => (Number(Boolean(b.isCapital)) * 100 + Number(Boolean(b.isDysonSphere)) * 60 - ships(b))
-            - (Number(Boolean(a.isCapital)) * 100 + Number(Boolean(a.isDysonSphere)) * 60 - ships(a)))[0];
-        if (safe && target) {
-          plan.omniTarget = target.id;
-          state.nextOmni = world.seconds + 30;
-          state.nextAttack = world.seconds + 12;
-          state.lastOffensive = world.seconds;
-          state.musterTarget = undefined;
+      // A quiet faction can still gather stranded ships, but gathering never
+      // slows the regular per-planet attack decisions above.
+      if (world.seconds - state.lastAttack < 30) continue;
+      const frontier = owned.filter(base => targets.some(target => distance(base, target) <= world.range));
+      const stage = frontier.sort((a, b) => (available.get(b.id) ?? 0) - (available.get(a.id) ?? 0))[0];
+      if (!stage) continue;
+      const connected = connectedFriendlyIds(owned, stage.id, world.range);
+      const eligible = owned.filter(base => base.id !== stage.id && connected.has(base.id) && distance(base, stage) > world.range
+        && (available.get(base.id) ?? 0) >= 30).sort((a, b) => distance(a, stage) - distance(b, stage));
+      if (eligible.length) {
+        const target = targets.filter(base => distance(base, stage) <= world.range)
+          .sort((a, b) => ships(a) - ships(b))[0];
+        if (target) {
+          for (const donor of eligible) {
+            if (arriving(stage, color) >= 120) break;
+            order(donor, stage, Math.min(120 - arriving(stage, color), Math.floor((available.get(donor.id) ?? 0) * 0.75)));
+          }
         }
       }
-      if (plan.omniTarget) continue;
-
-      // Gather through the friendly network even when the route initially moves
-      // away from the enemy. Keep one objective briefly, rather than shuttling
-      // reserves between fronts every decision. Re-evaluate moving map links.
-      if (stalled && state.lastOffensive !== world.seconds) {
-        const viable = candidates.filter(c => c.total < c.need);
-        const focus = (world.seconds < (state.musterUntil ?? 0)
-          ? viable.find(c => c.target.id === state.musterTarget) : undefined)
-          ?? viable.sort((a, b) => (a.need - a.total) - (b.need - b.total) || b.score - a.score)[0];
-        if (focus) {
-          if (state.musterTarget !== focus.target.id || world.seconds >= (state.musterUntil ?? 0)) {
-            state.musterTarget = focus.target.id;
-            state.musterUntil = world.seconds + 30;
-          }
-          const stage = focus.donors[0];
-          const connected = connectedFriendlyIds(owned, stage.id, world.range);
-          let shortage = focus.need - focus.total - focus.donors.reduce((sum, b) => sum + arriving(b, color), 0);
-          for (const donor of owned.filter(b => b.id !== stage.id && connected.has(b.id)
-            && distance(b, focus.target) > world.range).sort((a, b) => distance(a, stage) - distance(b, stage))) {
-            if (shortage <= 0) break;
-            const count = Math.min(Math.ceil(shortage), Math.floor(available.get(donor.id)! * 0.75));
-            if (count < 10) continue;
-            order(donor, stage, count);
-            shortage -= count;
-          }
-          // Preserve the build-up even while reinforcements are in transit.
-          continue;
-        }
-      }
-
-      // Move rear reserves towards the frontier, never shuttle them backwards.
-      for (const donor of owned) {
-        if (available.get(donor.id)! < 20 || frontierDistance(donor) <= world.range) continue;
-        const receiver = owned.filter(b => b.id !== donor.id && distance(donor, b) <= world.range && frontierDistance(b) + 50 < frontierDistance(donor))
-          .sort((a, b) => frontierDistance(a) - frontierDistance(b))[0];
-        if (receiver && arriving(receiver, color) < 80) order(donor, receiver, available.get(donor.id)! * 0.7);
-      }
-
     }
     return plans;
   }

@@ -526,15 +526,18 @@ export class GameEngine {
         bases: [...this.bases.values()], pixels: this.pixels,
         range: this.MAX_ATTACK_RANGE, seconds: this.aiSeconds, hard: this.isHardMode,
         canOmni: color => this.isSuperweaponUnlocked(color, 'omni') && this.getEnergy(color) >= SUPERWEAPON_COSTS.omni,
+        random: () => this.random(),
+        recentOmniCaptureId: now - this.lastOmniCaptureTime < 10000 ? this.lastOmniCaptureBaseId : null,
+        recentOmniCaptureTime: this.lastOmniCaptureTime,
       });
       for (const [color, plan] of plans) {
+        if (plan.omniTarget) this.activateOmniStrike(color, plan.omniTarget);
         for (const order of plan.orders) {
           const idle = this.pixels.filter(p => !p.dead && p.baseId === order.from && p.state === 'idle').length;
           if (idle > 0 && canIssueFleetOrder(this.bases.values(), order.from, order.to, this.MAX_ATTACK_RANGE)) {
             this.sendUnits(order.from, order.to, Math.min(1, (order.count + 0.001) / idle));
           }
         }
-        if (plan.omniTarget) this.activateOmniStrike(color, plan.omniTarget);
       }
       this.lastAITime = now;
     }

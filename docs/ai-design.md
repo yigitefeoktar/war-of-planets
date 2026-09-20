@@ -1,61 +1,43 @@
-# Tactical AI
+# Faction AI
 
-The intended feeling is recurring territorial friction: a rival takes a useful world,
-the player responds, and the rival's fleet commitment offers a counterattack.
-Fun and replay value still need human playtesting; longer sessions are not proof of fun.
+The enemy AI follows the original fast, per-planet attack rhythm. Every two seconds,
+each enemy planet with more than 120 idle ships independently has a 70% chance to
+send 90% of them toward one of its three nearest/weakest hostile or neutral worlds
+within attack range. It favours short routes and small garrisons, but the choice
+among the top three remains random. Different planets can attack in the same tick.
+On hard mode the threshold is 110 ships and the chance is 85%. This deliberately
+creates bold commitments and exposed worlds for counterattacks.
 
-- Red attacks every 10 seconds when a worthwhile capture is possible; green every
-  13 and yellow every 16. Initial decisions are staggered by faction.
-- One offensive target per window, up to two contributing planets. Fleet sizes
-  budget defenders and approximate production during travel, rather than sending 90%.
-- Capitals retain at least 45 ships; exposed worlds 24; rear worlds 10.
-  Incoming enemy fleets raise reserves and trigger nearby reinforcements.
-- Incoming friendly ships count toward a capture or defence to reduce overcommitment.
-- Rear worlds move surplus toward nearby frontier worlds. Actual positions are
-  reevaluated every decision, so rotating worlds create changing opportunities.
-- Green prefers neutral expansion; yellow puts more value on rival territory;
-  red attacks more frequently. Capitals, unlock worlds and Dyson spheres have
-  explicit strategic value. All rival colours use the same scoring rules.
-- Omni needs sufficient energy, a viable target, safe remaining garrisons, and a
-  30-second recovery. It is not triggered by the player's recent success.
-- Hard mode uses three contributing planets, shorter recovery and a smaller
-  combat safety margin. Production is identical to normal mode.
+Capital worlds retain at least 45 ships and ask nearby friendly worlds for help
+when a hostile fleet is incoming. The AI excludes friendly attack targets,
+avoids a target already covered by an incoming fleet, and declines a fortress
+whose defending force exceeds its proposed attack by more than 50%. That last
+rule permits risky, losing attacks without repeatedly wasting a fleet against
+an overwhelming garrison. These are narrow safeguards, not a guaranteed-win
+planner. They do not delay the next ordinary attack.
 
-No hidden player-performance adjustment or resource gifts. No guaranteed wins,
-scripted near-misses, or automatic punishment for using an ability.
+If no attack launches for 30 seconds, connected rear worlds can move surplus
+ships toward a front planet, including through a winding friendly route.
+Regular attack decisions continue while this happens. An isolated faction may
+still be unable to advance.
 
-Playtest for whether players can identify enemy commitments, successfully
-counterattack, and contest objectives without excessive planet ping-pong.
-Fleet arrival estimates are intentionally approximate; this is not perfect foresight.
+Omni-Strike requires unlock and energy, a viable target and a safe capital.
+It is considered after an eight-second opening delay. A recent Omni capture can
+inspire a 40% retaliation attempt per decision, once per capture, with a 15-second cooldown after
+use. Otherwise the standard expansion attempt has a 15% chance. A warp
+replaces ordinary orders in that decision so the capital reserve survives. The AI does not
+use Overdrive or Repulse. There are no hidden resources or adjustments based on
+the player's win/loss history.
 
-## Colour specialties
+# Colour specialties
 
 Blue Guardians (the player) prevent one defending loss every tenth clash.
 Red Raiders kill one extra defender, if available, every tenth attacking clash.
-These deterministic bonuses roughly cancel in red-versus-blue combat. They apply
-only to ship clashes at planets, not instant superweapon effects. Counters belong
-to the target world and reset on capture.
-Green Industrialists produce eleven ships per ten normal production cycles;
-neutral worlds and Dyson spheres still produce none. Yellow Engineers earn 10%
-more energy, including Dyson income, only in modes with energy enabled.
+These bonuses roughly cancel in red-versus-blue combat. Green Industrialists
+produce eleven ships per ten normal production cycles. Yellow Engineers earn 10%
+more energy, including Dyson income, when energy is enabled. Bonuses follow the
+current owner. Faction specialties are gameplay rules; no menu legend is shown.
 
-Bonuses follow current faction ownership rather than a planet's original colour.
-AI force estimates include combat and production advantages. Green prioritises
-expansion; red maintains its frequent offensives; yellow places extra value on
-Dyson spheres and weapon unlock sites. Faction specialties are gameplay rules; no faction legend is shown in the menu.
-These are initial balance values, not evidence that the factions are equally strong.
-
-## Breaking quiet fronts
-
-After 30 seconds without launching an offensive, a faction can coordinate four
-planets (five on hard). Donors are ranked by available strength rather than proximity;
-travel production estimates use the farthest participating donor. Normal reserves,
-combat safety margins and post-attack recovery still apply.
-
-If an attack remains unaffordable, the faction commits to a staging objective for
-up to 30 seconds and draws surplus through connected friendly territory. This can
-cross a route that initially leads away from enemies. Incoming reinforcements count
-against the build-up requirement, and ownership/range are reconsidered each decision.
-Omni decisions run before routine supply transfers so logistics cannot continually
-block a viable strike. No resource bonus or forced suicidal attack breaks ties.
-An isolated or genuinely outmatched faction can still be unable to advance.
+This version restores movement and opportunities for counterattacks. Match
+playtesting is still needed to determine whether it is more fun than either
+previous AI and whether attack frequency or capital reserves need tuning.

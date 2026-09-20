@@ -11,97 +11,121 @@ function world(bases: Base[]) {
     id, baseId: b.id, x: b.x, y: 0, color: b.color, targetX: b.x, targetY: 0,
     speed: 1, state: 'idle' as const, angle: 0,
   })));
-  return { bases, pixels, range: 600, seconds: 0, hard: false, canOmni: () => false };
+  return { bases, pixels, range: 600, seconds: 0, hard: false, canOmni: () => false, random: () => 0.5, recentOmniCaptureId: null as string | null, recentOmniCaptureTime: 0 };
 }
 
-test('captures cheap worlds with a small force and leaves capital reserves', () => {
-  const w = world([base('home', 0, RED, 200, true), base('neutral', 400, GREY, 10)]);
-  const plan = new TacticalAI().plan(w).get(RED)!;
-  assert.deepEqual(plan.orders, [{ from: 'home', to: 'neutral', count: 20 }]);
-});
-
-test('coordinates two fleets against a target neither could take alone', () => {
-  const w = world([base('a', 0, RED, 85), base('b', 100, RED, 85), base('target', 400, BLUE, 65)]);
-  const plan = new TacticalAI().plan(w).get(RED)!;
-  assert.equal(plan.orders.length, 2);
-  assert.ok(plan.orders.every(o => o.to === 'target' && o.count <= 61));
-  assert.ok(plan.orders.reduce((sum, o) => sum + o.count, 0) > 85);
-});
-
-test('reinforces a threatened capital without draining its donor', () => {
-  const w = world([base('home', 0, RED, 45, true), base('donor', 200, RED, 100), base('enemy', 500, BLUE, 80)]);
-  for (const p of w.pixels.filter(p => p.color === BLUE)) { p.state = 'moving'; p.targetBaseId = 'home'; }
-  const plan = new TacticalAI().plan(w).get(RED)!;
-  assert.ok(plan.orders.some(o => o.from === 'donor' && o.to === 'home' && o.count === 47));
-  assert.ok(!plan.orders.some(o => o.from === 'home'));
-});
-
-test('offensive recovery prevents repeated launches but still permits defence', () => {
+test('every eligible planet makes a large attack without waiting for a faction cooldown', () => {
   const ai = new TacticalAI();
-  const w = world([base('home', 0, RED, 200, true), base('neutral', 400, GREY, 10)]);
-  assert.equal(ai.plan(w).get(RED)!.orders.length, 1);
+  const w = world([base('a', 0, RED, 200), base('b', 100, RED, 200), base('neutral', 400, GREY, 10)]);
+  const orders = ai.plan(w).get(RED)!.orders;
+  assert.deepEqual(orders, [{ from: 'a', to: 'neutral', count: 180 }]);
   w.seconds = 2;
-  assert.equal(ai.plan(w).get(RED)!.orders.length, 0);
-  w.seconds = 10;
-  assert.equal(ai.plan(w).get(RED)!.orders.length, 1);
+  assert.deepEqual(ai.plan(w).get(RED)!.orders, [{ from: 'a', to: 'neutral', count: 180 }]);
 });
 
-test('does not duplicate a capture already covered by incoming ships', () => {
-  const w = world([base('home', 0, RED, 200, true), base('neutral', 400, GREY, 10)]);
-  for (const p of w.pixels.slice(0, 30)) { p.state = 'moving'; p.targetBaseId = 'neutral'; }
-  assert.equal(new TacticalAI().plan(w).get(RED)!.orders.length, 0);
+test('bold attacks leave a counterattack opening on non-capitals', () => {
+  const w = world([base('outpost', 0, RED, 200), base('target', 400, BLUE, 80)]);
+  assert.deepEqual(new TacticalAI().plan(w).get(RED)!.orders, [{ from: 'outpost', to: 'target', count: 180 }]);
 });
 
-test('rear fleets move towards the frontier and never bounce backwards', () => {
-  const w = world([base('rear', 0, RED, 150), base('front', 500, RED, 25), base('enemy', 1000, BLUE, 300)]);
+test('capital keeps 45 ships even during a large attack', () => {
+  const w = world([base('capital', 0, RED, 200, true), base('target', 400, GREY, 10)]);
+  assert.deepEqual(new TacticalAI().plan(w).get(RED)!.orders, [{ from: 'capital', to: 'target', count: 155 }]);
+});
+
+test('capital under attack receives reinforcements and keeps a threat-sized reserve', () => {
+  const w = world([base('capital', 0, RED, 150, true), base('donor', 200, RED, 140), base('enemy', 500, BLUE, 200)]);
+  for (const p of w.pixels.filter(p => p.color === BLUE).slice(0, 180)) { p.state = 'moving'; p.targetBaseId = 'capital'; }
   const orders = new TacticalAI().plan(w).get(RED)!.orders;
-  assert.deepEqual(orders, [{ from: 'rear', to: 'front', count: 98 }]);
+  assert.ok(orders.some(o => o.from === 'donor' && o.to === 'capital' && o.count === 42));
+  assert.ok(!orders.some(o => o.from === 'capital'));
 });
 
-test('defence remains active during offensive recovery', () => {
+test('does not attack friendly planets or a hopeless fortress', () => {
+  const w = world([base('a', 0, RED, 200), base('b', 100, RED, 20), base('fortress', 400, BLUE, 1000)]);
+  assert.deepEqual(new TacticalAI().plan(w).get(RED)!.orders, []);
+});
+
+test('does not pile on when enough friendly ships are already incoming', () => {
+  const w = world([base('a', 0, RED, 200), base('target', 400, GREY, 10)]);
+  for (const p of w.pixels.filter(p => p.color === RED).slice(0, 30)) { p.state = 'moving'; p.targetBaseId = 'target'; }
+  assert.deepEqual(new TacticalAI().plan(w).get(RED)!.orders, []);
+});
+
+test('original random gate leaves occasional quiet ticks', () => {
+  const w = world([base('a', 0, RED, 200), base('target', 400, GREY, 10)]);
+  w.random = () => 0.2;
+  assert.deepEqual(new TacticalAI().plan(w).get(RED)!.orders, []);
+});
+
+test('hard mode attacks sooner without extra ships', () => {
+  const w = world([base('a', 0, RED, 115), base('target', 400, GREY, 10)]);
+  w.random = () => 0.2;
+  assert.deepEqual(new TacticalAI().plan(w).get(RED)!.orders, []);
+  w.hard = true;
+  assert.deepEqual(new TacticalAI().plan(w).get(RED)!.orders, [{ from: 'a', to: 'target', count: 103 }]);
+});
+
+test('after a quiet front rear ships can gather through a winding friendly network', () => {
   const ai = new TacticalAI();
-  const w = world([base('home', 0, RED, 45, true), base('donor', 200, RED, 120), base('neutral', 500, GREY, 10)]);
+  const w = world([base('rear', 0, RED, 300), base('bridge', -500, RED, 10),
+    { ...base('bend', -500, RED, 10), y: 500 }, { ...base('upper', -500, RED, 10), y: 1000 },
+    { ...base('stage', 0, RED, 35), y: 1000 }, { ...base('enemy', 400, BLUE, 1000), y: 1300 }]);
   ai.plan(w);
-  w.seconds = 2;
-  const enemyFleet = world([base('enemy', 500, BLUE, 70)]).pixels;
-  for (const p of enemyFleet) { p.state = 'moving'; p.targetBaseId = 'home'; }
-  w.pixels.push(...enemyFleet);
-  const plan = ai.plan(w).get(RED)!;
-  assert.deepEqual(plan.orders, [{ from: 'donor', to: 'home', count: 37 }]);
+  w.seconds = 30;
+  const orders = ai.plan(w).get(RED)!.orders;
+  assert.ok(orders.some(o => o.from === 'rear' && o.to === 'stage'));
 });
 
-test('out-of-range and hopeless attacks are rejected', () => {
-  for (const target of [base('target', 601, GREY, 1), base('target', 400, BLUE, 1000)]) {
-    const w = world([base('home', 0, RED, 100, true), target]);
-    assert.deepEqual(new TacticalAI().plan(w).get(RED)!.orders, []);
-  }
-});
-
-test('Omni uses distant reserves only when affordable, useful and safe', () => {
-  const ai = new TacticalAI();
-  const w = world([base('rear', -1500, RED, 600, true), base('front', 0, RED, 50), base('enemy', 500, BLUE, 100)]);
+test('Omni revenge is possible but not guaranteed and respects safety', () => {
+  const w = world([base('capital', -1500, RED, 600, true), base('front', 0, RED, 30), base('captured', 500, BLUE, 20)]);
   w.canOmni = () => true;
+  w.recentOmniCaptureId = 'captured';
+  const ai = new TacticalAI();
+  ai.plan(w);
+  w.seconds = 10;
+  w.random = () => 0.2;
+  assert.equal(ai.plan(w).get(RED)!.omniTarget, 'captured');
+  w.seconds = 12;
   assert.equal(ai.plan(w).get(RED)!.omniTarget, undefined);
+  const other = new TacticalAI();
+  other.plan(w);
   w.seconds = 20;
-  assert.equal(ai.plan(w).get(RED)!.omniTarget, 'enemy');
-  w.seconds = 22;
-  assert.equal(ai.plan(w).get(RED)!.omniTarget, undefined);
-  const unavailable = new TacticalAI();
-  w.canOmni = () => false;
-  unavailable.plan(w);
-  w.seconds = 50;
-  assert.equal(unavailable.plan(w).get(RED)!.omniTarget, undefined);
+  w.random = () => 0.9;
+  assert.equal(other.plan(w).get(RED)!.omniTarget, undefined);
 });
 
-test('targeting budgets faction defences; dead ships are not resources', () => {
-  const blue = world([base('home', 0, RED, 200, true), base('enemy', 400, BLUE, 20)]);
-  const green = world([base('home', 0, RED, 200, true), base('enemy', 400, '#22c55e', 20)]);
-  assert.ok(new TacticalAI().plan(blue).get(RED)!.orders[0].count >= new TacticalAI().plan(green).get(RED)!.orders[0].count);
-  blue.pixels.filter(p => p.color === RED).forEach(p => { p.dead = true; });
-  assert.equal(new TacticalAI().plan(blue).get(RED)!.orders.length, 0);
+test('a failed revenge roll is not retried each decision for the same capture', () => {
+  const ai = new TacticalAI();
+  const w = world([base('capital', -1500, RED, 600, true), base('front', 0, RED, 30), base('captured', 500, BLUE, 20)]);
+  w.canOmni = () => true;
+  w.recentOmniCaptureId = 'captured';
+  w.random = () => 0.5;
+  ai.plan(w);
+  for (const second of [10, 12, 14, 16]) {
+    w.seconds = second;
+    assert.equal(ai.plan(w).get(RED)!.omniTarget, undefined);
+  }
+  w.recentOmniCaptureTime = 20;
+  w.seconds = 20;
+  w.random = () => 0.2;
+  assert.equal(ai.plan(w).get(RED)!.omniTarget, 'captured');
 });
 
-test('engine executes the planned fleet size and hard mode grants no extra production', () => {
+test('Omni replaces ordinary orders so a capital is not emptied twice', () => {
+  const ai = new TacticalAI();
+  const w = world([base('capital', 0, RED, 200, true), base('captured', 400, BLUE, 10)]);
+  w.canOmni = () => true;
+  w.recentOmniCaptureId = 'captured';
+  w.random = () => 0.2;
+  ai.plan(w);
+  w.seconds = 10;
+  const plan = ai.plan(w).get(RED)!;
+  assert.equal(plan.omniTarget, 'captured');
+  assert.deepEqual(plan.orders, []);
+});
+
+test('engine executes the large capital attack and hard mode gives no hidden production', () => {
   let now = 0;
   const engine = new GameEngine(1000, 1000, { now: () => now, rng: () => 0.5 });
   engine.bases.clear(); engine.pixels = [];
@@ -110,67 +134,11 @@ test('engine executes the planned fleet size and hard mode grants no extra produ
   engine.lastSpawnTime = Number.MAX_SAFE_INTEGER;
   now = 2001;
   engine.update(0.016);
-  assert.equal(engine.pixels.filter(p => p.state === 'moving').length, 20);
+  assert.equal(engine.pixels.filter(p => p.state === 'moving').length, 155);
   engine.lastAITime = Number.MAX_SAFE_INTEGER;
   engine.lastSpawnTime = 0;
   engine.isHardMode = true;
   const count = engine.pixels.length;
   engine.update(0.016);
   assert.equal(engine.pixels.length, count + 1);
-});
-
-test('uses a strong reachable fleet instead of being blocked by the nearest small fleets', () => {
-  const w = world([base('small-a', 350, RED, 25), base('small-b', 300, RED, 25), base('strong', 0, RED, 220), base('enemy', 400, BLUE, 100)]);
-  assert.ok(new TacticalAI().plan(w).get(RED)!.orders.some(o => o.from === 'strong' && o.to === 'enemy'));
-});
-
-test('a quiet front escalates to a coordinated breakthrough without lowering reserves', () => {
-  const ai = new TacticalAI();
-  const w = world([base('a', 0, RED, 80), base('b', 100, RED, 80), base('c', 200, RED, 80), base('enemy', 400, BLUE, 100)]);
-  assert.equal(ai.plan(w).get(RED)!.orders.length, 0);
-  w.seconds = 30;
-  const orders = ai.plan(w).get(RED)!.orders;
-  assert.equal(orders.length, 3);
-  assert.ok(orders.every(o => o.to === 'enemy' && o.count <= 56));
-  w.seconds = 32;
-  assert.equal(ai.plan(w).get(RED)!.orders.length, 0);
-});
-
-test('musters across a friendly route that first moves away from the enemy, then attacks', () => {
-  const ai = new TacticalAI();
-  const w = world([base('rear', 0, RED, 300), base('bridge', -500, RED, 10),
-    { ...base('bend', -500, RED, 10), y: 500 }, { ...base('upper', -500, RED, 10), y: 1000 },
-    { ...base('stage', 0, RED, 35), y: 1000 }, { ...base('enemy', 400, BLUE, 140), y: 1300 }]);
-  ai.plan(w);
-  w.seconds = 30;
-  const orders = ai.plan(w).get(RED)!.orders;
-  assert.equal(orders.length, 1);
-  assert.equal(orders[0].from, 'rear');
-  assert.equal(orders[0].to, 'stage');
-  const fleet = w.pixels.filter(p => p.baseId === 'rear').slice(0, orders[0].count);
-  for (const p of fleet) { p.state = 'moving'; p.targetBaseId = 'stage'; }
-  w.seconds = 32;
-  assert.equal(ai.plan(w).get(RED)!.orders.length, 0, 'do not duplicate reinforcements');
-  for (const p of fleet) { p.state = 'idle'; p.baseId = 'stage'; }
-  w.seconds = 40;
-  assert.ok(ai.plan(w).get(RED)!.orders.some(o => o.to === 'enemy'));
-});
-
-test('routine logistics do not starve a viable Omni breakthrough', () => {
-  const ai = new TacticalAI();
-  const w = world([base('rear', -500, RED, 600, true), base('front', 0, RED, 50), base('enemy', 500, BLUE, 120)]);
-  w.canOmni = () => true;
-  ai.plan(w);
-  w.seconds = 20;
-  const plan = ai.plan(w).get(RED)!;
-  assert.equal(plan.omniTarget, 'enemy');
-  assert.deepEqual(plan.orders, []);
-});
-
-test('stalemate response cannot draw reserves across disconnected territory or force hopeless attacks', () => {
-  const ai = new TacticalAI();
-  const w = world([base('isolated', -1200, RED, 1000), base('front', 0, RED, 50), base('enemy', 500, BLUE, 1000)]);
-  ai.plan(w);
-  w.seconds = 120;
-  assert.deepEqual(ai.plan(w).get(RED)!.orders, []);
 });
