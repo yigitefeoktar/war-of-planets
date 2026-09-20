@@ -1429,8 +1429,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         const descriptions = { omni: 'Warp 30% of every idle fleet here.', overdrive: '3x production / 15 seconds', repulse: 'Repel and destroy arrivals / 6 seconds' };
         return <div className={`planet-command planet-command-${state}`} style={{ '--weapon-count': weapons.filter(weapon => availableWeapons.has(weapon)).length } as React.CSSProperties} role="region" aria-label={state === 'empire' ? 'Energy and superweapons' : state === 'friendly' ? 'Planet commands' : 'Planet information'}
           onPointerDown={event => event.stopPropagation()} onTouchStart={event => event.stopPropagation()}>
-          <AnimatePresence mode="wait" initial={false}>
-          <motion.div key={state} className="planet-command-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }}>
+          <motion.div key={state} className="planet-command-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.12 }}>
           {planet && <div className="planet-command-summary">
             <span className="planet-command-kicker" style={{ color: planet.color }}>{state === 'friendly' ? `YOUR ${planet.isCapital ? 'CAPITAL' : planet.isDysonSphere ? 'DYSON SPHERE' : 'PLANET'}` : factions.find(faction => faction.color === planet.color)?.name ?? 'NEUTRAL'}</span>
             <strong className="planet-command-count">{planet.pixelCount}</strong>
@@ -1475,7 +1474,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
             <p className="planet-command-hint empire-hint" aria-live="polite">{targetingMode ? `${labels[targetingMode]}: ${targetingMode === 'omni' ? 'choose a highlighted enemy or neutral planet' : 'choose a highlighted friendly planet'}.` : availableWeapons.size ? `Unlocked: ${weapons.filter(weapon => unlockedWeapons.has(weapon)).map(weapon => labels[weapon]).join(', ') || 'None'}. Capture ability planets to unlock more.` : 'No superweapons in this mission.'} {targetingMode && <button onClick={() => { targetingModeRef.current = null; setTargetingMode(null); }}>Cancel targeting (Esc)</button>}</p>
           </>}
           </motion.div>
-          </AnimatePresence>
         </div>;
       })()}
 
