@@ -20,6 +20,7 @@
   display: flex; justify-content: center; align-items: flex-end;
   gap: 12px; width: 100%; pointer-events: auto;
 }
+.planet-command-group-normal { align-items: stretch; }
 .planet-command-group-normal .planet-command-empire { min-width: min(210px, 100%); }
 .planet-command-friendly.planet-command-unselected .planet-command-content { grid-template-columns: minmax(210px, 300px); }
 .planet-command-content { display: grid; align-items: stretch; gap: 14px; width: max-content; max-width: 100%; }
@@ -127,8 +128,8 @@
 .planet-ability.overdrive.targeting { background: #382b18; }
 .planet-ability.repulse.targeting { background: #16384b; }
 @media (max-width: 760px) {
-  .planet-command-group-normal { flex-direction: column; align-items: center; }
-  .planet-command-group-normal .planet-command { width: min(100%, 480px); }
+  .planet-command-group-normal { display: grid; width: min(100%, 480px); margin-inline: auto; grid-template-columns: minmax(0, 1fr); grid-auto-rows: 1fr; }
+  .planet-command-group-normal .planet-command { width: 100%; }
   .planet-command-empire .planet-command-content { grid-template-columns: minmax(0, 1fr); }
   .planet-command-empire .planet-abilities { grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); }
 }

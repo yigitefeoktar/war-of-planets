@@ -1484,7 +1484,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
               {renderBar('enemy')}
             </motion.div> : <motion.div key="normal" className="planet-command-group planet-command-group-normal" initial={{ y: '110%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '110%', opacity: 0 }} transition={{ duration: 0.22, ease: 'easeInOut' }}>
               {renderBar('friendly')}
-              {renderBar('empire')}
+              {availableWeapons.size > 0 && renderBar('empire')}
             </motion.div>}
           </AnimatePresence>
         </div>;
