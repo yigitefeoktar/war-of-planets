@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createMatch } from './game/mapLoader';
 import { CHAPTERS, DYSON_SPHERE_ID, completeMission, followingMission, getOutcome, launchMission, loadProgress, nextMission, saveProgress, type MapDefinition, type ModeId, type Progress } from './game/campaign';
 import { AnimatePresence, motion } from 'motion/react';
-import { Maximize, Minimize, Volume2, VolumeX, Music, Skull, Pause, Play, Flag, Shield, Zap } from 'lucide-react';
+import { Maximize, Minimize, Volume2, VolumeX, Music, Skull, Pause, Play, Flag } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
 import { ModeCard } from './ui/ModeCard';
 import { advanceTutorial, drawTutorialHighlights, tutorialTargets, type TutorialState, type TutorialEvent } from './game/tutorial';
@@ -10,6 +10,7 @@ import './ui/Tutorial.css';
 import { issueFleetOrder } from './game/logistics';
 import { GameEngine } from './game/engine';
 import { SUPERWEAPON_COSTS, SUPERWEAPON_IDS, SUPERWEAPON_MAX_ENERGY, type SuperweaponId } from './game/superweapons';
+import { SUPERWEAPON_VISUALS } from './game/superweaponVisuals';
 import type { Base } from './game/types';
 
 function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled, isHardMode, setIsHardMode }: { selectedMode: ModeId, onSelectMode: (mode: ModeId) => void, progress: Progress, saveWarning: boolean, onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void, isHardMode: boolean, setIsHardMode: (val: boolean) => void }) {
@@ -1461,14 +1462,17 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
                   : weapon === 'omni' && !engine.hasOmniFleet('#3b82f6') ? 'Need at least 4 idle ships on a world'
                   : !targets.length ? 'No eligible target' : 'Ready';
                 const canPress = status === 'Ready' || targetingMode === weapon;
-                return <button key={weapon} className={`planet-ability ${weapon} ${targetingMode === weapon ? 'targeting' : ''}`} disabled={!canPress} aria-label={`${labels[weapon]}, ${SUPERWEAPON_COSTS[weapon]} energy. ${status}`} aria-pressed={targetingMode === weapon} onClick={() => activateAbility(weapon)}>
+                const visual = SUPERWEAPON_VISUALS[weapon];
+                return <button key={weapon} className={`planet-ability ${weapon} ${targetingMode === weapon ? 'targeting' : ''}`} style={{ '--weapon-color': visual.color } as React.CSSProperties} disabled={!canPress} aria-label={`${labels[weapon]}, ${SUPERWEAPON_COSTS[weapon]} energy. ${status}`} aria-pressed={targetingMode === weapon} onClick={() => activateAbility(weapon)}>
                   <span className="planet-ability-icon" aria-hidden="true">
-                    {weapon === 'repulse' ? <Shield size={30} strokeWidth={2.3} /> : <Zap size={30} strokeWidth={2.3} />}
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      {visual.paths.map(({ d, fill }, index) => <path key={index} d={d} fill={fill ? 'currentColor' : 'none'} stroke={fill ? 'none' : 'currentColor'} />)}
+                    </svg>
                   </span>
                   <span className="planet-ability-copy">
                     <span className="planet-ability-title"><span>{labels[weapon]}</span><strong>{SUPERWEAPON_COSTS[weapon]} E</strong></span>
                     <span className="planet-ability-description">{descriptions[weapon]}</span>
-                    <small>{status}{active.length > 0 && ` · Active on ${active.length} ${active.length === 1 ? 'world' : 'worlds'} / ${Math.max(...active)}s`}</small>
+                    <small>{status}{active.length > 0 && ` ï¿½ Active on ${active.length} ${active.length === 1 ? 'world' : 'worlds'} / ${Math.max(...active)}s`}</small>
                   </span>
                 </button>;
               })}

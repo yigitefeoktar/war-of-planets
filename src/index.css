@@ -41,17 +41,14 @@
 .planet-energy-track { height: 6px; overflow: hidden; background: rgba(17, 53, 77, .85); margin: 8px 0 6px; border-radius: 999px; box-shadow: inset 0 1px 4px rgba(0, 0, 0, .5); }
 .planet-energy-track > div { height: 100%; min-width: 3px; background: linear-gradient(90deg, #41d9e8, #79eff8); border-radius: inherit; box-shadow: 0 0 12px rgba(83, 225, 239, .55); transition: width .2s; }
 .planet-abilities { position: relative; display: flex; gap: 8px; min-width: 0; }
-.planet-ability { display: flex; flex: 1; align-items: center; justify-content: flex-start; gap: 8px; min-width: 0; padding: 10px; text-align: left; border: 1px solid rgba(48, 114, 150, .3); border-radius: 10px; background: linear-gradient(145deg, rgba(8, 40, 61, .93), rgba(7, 29, 47, .95)); color: #9eddf4; box-shadow: inset 0 1px rgba(255, 255, 255, .025); transition: border-color .15s, filter .15s, transform .15s; }
+.planet-ability { display: flex; flex: 1; align-items: center; justify-content: flex-start; gap: 8px; min-width: 0; padding: 10px; text-align: left; border: 1px solid color-mix(in srgb, var(--weapon-color) 35%, transparent); border-radius: 10px; background: linear-gradient(145deg, color-mix(in srgb, var(--weapon-color) 14%, #081b2b), #071725); color: var(--weapon-color); box-shadow: inset 0 1px rgba(255, 255, 255, .025); transition: border-color .15s, filter .15s, transform .15s; }
 .planet-ability-icon { display: grid; flex: 0 0 26px; place-items: center; filter: drop-shadow(0 0 8px currentColor); }
 .planet-ability-icon svg { width: 24px; height: 24px; }
 .planet-ability-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 3px; }
 .planet-ability-title { width: 100%; color: #d4f1fb; font-size: 11px; font-weight: 700; }
 .planet-ability-title strong { white-space: nowrap; }
 .planet-ability-description { display: none; }
-.planet-ability.overdrive { color: #ffbd59; border-color: rgba(153, 108, 45, .34); background: linear-gradient(145deg, rgba(48, 37, 22, .94), rgba(28, 27, 25, .95)); }
-.planet-ability.overdrive .planet-ability-title { color: #ffe7bd; }
-.planet-ability.omni { color: #67e8f9; }
-.planet-ability.targeting { border-color: #67e8f9; background: linear-gradient(145deg, rgba(10, 67, 88, .98), rgba(6, 35, 54, .98)); box-shadow: inset 0 1px rgba(255, 255, 255, .08), 0 0 22px rgba(34, 211, 238, .18); }
+.planet-ability.targeting { border-color: var(--weapon-color); background: linear-gradient(145deg, color-mix(in srgb, var(--weapon-color) 23%, #081b2b), #071725); box-shadow: inset 0 1px rgba(255, 255, 255, .08), 0 0 22px color-mix(in srgb, var(--weapon-color) 24%, transparent); }
 .planet-ability small { color: #638395; font-size: 8px; line-height: 1.25; }
 .planet-ability:disabled { opacity: .72; cursor: default; }
 .planet-ability:not(:disabled):hover { border-color: currentColor; filter: brightness(1.12); transform: translateY(-1px); }
@@ -102,7 +99,7 @@
 
 @media (max-width: 480px) {
   .planet-ability { flex-direction: column; min-height: 62px; }
-  .planet-ability-icon { display: none; }
+  .planet-ability-icon { flex-basis: auto; }
   .planet-ability-title { align-items: flex-start; flex-direction: column; gap: 2px; }
   .planet-ability small { display: none; }
 }
@@ -125,8 +122,6 @@
 .empire-hint { grid-column: 1 / -1; min-width: 0; }
 .empire-hint button { color: #c4ebf5; text-decoration: underline; padding: 5px; }
 .planet-ability.targeting { border-color: currentColor; }
-.planet-ability.overdrive.targeting { background: #382b18; }
-.planet-ability.repulse.targeting { background: #16384b; }
 @media (max-width: 760px) {
   .planet-command-group-normal { display: grid; width: min(100%, 480px); margin-inline: auto; grid-template-columns: minmax(0, 1fr); grid-auto-rows: 1fr; }
   .planet-command-group-normal .planet-command { width: 100%; }

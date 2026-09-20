@@ -4,6 +4,7 @@ import { canIssueFleetOrder } from './logistics';
 import { TacticalAI } from './ai';
 import { FactionBonuses, energyMultiplier } from './factions';
 import { assignQuickMatchSuperweaponPlanets, ENERGY_PER_PLANET_PER_SECOND, isPointAccessible, SUPERWEAPON_COSTS, SUPERWEAPON_MAX_ENERGY, OVERDRIVE_DURATION, OVERDRIVE_MULTIPLIER, REPULSE_DURATION, type SuperweaponTargetMode } from './superweapons';
+import { SUPERWEAPON_VISUALS } from './superweaponVisuals';
 
 interface Star {
   x: number;
@@ -34,37 +35,33 @@ interface Shockwave {
   thickness: number;
 }
 
+const superweaponPathCache = new Map<SuperweaponId, Path2D[]>();
+
 function drawSuperweaponIcon(ctx: CanvasRenderingContext2D, weapon: SuperweaponId, x: number, y: number) {
   ctx.save();
   ctx.translate(x, y);
-  const color = weapon === 'repulse' ? '#a5e8ff' : weapon === 'overdrive' ? '#ffbd59' : '#00f5ff';
+  const { color, paths } = SUPERWEAPON_VISUALS[weapon];
   ctx.fillStyle = 'rgba(2, 6, 23, 0.78)';
   ctx.beginPath();
   ctx.arc(0, 0, 15, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
-  ctx.lineWidth = 2.8;
+  ctx.lineWidth = 2;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.shadowColor = color;
   ctx.shadowBlur = 14;
 
-  if (weapon === 'repulse') {
-    ctx.beginPath();
-    ctx.moveTo(0, -9); ctx.lineTo(7.5, -5); ctx.lineTo(5.5, 4); ctx.lineTo(0, 9); ctx.lineTo(-5.5, 4); ctx.lineTo(-7.5, -5); ctx.closePath();
-    ctx.stroke();
-  } else if (weapon === 'overdrive') {
-    ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.stroke();
-    ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill();
-  } else if (weapon === 'omni') {
-    for (let angle = -Math.PI / 2; angle < Math.PI * 1.5; angle += Math.PI * 2 / 3) {
-      const tipX = Math.cos(angle) * 9;
-      const tipY = Math.sin(angle) * 9;
-      ctx.beginPath(); ctx.moveTo(Math.cos(angle) * 3, Math.sin(angle) * 3); ctx.lineTo(tipX, tipY); ctx.stroke();
-      ctx.beginPath(); ctx.arc(tipX, tipY, 1.8, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.beginPath(); ctx.arc(0, 0, 2.5, 0, Math.PI * 2); ctx.fill();
+  ctx.translate(-12, -12);
+  let iconPaths = superweaponPathCache.get(weapon);
+  if (!iconPaths) {
+    iconPaths = paths.map(({ d }) => new Path2D(d));
+    superweaponPathCache.set(weapon, iconPaths);
+  }
+  for (let index = 0; index < paths.length; index++) {
+    if (paths[index].fill) ctx.fill(iconPaths[index]);
+    else ctx.stroke(iconPaths[index]);
   }
   ctx.restore();
 }
