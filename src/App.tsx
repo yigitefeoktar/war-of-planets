@@ -1429,11 +1429,11 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         const descriptions = { omni: 'Warp 30% of every idle fleet here.', overdrive: '3x production / 15 seconds', repulse: 'Repel and destroy arrivals / 6 seconds' };
         const renderBar = (state: 'friendly' | 'enemy' | 'empire') => {
           const shownPlanet = state === 'empire' ? undefined : planet && (state === 'friendly') === (planet.color === '#3b82f6') ? planet : undefined;
-          return <div className={`planet-command planet-command-${state} ${state === 'friendly' && !shownPlanet ? 'planet-command-unselected' : ''}`} style={{ '--weapon-count': weapons.filter(weapon => availableWeapons.has(weapon)).length } as React.CSSProperties} role="region" aria-label={state === 'empire' ? 'Energy and superweapons' : state === 'friendly' ? 'Planet commands' : 'Planet information'}
+          return <div className={`planet-command planet-command-${state}`} style={{ '--weapon-count': weapons.filter(weapon => availableWeapons.has(weapon)).length } as React.CSSProperties} role="region" aria-label={state === 'empire' ? 'Energy and superweapons' : state === 'friendly' ? 'Planet commands' : 'Planet information'}
             onPointerDown={event => event.stopPropagation()} onTouchStart={event => event.stopPropagation()}>
             <div className="planet-command-content">
-          {shownPlanet && <div className="planet-command-summary">
-            <span className="planet-command-kicker" style={{ color: shownPlanet.color }}>{state === 'friendly' ? `YOUR ${shownPlanet.isCapital ? 'CAPITAL' : shownPlanet.isDysonSphere ? 'DYSON SPHERE' : 'PLANET'}` : factions.find(faction => faction.color === shownPlanet.color)?.name ?? 'NEUTRAL'}</span>
+          {state === 'enemy' && shownPlanet && <div className="planet-command-summary">
+            <span className="planet-command-kicker" style={{ color: shownPlanet.color }}>{factions.find(faction => faction.color === shownPlanet.color)?.name ?? 'NEUTRAL'}</span>
             <strong className="planet-command-count">{shownPlanet.pixelCount}</strong>
           </div>}
           {state === 'friendly' && <>

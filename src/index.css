@@ -22,7 +22,6 @@
 }
 .planet-command-group-normal { align-items: stretch; }
 .planet-command-group-normal .planet-command-empire { min-width: min(210px, 100%); }
-.planet-command-friendly.planet-command-unselected .planet-command-content { grid-template-columns: minmax(210px, 300px); }
 .planet-command-content { display: grid; align-items: stretch; gap: 14px; width: max-content; max-width: 100%; }
 .planet-command::before { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; background: linear-gradient(90deg, rgba(59, 130, 246, .035), transparent 30%, transparent 70%, rgba(34, 211, 238, .025)); }
 .planet-command-summary { position: relative; display: flex; min-width: 0; flex-direction: column; justify-content: center; border-right: 1px solid rgba(83, 151, 180, .17); padding-right: 14px; }
@@ -109,7 +108,8 @@
 }
 
 /* Size each bar for the controls it actually contains, capped by the viewport. */
-.planet-command-friendly .planet-command-content { grid-template-columns: minmax(80px, max-content) minmax(160px, 300px); }
+.planet-command-friendly { width: min(330px, 100%); }
+.planet-command-friendly .planet-command-content { width: 100%; grid-template-columns: minmax(0, 1fr); }
 .planet-command-enemy .planet-command-content { grid-template-columns: minmax(0, 1fr); }
 .planet-command-enemy .planet-command-summary { border-right: 0; padding-right: 0; }
 .planet-command-empire { width: calc(210px + var(--weapon-count, 0) * 240px); }
@@ -133,11 +133,6 @@
   .planet-command-empire .planet-command-content { grid-template-columns: minmax(0, 1fr); }
   .planet-command-empire .planet-abilities { grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); }
 }
-@media (max-width: 360px) {
-  .planet-command-friendly:not(.planet-command-unselected) .planet-command-content { grid-template-columns: minmax(0, 1fr); }
-  .planet-command-friendly .planet-command-summary { border-right: 0; padding-right: 0; }
-}
-
 html, body {
   margin: 0;
   padding: 0;
