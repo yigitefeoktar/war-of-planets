@@ -2,8 +2,7 @@
 
 .planet-command {
   position: absolute; z-index: 30; left: 50%; bottom: 16px; transform: translateX(-50%);
-  display: grid;
-  align-items: stretch; gap: 14px; width: max-content; max-width: calc(100% - 32px);
+  width: max-content; max-width: calc(100% - 32px);
   box-sizing: border-box; max-height: calc(100% - 32px); overflow-y: auto; overflow-wrap: anywhere;
   padding: 12px 14px; color: #c4ebf5;
   background: linear-gradient(100deg, rgba(4, 19, 34, .97), rgba(3, 13, 25, .95));
@@ -12,6 +11,7 @@
   font-family: monospace; font-size: 12px; touch-action: manipulation;
   backdrop-filter: blur(18px);
 }
+.planet-command-content { display: grid; align-items: stretch; gap: 14px; width: max-content; max-width: 100%; }
 .planet-command::before { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; background: linear-gradient(90deg, rgba(59, 130, 246, .035), transparent 30%, transparent 70%, rgba(34, 211, 238, .025)); }
 .planet-command-summary { position: relative; display: flex; min-width: 0; flex-direction: column; justify-content: center; border-right: 1px solid rgba(83, 151, 180, .17); padding-right: 14px; }
 .planet-command-kicker { font-size: 11px; font-weight: 700; letter-spacing: .045em; text-shadow: 0 0 16px currentColor; }
@@ -47,13 +47,15 @@
 .planet-command button:focus-visible { outline: 2px solid white; outline-offset: 2px; }
 
 @media (max-width: 1200px) {
-  .planet-command { gap: 10px; padding: 11px 14px; }
+  .planet-command { padding: 11px 14px; }
+  .planet-command-content { gap: 10px; }
   .planet-abilities { grid-column: 1 / -1; }
   .planet-ability { min-height: 54px; }
 }
 
 @media (max-width: 1100px) {
-  .planet-command { gap: 9px; padding: 10px 12px; }
+  .planet-command { padding: 10px 12px; }
+  .planet-command-content { gap: 9px; }
   .planet-command-summary { padding-right: 12px; }
   .planet-command-count { font-size: 28px; }
   .planet-ability { gap: 7px; padding: 9px; }
@@ -63,7 +65,8 @@
 }
 
 @media (max-width: 760px) {
-  .planet-command { bottom: 8px; gap: 7px 10px; max-width: calc(100% - 16px); min-height: 0; padding: 9px 10px; border-radius: 13px; }
+  .planet-command { bottom: 8px; max-width: calc(100% - 16px); min-height: 0; padding: 9px 10px; border-radius: 13px; }
+  .planet-command-content { gap: 7px 10px; }
   .planet-command-summary { min-width: 0; border-right: 0; padding-right: 0; }
   .planet-command-kicker { font-size: 10px; }
   .planet-command-count { margin-top: 5px; font-size: 27px; }
@@ -93,14 +96,14 @@
 }
 
 /* Size each bar for the controls it actually contains, capped by the viewport. */
-.planet-command-friendly { grid-template-columns: minmax(80px, max-content) minmax(160px, 300px); }
-.planet-command-enemy { grid-template-columns: minmax(0, 1fr); }
+.planet-command-friendly .planet-command-content { grid-template-columns: minmax(80px, max-content) minmax(160px, 300px); }
+.planet-command-enemy .planet-command-content { grid-template-columns: minmax(0, 1fr); }
 .planet-command-enemy .planet-command-summary { border-right: 0; padding-right: 0; }
-.planet-command-empire {
-  width: calc(210px + var(--weapon-count, 0) * 240px);
-  grid-template-columns: minmax(150px, 180px) minmax(0, 1fr);
+.planet-command-empire { width: calc(210px + var(--weapon-count, 0) * 240px); }
+.planet-command-empire .planet-command-content {
+  width: 100%; grid-template-columns: minmax(150px, 180px) minmax(0, 1fr);
 }
-.planet-command-empire:not(:has(.planet-abilities)) { grid-template-columns: minmax(0, 1fr); }
+.planet-command-empire:not(:has(.planet-abilities)) .planet-command-content { grid-template-columns: minmax(0, 1fr); }
 .planet-command-empire .planet-abilities {
   grid-column: auto; display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
@@ -112,11 +115,11 @@
 .planet-ability.overdrive.targeting { background: #382b18; }
 .planet-ability.repulse.targeting { background: #16384b; }
 @media (max-width: 760px) {
-  .planet-command-empire { grid-template-columns: minmax(0, 1fr); }
+  .planet-command-empire .planet-command-content { grid-template-columns: minmax(0, 1fr); }
   .planet-command-empire .planet-abilities { grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); }
 }
 @media (max-width: 360px) {
-  .planet-command-friendly { grid-template-columns: minmax(0, 1fr); }
+  .planet-command-friendly .planet-command-content { grid-template-columns: minmax(0, 1fr); }
   .planet-command-friendly .planet-command-summary { border-right: 0; padding-right: 0; }
 }
 
