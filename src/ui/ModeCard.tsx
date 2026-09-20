@@ -7,7 +7,6 @@ import { progressLabel, type ModeId, type Progress } from '../game/campaign';
 
 const modes = [
   { id: 'chapter-1', title: 'Chapter 1', subtitle: 'The Helios Breach', description: 'Lead your fleet through five tactical battles. Capture new worlds and push into enemy territory.', accent: '#73dcff', rgb: '115, 220, 255', label: 'Campaign · 5 battles' },
-  { id: 'chapter-2', title: 'Chapter 2', subtitle: 'Beyond Helios', description: 'Take the campaign deeper into space. New battlefields and greater challenges await your fleet.', accent: '#c4a3ff', rgb: '196, 163, 255', label: 'Campaign · 5 battles' },
   { id: 'quick-match', title: 'Quick Match', subtitle: 'One battle. Total conquest.', description: 'Command your fleet. Defend your capital. Conquer the system.', accent: '#ffc184', rgb: '255, 193, 132', label: 'Instant action' },
 ];
 type Mode = typeof modes[number];
