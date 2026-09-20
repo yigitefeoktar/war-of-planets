@@ -1423,16 +1423,18 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         const engine = engineRef.current;
         const planet = commandPlanet ? engine?.bases.get(commandPlanet) : undefined;
         if (!engine) return null;
-        const state = planet ? planet.color === '#3b82f6' ? 'friendly' : 'enemy' : 'empire';
+        const enemySelected = !!planet && planet.color !== '#3b82f6';
         const weapons = ['overdrive', 'repulse', 'omni'] as SuperweaponId[];
         const labels = { omni: 'Omni Strike', overdrive: 'Production Overdrive', repulse: 'Repulse Shield' };
         const descriptions = { omni: 'Warp 30% of every idle fleet here.', overdrive: '3x production / 15 seconds', repulse: 'Repel and destroy arrivals / 6 seconds' };
-        return <div className={`planet-command planet-command-${state}`} style={{ '--weapon-count': weapons.filter(weapon => availableWeapons.has(weapon)).length } as React.CSSProperties} role="region" aria-label={state === 'empire' ? 'Energy and superweapons' : state === 'friendly' ? 'Planet commands' : 'Planet information'}
-          onPointerDown={event => event.stopPropagation()} onTouchStart={event => event.stopPropagation()}>
-          <motion.div key={state} className="planet-command-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.12 }}>
-          {planet && <div className="planet-command-summary">
-            <span className="planet-command-kicker" style={{ color: planet.color }}>{state === 'friendly' ? `YOUR ${planet.isCapital ? 'CAPITAL' : planet.isDysonSphere ? 'DYSON SPHERE' : 'PLANET'}` : factions.find(faction => faction.color === planet.color)?.name ?? 'NEUTRAL'}</span>
-            <strong className="planet-command-count">{planet.pixelCount}</strong>
+        const renderBar = (state: 'friendly' | 'enemy' | 'empire') => {
+          const shownPlanet = state === 'empire' ? undefined : planet && (state === 'friendly') === (planet.color === '#3b82f6') ? planet : undefined;
+          return <div className={`planet-command planet-command-${state} ${state === 'friendly' && !shownPlanet ? 'planet-command-unselected' : ''}`} style={{ '--weapon-count': weapons.filter(weapon => availableWeapons.has(weapon)).length } as React.CSSProperties} role="region" aria-label={state === 'empire' ? 'Energy and superweapons' : state === 'friendly' ? 'Planet commands' : 'Planet information'}
+            onPointerDown={event => event.stopPropagation()} onTouchStart={event => event.stopPropagation()}>
+            <div className="planet-command-content">
+          {shownPlanet && <div className="planet-command-summary">
+            <span className="planet-command-kicker" style={{ color: shownPlanet.color }}>{state === 'friendly' ? `YOUR ${shownPlanet.isCapital ? 'CAPITAL' : shownPlanet.isDysonSphere ? 'DYSON SPHERE' : 'PLANET'}` : factions.find(faction => faction.color === shownPlanet.color)?.name ?? 'NEUTRAL'}</span>
+            <strong className="planet-command-count">{shownPlanet.pixelCount}</strong>
           </div>}
           {state === 'friendly' && <>
             <div className="planet-fleet-control">
@@ -1440,7 +1442,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
               <div className="planet-fleet-sizes" aria-label="Fleet deployment size">
                 {[0.1, 0.5, 1].map(size => <button key={size} aria-pressed={fleetSize === size} onClick={() => handleFleetSizeChange(size)}>{size * 100}%</button>)}
               </div>
-              <p className="planet-command-hint">Choose a destination</p>
+              <p className="planet-command-hint">{shownPlanet ? 'Choose a destination' : 'Select a friendly planet'}</p>
             </div>
           </>}
           {state === 'empire' && <>
@@ -1473,7 +1475,18 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
             </div>}
             <p className="planet-command-hint empire-hint" aria-live="polite">{targetingMode ? `${labels[targetingMode]}: ${targetingMode === 'omni' ? 'choose a highlighted enemy or neutral planet' : 'choose a highlighted friendly planet'}.` : availableWeapons.size ? `Unlocked: ${weapons.filter(weapon => unlockedWeapons.has(weapon)).map(weapon => labels[weapon]).join(', ') || 'None'}. Capture ability planets to unlock more.` : 'No superweapons in this mission.'} {targetingMode && <button onClick={() => { targetingModeRef.current = null; setTargetingMode(null); }}>Cancel targeting (Esc)</button>}</p>
           </>}
-          </motion.div>
+            </div>
+          </div>;
+        };
+        return <div className="planet-command-stage">
+          <AnimatePresence mode="wait" initial={false}>
+            {enemySelected ? <motion.div key="enemy" className="planet-command-group" initial={{ y: '110%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '110%', opacity: 0 }} transition={{ duration: 0.22, ease: 'easeInOut' }}>
+              {renderBar('enemy')}
+            </motion.div> : <motion.div key="normal" className="planet-command-group planet-command-group-normal" initial={{ y: '110%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '110%', opacity: 0 }} transition={{ duration: 0.22, ease: 'easeInOut' }}>
+              {renderBar('friendly')}
+              {renderBar('empire')}
+            </motion.div>}
+          </AnimatePresence>
         </div>;
       })()}
 
