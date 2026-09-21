@@ -86,8 +86,8 @@ test('invalid and disconnected maps are rejected before starting', () => {
 });
 test('real combat destroys an enemy capital and resolves victory', () => {
   const fixture = { ...FIRST_STRIKE, orbit: undefined, planets: [
-    { ...FIRST_STRIKE.planets[0], x: 700, y: 700, ships: 40 },
-    { ...FIRST_STRIKE.planets[1], x: 820, y: 700, ships: 1 },
+    { ...FIRST_STRIKE.planets.find(planet => planet.id === 'player_1')!, x: 700, y: 700, ships: 40 },
+    { ...FIRST_STRIKE.planets.find(planet => planet.id === 'ai_1')!, x: 820, y: 700, ships: 1 },
   ] };
   const engine = createMatch(fixture);
   engine.lastAITime = Number.MAX_SAFE_INTEGER;

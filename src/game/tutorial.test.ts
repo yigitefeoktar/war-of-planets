@@ -67,17 +67,18 @@ test('highlights follow current planet positions and ignore captured capitals', 
   const targets = tutorialTargets({ step: 'attack' }, [...engine.bases.values()], 'player_1', targetId, engine.MAX_ATTACK_RANGE);
   assert.notEqual(targets[0].x, before);
   assert.equal(targets[0], engine.bases.get(targetId));
-  assert.deepEqual(tutorialTargets({ step: 'capitals' }, [...engine.bases.values()], null, targetId, 600).map(p => p.id), ['ai_1', 'ai_2', 'ai_3']);
+  assert.deepEqual(tutorialTargets({ step: 'capitals' }, [...engine.bases.values()], null, targetId, 600).map(p => p.id), ['ai_1']);
   engine.bases.get('ai_1')!.color = NEUTRAL;
-  assert.deepEqual(tutorialTargets({ step: 'capitals' }, [...engine.bases.values()], null, targetId, 600).map(p => p.id), ['ai_2', 'ai_3']);
+  assert.deepEqual(tutorialTargets({ step: 'capitals' }, [...engine.bases.values()], null, targetId, 600).map(p => p.id), []);
   assert.equal(tutorialTargets({ step: 'done' }, [...engine.bases.values()], null, targetId, 600).length, 0);
 });
 
-test('tutorial map is large, deterministic, connected and stationary', () => {
-  assert.equal(FIRST_STRIKE.width, 3000);
-  assert.equal(FIRST_STRIKE.height, 3000);
+test('tutorial map is compact, deterministic, connected and stationary', () => {
+  assert.equal(FIRST_STRIKE.width, 1500);
+  assert.equal(FIRST_STRIKE.height, 1500);
   assert.equal(FIRST_STRIKE.orbit, undefined);
-  assert.equal(FIRST_STRIKE.planets.length, 34);
+  assert.equal(FIRST_STRIKE.planets.length, 9);
+  assert.deepEqual(FIRST_STRIKE.planets.filter(p => p.capital).map(p => p.id), ['player_1', 'ai_1']);
   validateMap(FIRST_STRIKE);
   const a = createMatch(FIRST_STRIKE), b = createMatch(FIRST_STRIKE);
   assert.deepEqual([...a.bases.values()], [...b.bases.values()]);
@@ -92,7 +93,18 @@ test('tutorial map is large, deterministic, connected and stationary', () => {
   }
 });
 
-test('larger tutorial requires zooming to the overview, not just one small wheel step', () => {
+test('tutorial first attack leads to a reachable second step toward the enemy capital', () => {
+  const planets = new Map(FIRST_STRIKE.planets.map(planet => [planet.id, planet]));
+  const distance = (a: string, b: string) => Math.hypot(planets.get(a)!.x - planets.get(b)!.x, planets.get(a)!.y - planets.get(b)!.y);
+  const target = FIRST_STRIKE.tutorial!.attackTargetId;
+  assert.ok(distance('player_1', target) <= FIRST_STRIKE.attackRange);
+  assert.ok(distance(target, 'ai_1') > FIRST_STRIKE.attackRange);
+  assert.ok(distance(target, 'central-crossing') <= FIRST_STRIKE.attackRange);
+  assert.ok(distance('central-crossing', 'ai_1') <= FIRST_STRIKE.attackRange);
+  assert.ok(FIRST_STRIKE.planets.some(planet => planet.owner === NEUTRAL && distance('player_1', planet.id) <= FIRST_STRIKE.attackRange));
+});
+
+test('touch tutorial requires zooming to the overview, not just one small wheel step', () => {
   let state = advanceTutorial({ step: 'attack' }, { type: 'launch', hostile: true, zoom: 0.6, overviewZoom: 0.23 });
   state = advanceTutorial(state, { type: 'tick', now: TUTORIAL_ZOOM_DELAY_MS });
   state = advanceTutorial(state, { type: 'zoom', before: 0.6, after: 0.5 });
