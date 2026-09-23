@@ -380,6 +380,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
     // Initialize Game Engine
     const engine = createMatch(map);
+    engine.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     engineRef.current = engine;
     // Availability includes weapons that can be unlocked later in this match.
     setAvailableWeapons(new Set<SuperweaponId>(engine.superweaponUnlocksEnabled

@@ -12,6 +12,31 @@ interface Star {
   size: number;
   alpha: number;
   color: string;
+  depth: number;
+  twinkles: boolean;
+  twinklePhase: number;
+  twinkleSpeed: number;
+  flare: boolean;
+}
+
+interface NebulaCloud {
+  x: number;
+  y: number;
+  radiusX: number;
+  radiusY: number;
+  rotation: number;
+  depth: number;
+  alpha: number;
+  rgb: string;
+}
+
+interface TerritoryCluster {
+  x: number;
+  y: number;
+  radiusX: number;
+  radiusY: number;
+  color: string;
+  alpha: number;
 }
 
 interface Particle {
@@ -77,6 +102,7 @@ export class GameEngine {
   bases: Map<string, Base> = new Map();
   pixels: Pixel[] = [];
   stars: Star[] = [];
+  nebulae: NebulaCloud[] = [];
   particles: Particle[] = [];
   shockwaves: Shockwave[] = [];
   repelledShips: RepelledShip[] = [];
@@ -100,6 +126,10 @@ export class GameEngine {
   lastOmniCaptureTime: number = 0;
   lastDestroyedCapital: { x: number, y: number, color: string } | null = null;
   isHardMode: boolean = false;
+  reducedMotion: boolean = false;
+  private territoryClusters: TerritoryCluster[] = [];
+  private territorySignature = '';
+  private lastTerritoryUpdate = Number.NEGATIVE_INFINITY;
 
   // Callbacks for sound/events
   onCapture?: (baseId: string, color: string) => void;
@@ -175,15 +205,44 @@ export class GameEngine {
       }
     }
 
-    // Generate stars
-    for (let i = 0; i < 800; i++) {
-      const alpha = this.random() * 0.8 + 0.2;
+    const nebulaPalette = ['65, 48, 156', '11, 105, 122', '28, 69, 151', '126, 40, 127'];
+    for (let i = 0; i < 9; i++) {
+      this.nebulae.push({
+        x: this.random() * this.width,
+        y: this.random() * this.height,
+        radiusX: 480 + this.random() * 620,
+        radiusY: 260 + this.random() * 420,
+        rotation: this.random() * Math.PI,
+        depth: 0.08 + this.random() * 0.18,
+        alpha: 0.07 + this.random() * 0.055,
+        rgb: nebulaPalette[i % nebulaPalette.length],
+      });
+    }
+
+    // Generate several depths of stars. Most remain steady; a restrained
+    // minority twinkles so the map feels alive without becoming noisy.
+    for (let i = 0; i < 850; i++) {
+      const depth = this.random();
+      const alpha = 0.2 + this.random() * (0.38 + depth * 0.32);
+      const tintRoll = this.random();
+      const color = tintRoll < 0.08
+        ? '#9ed8ff'
+        : tintRoll < 0.13
+          ? '#ffd39a'
+          : tintRoll < 0.16
+            ? '#e8b8ff'
+            : '#ffffff';
       this.stars.push({
         x: this.random() * this.width,
         y: this.random() * this.height,
-        size: this.random() * 1.5 + 0.5,
+        size: 0.35 + depth * 1.35 + this.random() * 0.4,
         alpha,
-        color: `rgba(255, 255, 255, ${alpha})`
+        color,
+        depth,
+        twinkles: this.random() < 0.24,
+        twinklePhase: this.random() * Math.PI * 2,
+        twinkleSpeed: 0.45 + this.random() * 1.15,
+        flare: depth > 0.78 && this.random() < 0.035,
       });
     }
 
@@ -705,6 +764,219 @@ export class GameEngine {
     this.pixels = this.pixels.filter(p => !p.dead);
   }
 
+  private drawGalaxyBackdrop(
+    ctx: CanvasRenderingContext2D,
+    cameraX: number,
+    cameraY: number,
+    viewLeft: number,
+    viewTop: number,
+    viewRight: number,
+    viewBottom: number,
+  ) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+
+    for (const cloud of this.nebulae) {
+      const parallax = cloud.depth;
+      const adjViewLeft = viewLeft - cameraX * parallax;
+      const adjViewRight = viewRight - cameraX * parallax;
+      const adjViewTop = viewTop - cameraY * parallax;
+      const adjViewBottom = viewBottom - cameraY * parallax;
+      const extent = Math.max(cloud.radiusX, cloud.radiusY);
+      const startTx = Math.floor((adjViewLeft - cloud.x - extent) / this.width);
+      const endTx = Math.floor((adjViewRight - cloud.x + extent) / this.width);
+      const startTy = Math.floor((adjViewTop - cloud.y - extent) / this.height);
+      const endTy = Math.floor((adjViewBottom - cloud.y + extent) / this.height);
+
+      for (let tx = startTx; tx <= endTx; tx++) {
+        for (let ty = startTy; ty <= endTy; ty++) {
+          const drawX = cloud.x + tx * this.width + cameraX * parallax;
+          const drawY = cloud.y + ty * this.height + cameraY * parallax;
+          ctx.save();
+          ctx.translate(drawX, drawY);
+          ctx.rotate(cloud.rotation);
+          ctx.scale(cloud.radiusX, cloud.radiusY);
+          const glow = ctx.createRadialGradient(-0.16, -0.1, 0, 0, 0, 1);
+          glow.addColorStop(0, `rgba(${cloud.rgb}, ${cloud.alpha})`);
+          glow.addColorStop(0.42, `rgba(${cloud.rgb}, ${cloud.alpha * 0.58})`);
+          glow.addColorStop(1, `rgba(${cloud.rgb}, 0)`);
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(0, 0, 1, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+    }
+
+    ctx.restore();
+  }
+
+  private updateTerritoryClusters(now: number) {
+    const signature = Array.from(this.bases.values(), base => `${base.id}:${base.color}`).sort().join('|');
+    if (signature === this.territorySignature && now - this.lastTerritoryUpdate < 250) return;
+    this.territorySignature = signature;
+    this.lastTerritoryUpdate = now;
+    this.territoryClusters = [];
+
+    const byFaction = new Map<string, Base[]>();
+    for (const base of this.bases.values()) {
+      if (base.color === '#6b7280') continue;
+      const faction = byFaction.get(base.color) ?? [];
+      faction.push(base);
+      byFaction.set(base.color, faction);
+    }
+
+    const linkDistance = Math.max(380, Math.min(720, Math.min(this.width, this.height) * 0.3));
+    for (const [color, factionBases] of byFaction) {
+      const remaining = new Set(factionBases);
+      while (remaining.size > 0) {
+        const first = remaining.values().next().value as Base;
+        remaining.delete(first);
+        const component = [first];
+        const queue = [first];
+        while (queue.length > 0) {
+          const current = queue.shift()!;
+          for (const candidate of Array.from(remaining)) {
+            if (Math.hypot(candidate.x - current.x, candidate.y - current.y) > linkDistance) continue;
+            remaining.delete(candidate);
+            component.push(candidate);
+            queue.push(candidate);
+          }
+        }
+
+        const x = component.reduce((sum, base) => sum + base.x, 0) / component.length;
+        const y = component.reduce((sum, base) => sum + base.y, 0) / component.length;
+        const spreadX = component.reduce((max, base) => Math.max(max, Math.abs(base.x - x)), 0);
+        const spreadY = component.reduce((max, base) => Math.max(max, Math.abs(base.y - y)), 0);
+        this.territoryClusters.push({
+          x,
+          y,
+          radiusX: Math.min(900, 300 + spreadX),
+          radiusY: Math.min(780, 260 + spreadY),
+          color,
+          alpha: Math.min(0.058, 0.024 + component.length * 0.006),
+        });
+      }
+    }
+  }
+
+  private drawTerritoryHaze(ctx: CanvasRenderingContext2D, now: number) {
+    this.updateTerritoryClusters(now);
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    for (const cluster of this.territoryClusters) {
+      ctx.save();
+      ctx.translate(cluster.x, cluster.y);
+      ctx.scale(cluster.radiusX, cluster.radiusY);
+      const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+      glow.addColorStop(0, `${cluster.color}${Math.round(cluster.alpha * 255).toString(16).padStart(2, '0')}`);
+      glow.addColorStop(0.48, `${cluster.color}${Math.round(cluster.alpha * 0.55 * 255).toString(16).padStart(2, '0')}`);
+      glow.addColorStop(1, `${cluster.color}00`);
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(0, 0, 1, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  private drawStars(
+    ctx: CanvasRenderingContext2D,
+    cameraX: number,
+    cameraY: number,
+    viewLeft: number,
+    viewTop: number,
+    viewRight: number,
+    viewBottom: number,
+    zoom: number,
+    now: number,
+  ) {
+    const seconds = now / 1000;
+    ctx.save();
+    for (const star of this.stars) {
+      const parallax = 0.025 + star.depth * 0.15;
+      const adjViewLeft = viewLeft - cameraX * parallax;
+      const adjViewRight = viewRight - cameraX * parallax;
+      const adjViewTop = viewTop - cameraY * parallax;
+      const adjViewBottom = viewBottom - cameraY * parallax;
+      const startTx = Math.floor((adjViewLeft - star.x - star.size) / this.width);
+      const endTx = Math.floor((adjViewRight - star.x + star.size) / this.width);
+      const startTy = Math.floor((adjViewTop - star.y - star.size) / this.height);
+      const endTy = Math.floor((adjViewBottom - star.y + star.size) / this.height);
+      const twinkle = !this.reducedMotion && star.twinkles
+        ? 0.78 + Math.sin(seconds * star.twinkleSpeed + star.twinklePhase) * 0.22
+        : 1;
+      ctx.globalAlpha = star.alpha * twinkle;
+      ctx.fillStyle = star.color;
+      ctx.strokeStyle = star.color;
+
+      for (let tx = startTx; tx <= endTx; tx++) {
+        for (let ty = startTy; ty <= endTy; ty++) {
+          const drawX = star.x + tx * this.width + cameraX * parallax;
+          const drawY = star.y + ty * this.height + cameraY * parallax;
+          ctx.globalAlpha = star.alpha * twinkle;
+          if (star.size < 1.15) {
+            ctx.fillRect(drawX, drawY, star.size, star.size);
+          } else {
+            ctx.beginPath();
+            ctx.arc(drawX, drawY, star.size * 0.58, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          if (star.flare) {
+            const flare = (3.5 + star.depth * 3) / zoom;
+            ctx.globalAlpha = star.alpha * twinkle * 0.42;
+            ctx.lineWidth = 0.65 / zoom;
+            ctx.beginPath();
+            ctx.moveTo(drawX - flare, drawY);
+            ctx.lineTo(drawX + flare, drawY);
+            ctx.moveTo(drawX, drawY - flare * 0.62);
+            ctx.lineTo(drawX, drawY + flare * 0.62);
+            ctx.stroke();
+          }
+        }
+      }
+    }
+    ctx.restore();
+
+    if (this.reducedMotion) return;
+    const interval = 19;
+    const shiftedSeconds = seconds + 4;
+    const phase = shiftedSeconds % interval;
+    if (phase > 1.05) return;
+    const cycle = Math.floor(shiftedSeconds / interval);
+    const fraction = (seed: number) => {
+      const value = Math.sin(seed * 91.733) * 43758.5453;
+      return value - Math.floor(value);
+    };
+    const viewWidth = viewRight - viewLeft;
+    const viewHeight = viewBottom - viewTop;
+    const progress = phase / 1.05;
+    const startX = viewLeft + viewWidth * (0.12 + fraction(cycle + 1) * 0.58);
+    const startY = viewTop + viewHeight * (0.08 + fraction(cycle + 7) * 0.24);
+    const travelX = viewWidth * 0.15;
+    const travelY = viewHeight * 0.08;
+    const headX = startX + travelX * progress;
+    const headY = startY + travelY * progress;
+    const tailX = headX - 95 / zoom;
+    const tailY = headY - 48 / zoom;
+    const streak = ctx.createLinearGradient(tailX, tailY, headX, headY);
+    streak.addColorStop(0, 'rgba(145, 211, 255, 0)');
+    streak.addColorStop(0.72, 'rgba(145, 211, 255, 0.32)');
+    streak.addColorStop(1, 'rgba(255, 255, 255, 0.9)');
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = Math.sin(progress * Math.PI);
+    ctx.strokeStyle = streak;
+    ctx.lineWidth = 1.4 / zoom;
+    ctx.beginPath();
+    ctx.moveTo(tailX, tailY);
+    ctx.lineTo(headX, headY);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   draw(ctx: CanvasRenderingContext2D, selectedBaseId: string | null, cameraX: number, cameraY: number, targetingMode: SuperweaponTargetMode = null) {
     ctx.save();
 
@@ -716,7 +988,7 @@ export class GameEngine {
     }
 
     // Clear background
-    ctx.fillStyle = '#05050a'; // Deep space black
+    ctx.fillStyle = '#03040c'; // Deep space navy-black
     ctx.fillRect(0, 0, this.width, this.height);
 
     // Calculate visible bounds
@@ -728,31 +1000,10 @@ export class GameEngine {
     const viewRight = viewLeft + ctx.canvas.width / zoom;
     const viewBottom = viewTop + ctx.canvas.height / zoom;
 
-    // Draw stars with parallax and infinite tiling
-    for (const star of this.stars) {
-      const parallaxFactor = star.size * 0.1; 
-      
-      // Calculate the effective view bounds for this star's parallax layer
-      const adjViewLeft = viewLeft - cameraX * parallaxFactor;
-      const adjViewRight = viewRight - cameraX * parallaxFactor;
-      const adjViewTop = viewTop - cameraY * parallaxFactor;
-      const adjViewBottom = viewBottom - cameraY * parallaxFactor;
-
-      // Find which tiles intersect the visible area
-      const startTx = Math.floor((adjViewLeft - star.x - star.size) / this.width);
-      const endTx = Math.floor((adjViewRight - star.x + star.size) / this.width);
-      const startTy = Math.floor((adjViewTop - star.y - star.size) / this.height);
-      const endTy = Math.floor((adjViewBottom - star.y + star.size) / this.height);
-
-      ctx.fillStyle = star.color;
-      for (let tx = startTx; tx <= endTx; tx++) {
-        for (let ty = startTy; ty <= endTy; ty++) {
-          const drawX = star.x + tx * this.width + cameraX * parallaxFactor;
-          const drawY = star.y + ty * this.height + cameraY * parallaxFactor;
-          ctx.fillRect(drawX, drawY, star.size, star.size);
-        }
-      }
-    }
+    const now = this.now();
+    this.drawGalaxyBackdrop(ctx, cameraX, cameraY, viewLeft, viewTop, viewRight, viewBottom);
+    this.drawTerritoryHaze(ctx, now);
+    this.drawStars(ctx, cameraX, cameraY, viewLeft, viewTop, viewRight, viewBottom, iconZoom, now);
 
     // Draw shockwaves
     for (const sw of this.shockwaves) {
