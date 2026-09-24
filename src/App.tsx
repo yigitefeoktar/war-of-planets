@@ -9,7 +9,7 @@ import { advanceTutorial, drawTutorialHighlights, tutorialTargets, type Tutorial
 import './ui/Tutorial.css';
 import { issueFleetOrder } from './game/logistics';
 import { GameEngine } from './game/engine';
-import { SUPERWEAPON_COSTS, SUPERWEAPON_IDS, SUPERWEAPON_MAX_ENERGY, type SuperweaponId } from './game/superweapons';
+import { SUPERWEAPON_IDS, type SuperweaponId } from './game/superweapons';
 import { SUPERWEAPON_VISUALS } from './game/superweaponVisuals';
 import type { Base } from './game/types';
 
@@ -262,9 +262,14 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   };
   const [fleetSize, setFleetSize] = useState<number>(1.0);
   const fleetSizeRef = useRef<number>(1.0);
-  const [energy, setEnergy] = useState(0);
   const [availableWeapons, setAvailableWeapons] = useState<Set<SuperweaponId>>(() => new Set());
-  const [unlockedWeapons, setUnlockedWeapons] = useState<Set<SuperweaponId>>(() => new Set());
+  const [ownedWeapons, setOwnedWeapons] = useState<Set<SuperweaponId>>(() => new Set());
+  const [chargeState, setChargeState] = useState(() => ({
+    weapons: Object.fromEntries(SUPERWEAPON_IDS.map(weapon => [weapon, { charge: 0, progress: 0, sources: 0, secondsRemaining: null as number | null }])) as Record<SuperweaponId, { charge: number; progress: number; sources: number; secondsRemaining: number | null }>,
+    universalCharge: 0,
+    universalProgress: 0,
+    dysonOwned: false,
+  }));
   const [commandPlanet, setCommandPlanet] = useState<string | null>(null);
   const [targetingMode, setTargetingMode] = useState<SuperweaponId | null>(null);
   const targetingModeRef = useRef<SuperweaponId | null>(null);
@@ -344,14 +349,15 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   };
 
   useEffect(() => {
-    const isReady = SUPERWEAPON_IDS.some(weapon => unlockedWeapons.has(weapon) && energy >= SUPERWEAPON_COSTS[weapon]);
+    const isReady = SUPERWEAPON_IDS.some(weapon => availableWeapons.has(weapon)
+      && (chargeState.weapons[weapon].charge > 0 || chargeState.universalCharge > 0));
     if (isReady && !wasWeaponReady && showUI) {
       playSound('select', isSoundEnabled);
       setWasWeaponReady(true);
     } else if (!isReady && wasWeaponReady) {
       setWasWeaponReady(false);
     }
-  }, [energy, unlockedWeapons, wasWeaponReady, isSoundEnabled, showUI]);
+  }, [availableWeapons, chargeState, wasWeaponReady, isSoundEnabled, showUI]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -382,10 +388,10 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     const engine = createMatch(map);
     engine.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     engineRef.current = engine;
-    // Availability includes weapons that can be unlocked later in this match.
+    // Availability includes weapons that can be produced later in this match.
     setAvailableWeapons(new Set<SuperweaponId>(engine.superweaponUnlocksEnabled
       ? map?.orbit?.dysonSphere
-        ? ['omni']
+        ? SUPERWEAPON_IDS
         : Array.from(engine.bases.values()).flatMap(base => base.superweaponUnlocks ?? [])
       : []));
     let tutorialTime = 0; // Active play time; pauses do not consume lesson delays.
@@ -393,7 +399,19 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     const activeFactionColors = new Set(Array.from(engine.bases.values()).filter(b => b.isCapital).map(b => b.color));
 
     const updatePlayerStats = () => {
-      setUnlockedWeapons(engine.getUnlockedSuperweapons('#3b82f6'));
+      const color = '#3b82f6';
+      setOwnedWeapons(engine.getOwnedSuperweapons(color));
+      setChargeState({
+        weapons: Object.fromEntries(SUPERWEAPON_IDS.map(weapon => [weapon, {
+          charge: engine.getSuperweaponCharge(color, weapon),
+          progress: engine.getSuperweaponProgress(color, weapon),
+          sources: engine.getSuperweaponSourceCount(color, weapon),
+          secondsRemaining: engine.getSuperweaponSecondsRemaining(color, weapon),
+        }])) as Record<SuperweaponId, { charge: number; progress: number; sources: number; secondsRemaining: number | null }>,
+        universalCharge: engine.getUniversalCharge(color),
+        universalProgress: engine.getUniversalProgress(color),
+        dysonOwned: engine.ownsDysonSphere(color),
+      });
     };
 
     engine.onLaunch = (fromId, toId) => {
@@ -530,7 +548,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         if (target && (weapon === 'omni' ? engine.activateOmniStrike('#3b82f6', target.id) : engine.activatePlanetAbility('#3b82f6', target.id, weapon))) {
           targetingModeRef.current = null;
           setTargetingMode(null);
-          setEnergy(engine.getEnergy('#3b82f6'));
+          updatePlayerStats();
           selectPlanet(null);
         } else if (id) {
           playSound('error', isSoundEnabledRef.current);
@@ -1221,7 +1239,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       // Update UI state periodically (every 250ms) to avoid React re-render spam
       const now = Date.now();
       if (now - lastUiUpdateTime > 250 && !isGameOver) {
-        setEnergy(engine.getEnergy('#3b82f6'));
+        updatePlayerStats();
         const currentFactions = [
           { color: '#3b82f6', isPlayer: true, isAlive: false, shipCount: 0, name: 'PLAYER' },
           { color: '#ef4444', isPlayer: false, isAlive: false, shipCount: 0, name: 'AI RED' },
@@ -1431,7 +1449,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         const descriptions = { omni: 'Warp 30% of every idle fleet here.', overdrive: '3x production / 15 seconds', repulse: 'Repel and destroy arrivals / 6 seconds' };
         const renderBar = (state: 'friendly' | 'enemy' | 'empire') => {
           const shownPlanet = state === 'empire' ? undefined : planet && (state === 'friendly') === (planet.color === '#3b82f6') ? planet : undefined;
-          return <div className={`planet-command planet-command-${state}`} style={{ '--weapon-count': weapons.filter(weapon => availableWeapons.has(weapon)).length } as React.CSSProperties} role="region" aria-label={state === 'empire' ? 'Energy and superweapons' : state === 'friendly' ? 'Planet commands' : 'Planet information'}
+          return <div className={`planet-command planet-command-${state}`} style={{ '--weapon-count': weapons.filter(weapon => availableWeapons.has(weapon)).length } as React.CSSProperties} role="region" aria-label={state === 'empire' ? 'Superweapon charges' : state === 'friendly' ? 'Planet commands' : 'Planet information'}
             onPointerDown={event => event.stopPropagation()} onTouchStart={event => event.stopPropagation()}>
             <div className="planet-command-content">
           {state === 'enemy' && shownPlanet && <div className="planet-command-summary">
@@ -1448,37 +1466,42 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
             </div>
           </>}
           {state === 'empire' && <>
-            <div className="planet-energy-block">
-              <div className="planet-energy"><span>ENERGY</span><strong>{Math.floor(energy)} / {SUPERWEAPON_MAX_ENERGY}</strong></div>
-              <div className="planet-energy-track" role="progressbar" aria-label="Ability energy" aria-valuemin={0} aria-valuemax={SUPERWEAPON_MAX_ENERGY} aria-valuenow={Math.floor(energy)}><div style={{ width: `${energy}%` }} /></div>
+            <div className="planet-charge-summary">
+              <div className="planet-charge-heading"><span>ARSENAL</span><strong>{weapons.reduce((total, weapon) => total + chargeState.weapons[weapon].charge, chargeState.universalCharge)} READY</strong></div>
+              <small>{chargeState.universalCharge > 0 ? 'Universal Dyson charge ready' : chargeState.dysonOwned ? `Dyson charge ${Math.floor(chargeState.universalProgress * 100)}%` : 'Hold marked worlds to produce charges'}</small>
             </div>
             {availableWeapons.size > 0 && <div className="planet-abilities">
               {weapons.filter(weapon => availableWeapons.has(weapon)).map(weapon => {
                 const targets = [...engine.bases.values()].filter(target => weapon === 'omni' ? engine.canOmniStrike('#3b82f6', target.id) : engine.canActivatePlanetAbility('#3b82f6', target.id, weapon));
                 const active = weapon === 'omni' ? [] : [...engine.bases.values()].filter(target => target.color === '#3b82f6' && target[weapon]).map(target => Math.ceil(target[weapon]!.remaining));
-                const unlocked = unlockedWeapons.has(weapon);
+                const charge = chargeState.weapons[weapon];
+                const ready = charge.charge > 0 || chargeState.universalCharge > 0;
+                const canProduce = charge.sources > 0 || chargeState.dysonOwned;
+                const progress = Math.max(charge.sources > 0 ? charge.progress : 0, chargeState.dysonOwned ? chargeState.universalProgress : 0);
                 const status = targetingMode === weapon ? (weapon === 'omni' ? 'Select an enemy or neutral planet' : 'Select a friendly planet')
-                  : !unlocked ? map?.orbit?.dysonSphere ? 'Own 5 worlds to unlock' : 'Capture a matching ability planet'
-                  : energy < SUPERWEAPON_COSTS[weapon] ? `Charging / ${Math.ceil(SUPERWEAPON_COSTS[weapon] - energy)} more energy`
+                  : !ready && canProduce ? `Charging · ${Math.max(1, Math.ceil(charge.secondsRemaining ?? 0))}s`
+                  : !ready && charge.progress > 0 ? 'Charge paused · recapture a matching site'
+                  : !ready ? 'Capture a matching weapon planet or Dyson sphere'
                   : weapon === 'omni' && !engine.hasOmniFleet('#3b82f6') ? 'Need at least 4 idle ships on a world'
                   : !targets.length ? 'No eligible target' : 'Ready';
                 const canPress = status === 'Ready' || targetingMode === weapon;
                 const visual = SUPERWEAPON_VISUALS[weapon];
-                return <button key={weapon} className={`planet-ability ${weapon} ${targetingMode === weapon ? 'targeting' : ''}`} style={{ '--weapon-color': visual.color } as React.CSSProperties} disabled={!canPress} aria-label={`${labels[weapon]}, ${SUPERWEAPON_COSTS[weapon]} energy. ${status}`} aria-pressed={targetingMode === weapon} onClick={() => activateAbility(weapon)}>
+                return <button key={weapon} className={`planet-ability ${weapon} ${targetingMode === weapon ? 'targeting' : ''}`} style={{ '--weapon-color': visual.color } as React.CSSProperties} disabled={!canPress} aria-label={`${labels[weapon]}. ${status}`} aria-pressed={targetingMode === weapon} onClick={() => activateAbility(weapon)}>
                   <span className="planet-ability-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       {visual.paths.map(({ d, fill }, index) => <path key={index} d={d} fill={fill ? 'currentColor' : 'none'} stroke={fill ? 'none' : 'currentColor'} />)}
                     </svg>
                   </span>
                   <span className="planet-ability-copy">
-                    <span className="planet-ability-title"><span>{labels[weapon]}</span><strong>{SUPERWEAPON_COSTS[weapon]} E</strong></span>
+                    <span className="planet-ability-title"><span>{labels[weapon]}</span><strong>{ready ? charge.charge > 0 ? '1 CHARGE' : 'DYSON' : `${Math.floor(progress * 100)}%`}</strong></span>
                     <span className="planet-ability-description">{descriptions[weapon]}</span>
-                    <small>{status}{active.length > 0 && ` � Active on ${active.length} ${active.length === 1 ? 'world' : 'worlds'} / ${Math.max(...active)}s`}</small>
+                    {!ready && canProduce && <span className="planet-ability-track" role="progressbar" aria-label={`${labels[weapon]} charge`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(progress * 100)}><span style={{ width: `${progress * 100}%` }} /></span>}
+                    <small>{status}{active.length > 0 && ` · Active on ${active.length} ${active.length === 1 ? 'world' : 'worlds'} / ${Math.max(...active)}s`}</small>
                   </span>
                 </button>;
               })}
             </div>}
-            <p className="planet-command-hint empire-hint" aria-live="polite">{targetingMode ? `${labels[targetingMode]}: ${targetingMode === 'omni' ? 'choose a highlighted enemy or neutral planet' : 'choose a highlighted friendly planet'}.` : availableWeapons.size ? `Unlocked: ${weapons.filter(weapon => unlockedWeapons.has(weapon)).map(weapon => labels[weapon]).join(', ') || 'None'}. Capture ability planets to unlock more.` : 'No superweapons in this mission.'} {targetingMode && <button onClick={() => { targetingModeRef.current = null; setTargetingMode(null); }}>Cancel targeting (Esc)</button>}</p>
+            <p className="planet-command-hint empire-hint" aria-live="polite">{targetingMode ? `${labels[targetingMode]}: ${targetingMode === 'omni' ? 'choose a highlighted enemy or neutral planet' : 'choose a highlighted friendly planet'}.` : availableWeapons.size ? `${ownedWeapons.size ? `Producing: ${weapons.filter(weapon => ownedWeapons.has(weapon)).map(weapon => labels[weapon]).join(', ')}.` : 'Capture a marked weapon planet to begin charging.'} Charges are stored when a site is lost.` : 'No superweapons in this mission.'} {targetingMode && <button onClick={() => { targetingModeRef.current = null; setTargetingMode(null); }}>Cancel targeting (Esc)</button>}</p>
           </>}
             </div>
           </div>;

@@ -2,8 +2,8 @@ import type { Base, SuperweaponId } from './types';
 
 export type { SuperweaponId } from './types';
 
-export const SUPERWEAPON_MAX_ENERGY = 100;
-export const ENERGY_PER_PLANET_PER_SECOND = 0.2;
+export const SUPERWEAPON_CHARGE_INTERVAL_SECONDS = 60;
+export const SUPERWEAPON_MAX_CHARGES = 1;
 
 export type SuperweaponTargetMode = SuperweaponId | null;
 
@@ -11,14 +11,14 @@ export const SUPERWEAPON_IDS: SuperweaponId[] = ['omni', 'overdrive', 'repulse']
 
 const QUICK_MATCH_UNLOCK_GROUPS: SuperweaponId[][] = [
   ['overdrive'], ['repulse'], ['omni'],
-  ['overdrive'], ['repulse'], ['omni'],
+  ['overdrive', 'repulse', 'omni'],
 ];
 
 export const OVERDRIVE_DURATION = 15;
 export const OVERDRIVE_MULTIPLIER = 3;
 export const REPULSE_DURATION = 6;
 
-/** Spread two unlock sites for every weapon across a generated Quick Match map. */
+/** Spread three specialist sites and one rare combined arsenal across Quick Match. */
 export function assignQuickMatchSuperweaponPlanets(bases: Iterable<Base>) {
   const candidates = Array.from(bases).filter(base => !base.isCapital && base.color === '#6b7280');
   if (candidates.length < QUICK_MATCH_UNLOCK_GROUPS.length) return;
@@ -27,12 +27,6 @@ export function assignQuickMatchSuperweaponPlanets(bases: Iterable<Base>) {
     candidates[candidateIndex].superweaponUnlocks = [...unlocks];
   });
 }
-
-export const SUPERWEAPON_COSTS: Record<SuperweaponId, number> = {
-  overdrive: 50,
-  repulse: 40,
-  omni: 70,
-};
 
 export function isPointAccessible(
   bases: Iterable<Base>,

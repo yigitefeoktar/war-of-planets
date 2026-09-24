@@ -5,7 +5,7 @@ export const DYSON_SPHERE_ID = 'dyson-sphere';
 export type ModeId = 'chapter-1' | 'chapter-2' | 'quick-match';
 export type ChapterId = Exclude<ModeId, 'quick-match'>;
 export type PlanetDefinition = { id: string; x: number; y: number; owner: typeof FACTIONS[number] | typeof NEUTRAL; ships: number; capital?: boolean };
-export type DysonSphereDefinition = { energyPerSecond: number };
+export type DysonSphereDefinition = { chargeIntervalSeconds: number };
 export type OrbitDefinition = { x: number; y: number; periodSeconds: number; planetIds: string[]; dysonSphere?: DysonSphereDefinition };
 export type MapDefinition = {
   id: string;
@@ -44,7 +44,7 @@ export const FIRST_STRIKE: MapDefinition = {
 
 export const TURNING_TIDE: MapDefinition = {
   id: 'helios-turning-tide', title: 'The Turning Tide',
-  briefing: 'Capture the cheap worlds beside your blue capital, then board the rotating planets. Hold five worlds to unlock Omni-Strike, and seize the central Dyson sphere for bonus energy. Your capital stays still: leave a defence behind.',
+  briefing: 'Capture the cheap worlds beside your blue capital, then board the rotating planets. Seize the central Dyson sphere to generate a universal superweapon charge. Your capital stays still: leave a defence behind.',
   width: 2600, height: 2600, attackRange: 600, mobileFocus: 'capital',
   objective: { type: 'eliminate-capitals', description: 'Destroy both enemy capitals. Use rotating worlds to open new attack routes.' },
   planets: [
@@ -78,7 +78,7 @@ export const TURNING_TIDE: MapDefinition = {
   ],
   orbit: {
     x: 1300, y: 1300, periodSeconds: 180,
-    dysonSphere: { energyPerSecond: 0.4 },
+    dysonSphere: { chargeIntervalSeconds: 90 },
     planetIds: ['tide-boarding', 'tide-southwest', 'tide-west', 'tide-red', 'tide-north', 'tide-green', 'tide-east', 'tide-southeast', 'inner-south', 'inner-west', 'inner-north', 'inner-east'],
   },
 };
@@ -149,7 +149,7 @@ export function validateMap(map: MapDefinition): void {
     if (!orbit.planetIds.length || new Set(orbit.planetIds).size !== orbit.planetIds.length || orbit.planetIds.some(id => !ids.has(id))) throw new Error('Invalid orbit planet IDs');
     if (orbit.dysonSphere) {
       if (ids.has(DYSON_SPHERE_ID)) throw new Error('Dyson sphere ID is reserved');
-      if (!Number.isFinite(orbit.dysonSphere.energyPerSecond) || orbit.dysonSphere.energyPerSecond <= 0) throw new Error('Invalid Dyson sphere settings');
+      if (!Number.isFinite(orbit.dysonSphere.chargeIntervalSeconds) || orbit.dysonSphere.chargeIntervalSeconds <= 0) throw new Error('Invalid Dyson sphere settings');
       if (!map.planets.some(planet => Math.hypot(planet.x - orbit.x, planet.y - orbit.y) <= map.attackRange)) throw new Error('Dyson sphere is unreachable');
     }
     for (const planet of map.planets.filter(p => orbit.planetIds.includes(p.id))) {

@@ -46,18 +46,26 @@ test('actual combat grants modest attack and defence bonuses and lets them cance
   assert.equal(fight(RED, BLUE), 10);
 });
 
-test('yellow energy bonus respects disabled weapons and applies to orbit income', () => {
+test('yellow charges specialist and Dyson weapons ten percent faster', () => {
   const engine = new GameEngine(1000, 1000);
   engine.bases.clear();
   engine.addBase('blue', 0, 0, BLUE, 0, true);
   engine.addBase('yellow', 500, 0, YELLOW, 0, true);
-  assert.equal(engine.getEnergyRate(YELLOW), engine.getEnergyRate(BLUE) * 1.1);
-  assert.equal(new GameEngine(1000, 1000, { superweaponUnlocksEnabled: false }).getEnergyRate(YELLOW), 0);
-  const orbit = new OrbitingGameEngine(1000, 1000, { x: 500, y: 500, periodSeconds: 180, planetIds: [], dysonSphere: { energyPerSecond: 0.4 } });
+  engine.bases.get('blue')!.superweaponUnlocks = ['omni'];
+  engine.bases.get('yellow')!.superweaponUnlocks = ['omni'];
+  engine.update(10);
+  assert.ok(Math.abs(engine.getSuperweaponProgress(YELLOW, 'omni') - engine.getSuperweaponProgress(BLUE, 'omni') * 1.1) < 1e-12);
+
+  const disabled = new GameEngine(1000, 1000, { superweaponUnlocksEnabled: false });
+  disabled.bases.get('player_1')!.superweaponUnlocks = ['omni'];
+  disabled.update(60);
+  assert.equal(disabled.getSuperweaponCharge(BLUE, 'omni'), 0);
+
+  const orbit = new OrbitingGameEngine(1000, 1000, { x: 500, y: 500, periodSeconds: 180, planetIds: [], dysonSphere: { chargeIntervalSeconds: 90 } });
   orbit.bases.clear();
   orbit.addBase('yellow', 0, 0, YELLOW, 0, true);
   orbit.addBase('dyson-sphere', 500, 500, YELLOW, 0);
-  assert.equal(orbit.getEnergyRate(YELLOW), 1.4 * 1.1);
-  orbit.bases.get('yellow')!.isCapital = false;
-  assert.equal(orbit.getEnergyRate(YELLOW), 0);
+  orbit.bases.get('dyson-sphere')!.isDysonSphere = true;
+  orbit.update(90 / 1.1 + 0.01);
+  assert.equal(orbit.getUniversalCharge(YELLOW), 1);
 });

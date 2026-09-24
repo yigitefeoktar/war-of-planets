@@ -21,7 +21,7 @@ ships toward a front planet, including through a winding friendly route.
 Regular attack decisions continue while this happens. An isolated faction may
 still be unable to advance.
 
-Omni-Strike requires unlock and energy, a viable target and a safe capital.
+Omni-Strike requires a generated charge, a viable target and a safe capital.
 It is considered after an eight-second opening delay. A recent Omni capture can
 inspire a 40% retaliation attempt per decision, once per capture, with a 15-second cooldown after
 use. Otherwise the standard expansion attempt has a 15% chance. A warp
@@ -34,8 +34,8 @@ the player's win/loss history.
 Blue Guardians (the player) prevent one defending loss every tenth clash.
 Red Raiders kill one extra defender, if available, every tenth attacking clash.
 These bonuses roughly cancel in red-versus-blue combat. Green Industrialists
-produce eleven ships per ten normal production cycles. Yellow Engineers earn 10%
-more energy, including Dyson income, when energy is enabled. Bonuses follow the
+produce eleven ships per ten normal production cycles. Yellow Engineers charge
+superweapons 10% faster while a weapon site or Dyson sphere is held. Bonuses follow the
 current owner. Faction specialties are gameplay rules; no menu legend is shown.
 
 This version restores movement and opportunities for counterattacks. Match

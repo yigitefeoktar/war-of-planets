@@ -2,8 +2,8 @@ import { Base, Pixel, type SuperweaponId } from './types';
 import { drawPlanetEffects, drawRepelledShips, type RepelledShip } from './planetEffects';
 import { canIssueFleetOrder } from './logistics';
 import { TacticalAI } from './ai';
-import { FactionBonuses, energyMultiplier } from './factions';
-import { assignQuickMatchSuperweaponPlanets, ENERGY_PER_PLANET_PER_SECOND, isPointAccessible, SUPERWEAPON_COSTS, SUPERWEAPON_MAX_ENERGY, OVERDRIVE_DURATION, OVERDRIVE_MULTIPLIER, REPULSE_DURATION, type SuperweaponTargetMode } from './superweapons';
+import { FactionBonuses, superweaponChargeMultiplier } from './factions';
+import { assignQuickMatchSuperweaponPlanets, isPointAccessible, SUPERWEAPON_CHARGE_INTERVAL_SECONDS, SUPERWEAPON_IDS, SUPERWEAPON_MAX_CHARGES, OVERDRIVE_DURATION, OVERDRIVE_MULTIPLIER, REPULSE_DURATION, type SuperweaponTargetMode } from './superweapons';
 import { SUPERWEAPON_VISUALS, superweaponIconLayout } from './superweaponVisuals';
 
 interface Star {
@@ -96,6 +96,7 @@ type GameEngineOptions = {
   rng?: () => number;
   now?: () => number;
   superweaponUnlocksEnabled?: boolean;
+  dysonChargeIntervalSeconds?: number;
 };
 
 export class GameEngine {
@@ -106,9 +107,12 @@ export class GameEngine {
   particles: Particle[] = [];
   shockwaves: Shockwave[] = [];
   repelledShips: RepelledShip[] = [];
-  factionEnergy: Map<string, number> = new Map();
-  factionSuperweaponUnlocks: Map<string, Set<SuperweaponId>> = new Map();
+  factionSuperweaponCharges: Map<string, Map<SuperweaponId, number>> = new Map();
+  factionSuperweaponProgress: Map<string, Map<SuperweaponId, number>> = new Map();
+  factionUniversalCharges: Map<string, number> = new Map();
+  factionUniversalProgress: Map<string, number> = new Map();
   readonly superweaponUnlocksEnabled: boolean;
+  readonly dysonChargeIntervalSeconds?: number;
   width: number;
   height: number;
   lastSpawnTime: number = Date.now();
@@ -148,6 +152,7 @@ export class GameEngine {
     this.rng = options.rng ?? Math.random;
     this.nowProvider = options.now ?? Date.now;
     this.superweaponUnlocksEnabled = options.superweaponUnlocksEnabled ?? true;
+    this.dysonChargeIntervalSeconds = options.dysonChargeIntervalSeconds;
     this.lastSpawnTime = this.now();
     this.lastAITime = this.now();
     this.init();
@@ -294,30 +299,74 @@ export class GameEngine {
     }
   }
 
-  getEnergy(color: string) {
-    return this.factionEnergy.get(color) ?? 0;
+  private weaponMap(store: Map<string, Map<SuperweaponId, number>>, color: string) {
+    let values = store.get(color);
+    if (!values) {
+      values = new Map<SuperweaponId, number>(SUPERWEAPON_IDS.map(weapon => [weapon, 0]));
+      store.set(color, values);
+    }
+    return values;
   }
 
-  getEnergyRate(color: string) {
-    if (!this.superweaponUnlocksEnabled) return 0;
-    return Array.from(this.bases.values()).filter(base => base.color === color).length * ENERGY_PER_PLANET_PER_SECOND * energyMultiplier(color);
+  getSuperweaponCharge(color: string, weapon: SuperweaponId) {
+    return this.factionSuperweaponCharges.get(color)?.get(weapon) ?? 0;
   }
 
-  getUnlockedSuperweapons(color: string) {
-    return new Set(this.factionSuperweaponUnlocks.get(color) ?? []);
+  setSuperweaponCharge(color: string, weapon: SuperweaponId, amount: number) {
+    this.weaponMap(this.factionSuperweaponCharges, color).set(weapon, Math.max(0, Math.min(SUPERWEAPON_MAX_CHARGES, amount)));
   }
 
-  grantSuperweapon(color: string, weapon: SuperweaponId) {
-    if (!this.superweaponUnlocksEnabled) return false;
-    const unlocks = this.factionSuperweaponUnlocks.get(color) ?? new Set<SuperweaponId>();
-    const newlyUnlocked = !unlocks.has(weapon);
-    unlocks.add(weapon);
-    this.factionSuperweaponUnlocks.set(color, unlocks);
-    return newlyUnlocked;
+  getSuperweaponProgress(color: string, weapon: SuperweaponId) {
+    return this.factionSuperweaponProgress.get(color)?.get(weapon) ?? 0;
   }
 
-  isSuperweaponUnlocked(color: string, weapon: SuperweaponId) {
-    return this.superweaponUnlocksEnabled && (this.factionSuperweaponUnlocks.get(color)?.has(weapon) ?? false);
+  getUniversalCharge(color: string) {
+    return this.factionUniversalCharges.get(color) ?? 0;
+  }
+
+  setUniversalCharge(color: string, amount: number) {
+    this.factionUniversalCharges.set(color, Math.max(0, Math.min(SUPERWEAPON_MAX_CHARGES, amount)));
+  }
+
+  getUniversalProgress(color: string) {
+    return this.factionUniversalProgress.get(color) ?? 0;
+  }
+
+  getSuperweaponSourceCount(color: string, weapon: SuperweaponId) {
+    return Array.from(this.bases.values()).filter(base => base.color === color && base.superweaponUnlocks?.includes(weapon)).length;
+  }
+
+  ownsDysonSphere(color: string) {
+    return Array.from(this.bases.values()).some(base => base.isDysonSphere && base.color === color);
+  }
+
+  getOwnedSuperweapons(color: string) {
+    const owned = new Set<SuperweaponId>();
+    for (const base of this.bases.values()) if (base.color === color) {
+      for (const weapon of base.superweaponUnlocks ?? []) owned.add(weapon);
+      if (base.isDysonSphere) for (const weapon of SUPERWEAPON_IDS) owned.add(weapon);
+    }
+    return owned;
+  }
+
+  hasSuperweaponCharge(color: string, weapon: SuperweaponId) {
+    return this.getSuperweaponCharge(color, weapon) > 0 || this.getUniversalCharge(color) > 0;
+  }
+
+  getSuperweaponSecondsRemaining(color: string, weapon: SuperweaponId) {
+    if (this.hasSuperweaponCharge(color, weapon)) return 0;
+    const multiplier = superweaponChargeMultiplier(color);
+    const sourceCount = this.getSuperweaponSourceCount(color, weapon);
+    const specialistSeconds = sourceCount > 0
+      ? (1 - this.getSuperweaponProgress(color, weapon)) * SUPERWEAPON_CHARGE_INTERVAL_SECONDS / (sourceCount * multiplier)
+      : Number.POSITIVE_INFINITY;
+    const canChargeDyson = this.ownsDysonSphere(color) && this.dysonChargeIntervalSeconds
+      && Array.from(this.bases.values()).some(base => base.isCapital && base.color === color);
+    const dysonSeconds = canChargeDyson
+      ? (1 - this.getUniversalProgress(color)) * this.dysonChargeIntervalSeconds! / multiplier
+      : Number.POSITIVE_INFINITY;
+    const remaining = Math.min(specialistSeconds, dysonSeconds);
+    return Number.isFinite(remaining) ? remaining : null;
   }
 
   recordPlanetCapture(baseId: string, color: string) {
@@ -325,23 +374,66 @@ export class GameEngine {
     const captured = this.bases.get(baseId);
     if (captured) { captured.overdrive = undefined; captured.repulse = undefined; }
     if (!this.superweaponUnlocksEnabled) return [];
-    const unlocks = this.bases.get(baseId)?.superweaponUnlocks ?? [];
-    const factionUnlocks = this.factionSuperweaponUnlocks.get(color) ?? new Set<SuperweaponId>();
-    const newlyUnlocked = unlocks.filter(weapon => !factionUnlocks.has(weapon));
-    for (const weapon of unlocks) factionUnlocks.add(weapon);
-    if (unlocks.length > 0) this.factionSuperweaponUnlocks.set(color, factionUnlocks);
-    return newlyUnlocked;
+    return this.bases.get(baseId)?.superweaponUnlocks ?? [];
   }
 
-  setEnergy(color: string, amount: number) {
-    this.factionEnergy.set(color, Math.max(0, Math.min(SUPERWEAPON_MAX_ENERGY, amount)));
+  private spendSuperweaponCharge(color: string, weapon: SuperweaponId) {
+    if (this.getSuperweaponCharge(color, weapon) > 0) {
+      this.setSuperweaponCharge(color, weapon, 0);
+      return true;
+    }
+    if (this.getUniversalCharge(color) > 0) {
+      this.setUniversalCharge(color, 0);
+      return true;
+    }
+    return false;
   }
 
-  private spendEnergy(color: string, amount: number) {
-    const current = this.getEnergy(color);
-    if (current < amount) return false;
-    this.setEnergy(color, current - amount);
-    return true;
+  private updateSuperweaponCharges(dt: number) {
+    const sourceCounts = new Map<string, Map<SuperweaponId, number>>();
+    const dysonOwners = new Set<string>();
+    const capitalOwners = new Set<string>();
+    for (const base of this.bases.values()) {
+      if (base.color === '#6b7280') continue;
+      if (base.isCapital) capitalOwners.add(base.color);
+      if (base.isDysonSphere) dysonOwners.add(base.color);
+      for (const weapon of base.superweaponUnlocks ?? []) {
+        let counts = sourceCounts.get(base.color);
+        if (!counts) {
+          counts = new Map<SuperweaponId, number>();
+          sourceCounts.set(base.color, counts);
+        }
+        counts.set(weapon, (counts.get(weapon) ?? 0) + 1);
+      }
+    }
+
+    for (const [color, counts] of sourceCounts) {
+      const multiplier = superweaponChargeMultiplier(color);
+      for (const [weapon, count] of counts) {
+        if (this.getSuperweaponCharge(color, weapon) >= SUPERWEAPON_MAX_CHARGES) continue;
+        const progress = this.getSuperweaponProgress(color, weapon)
+          + dt * count * multiplier / SUPERWEAPON_CHARGE_INTERVAL_SECONDS;
+        if (progress >= 1 - Number.EPSILON * 8) {
+          this.setSuperweaponCharge(color, weapon, SUPERWEAPON_MAX_CHARGES);
+          this.weaponMap(this.factionSuperweaponProgress, color).set(weapon, 0);
+        } else {
+          this.weaponMap(this.factionSuperweaponProgress, color).set(weapon, progress);
+        }
+      }
+    }
+
+    if (!this.dysonChargeIntervalSeconds) return;
+    for (const color of dysonOwners) {
+      if (!capitalOwners.has(color) || this.getUniversalCharge(color) >= SUPERWEAPON_MAX_CHARGES) continue;
+      const progress = this.getUniversalProgress(color)
+        + dt * superweaponChargeMultiplier(color) / this.dysonChargeIntervalSeconds;
+      if (progress >= 1 - Number.EPSILON * 8) {
+        this.setUniversalCharge(color, SUPERWEAPON_MAX_CHARGES);
+        this.factionUniversalProgress.set(color, 0);
+      } else {
+        this.factionUniversalProgress.set(color, progress);
+      }
+    }
   }
 
   canOmniStrike(playerColor: string, toId: string) {
@@ -362,9 +454,9 @@ export class GameEngine {
   }
 
   activateOmniStrike(playerColor: string, toId: string) {
-    if (!this.isSuperweaponUnlocked(playerColor, 'omni') || !this.canOmniStrike(playerColor, toId) || this.getEnergy(playerColor) < SUPERWEAPON_COSTS.omni) return false;
+    if (!this.hasSuperweaponCharge(playerColor, 'omni') || !this.canOmniStrike(playerColor, toId)) return false;
     if (!this.omniStrike(playerColor, toId)) return false;
-    this.spendEnergy(playerColor, SUPERWEAPON_COSTS.omni);
+    this.spendSuperweaponCharge(playerColor, 'omni');
     return true;
   }
 
@@ -407,14 +499,13 @@ export class GameEngine {
   canActivatePlanetAbility(color: string, id: string, weapon: 'overdrive' | 'repulse') {
     const base = this.bases.get(id);
     return !!base && base.color === color && !(weapon === 'overdrive' && base.isDysonSphere)
-      && !base[weapon] && this.isSuperweaponUnlocked(color, weapon)
-      && this.getEnergy(color) >= SUPERWEAPON_COSTS[weapon];
+      && !base[weapon] && this.hasSuperweaponCharge(color, weapon);
   }
 
   activatePlanetAbility(color: string, id: string, weapon: 'overdrive' | 'repulse') {
     if (!this.canActivatePlanetAbility(color, id, weapon)) return false;
     const base = this.bases.get(id)!;
-    if (!this.spendEnergy(color, SUPERWEAPON_COSTS[weapon])) return false;
+    if (!this.spendSuperweaponCharge(color, weapon)) return false;
     base[weapon] = { color, remaining: weapon === 'overdrive' ? OVERDRIVE_DURATION : REPULSE_DURATION, pulse: 1 };
     const tint = weapon === 'overdrive' ? '#ffbd59' : '#a5e8ff';
     this.shockwaves.push({ x: base.x, y: base.y, radius: 8, maxRadius: 180, color: tint, alpha: 1, thickness: 8 });
@@ -508,14 +599,7 @@ export class GameEngine {
       }
     }
 
-    const ownedPlanetCounts = new Map<string, number>();
-    for (const base of this.bases.values()) {
-      if (base.color === '#6b7280') continue;
-      ownedPlanetCounts.set(base.color, (ownedPlanetCounts.get(base.color) ?? 0) + 1);
-    }
-    if (this.superweaponUnlocksEnabled) for (const color of ownedPlanetCounts.keys()) {
-      this.setEnergy(color, this.getEnergy(color) + this.getEnergyRate(color) * dt);
-    }
+    if (this.superweaponUnlocksEnabled) this.updateSuperweaponCharges(dt);
 
     for (const base of this.bases.values()) {
       for (const weapon of ['overdrive', 'repulse'] as const) {
@@ -582,7 +666,7 @@ export class GameEngine {
       const plans = this.tacticalAI.plan({
         bases: [...this.bases.values()], pixels: this.pixels,
         range: this.MAX_ATTACK_RANGE, seconds: this.aiSeconds, hard: this.isHardMode,
-        canOmni: color => this.isSuperweaponUnlocked(color, 'omni') && this.getEnergy(color) >= SUPERWEAPON_COSTS.omni,
+        canOmni: color => this.hasSuperweaponCharge(color, 'omni'),
         random: () => this.random(),
         recentOmniCaptureId: now - this.lastOmniCaptureTime < 10000 ? this.lastOmniCaptureBaseId : null,
         recentOmniCaptureTime: this.lastOmniCaptureTime,

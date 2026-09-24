@@ -128,7 +128,8 @@ test('Quick Match and non-member planets stay fixed', () => {
 test('an orbit without Dyson configuration keeps the star decorative', () => {
   const engine = quietEngine(ORBIT_FIXTURE);
   assert.equal(engine.bases.has(DYSON_SPHERE_ID), false);
-  assert.equal(engine.getEnergyRate(PLAYER), 0);
+  assert.equal(engine.getUniversalCharge(PLAYER), 0);
+  assert.equal(engine.getSuperweaponSecondsRemaining(PLAYER, 'omni'), null);
 });
 
 test('invalid orbit definitions are rejected', () => {
@@ -141,9 +142,9 @@ test('invalid orbit definitions are rejected', () => {
     { ...orbit, x: 800, y: 860 },
   ]) assert.throws(() => validateMap({ ...ORBIT_FIXTURE, orbit: invalid }));
   for (const dysonSphere of [
-    { energyPerSecond: -1 },
-    { energyPerSecond: Infinity },
-    { energyPerSecond: 0 },
-    { energyPerSecond: NaN },
+    { chargeIntervalSeconds: -1 },
+    { chargeIntervalSeconds: Infinity },
+    { chargeIntervalSeconds: 0 },
+    { chargeIntervalSeconds: NaN },
   ]) assert.throws(() => validateMap({ ...ORBIT_FIXTURE, orbit: { ...orbit, dysonSphere } }));
 });

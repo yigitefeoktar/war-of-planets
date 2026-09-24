@@ -27,7 +27,7 @@
 .planet-command-summary { position: relative; display: flex; min-width: 0; flex-direction: column; justify-content: center; border-right: 1px solid rgba(83, 151, 180, .17); padding-right: 14px; }
 .planet-command-kicker { font-size: 11px; font-weight: 700; letter-spacing: .045em; text-shadow: 0 0 16px currentColor; }
 .planet-command-count { margin-top: 4px; color: #f2fbff; font-size: 30px; line-height: 1; letter-spacing: -.035em; text-shadow: 0 0 22px rgba(151, 225, 255, .25); }
-.planet-energy, .planet-ability-title { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.planet-charge-heading, .planet-ability-title { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .planet-fleet-control { position: relative; display: flex; min-width: 0; flex-direction: column; justify-content: center; }
 .planet-control-label { display: block; margin-bottom: 5px; color: #80bee0; font-size: 11px; font-weight: 700; letter-spacing: .035em; }
 .planet-fleet-sizes { display: flex; gap: 5px; }
@@ -35,11 +35,10 @@
 .planet-fleet-sizes button[aria-pressed="true"] { background: linear-gradient(180deg, #73e9f6, #4dcde2); border-color: #a5f3fc; color: #061a25; box-shadow: 0 0 20px rgba(65, 218, 238, .22), inset 0 1px rgba(255, 255, 255, .45); }
 .planet-fleet-sizes button:not([aria-pressed="true"]):hover { border-color: rgba(88, 177, 215, .7); transform: translateY(-1px); }
 .planet-command-hint { color: #69899d; font-size: 9px; line-height: 1.25; margin: 5px 0 0; }
-.planet-energy-block { position: relative; display: flex; min-width: 0; flex-direction: column; justify-content: center; }
-.planet-energy { color: #80bee0; font-size: 11px; font-weight: 700; }
-.planet-energy strong { color: #c6e8f5; font-size: 13px; }
-.planet-energy-track { height: 6px; overflow: hidden; background: rgba(17, 53, 77, .85); margin: 8px 0 6px; border-radius: 999px; box-shadow: inset 0 1px 4px rgba(0, 0, 0, .5); }
-.planet-energy-track > div { height: 100%; min-width: 3px; background: linear-gradient(90deg, #41d9e8, #79eff8); border-radius: inherit; box-shadow: 0 0 12px rgba(83, 225, 239, .55); transition: width .2s; }
+.planet-charge-summary { position: relative; display: flex; min-width: 0; flex-direction: column; justify-content: center; gap: 5px; }
+.planet-charge-heading { color: #80bee0; font-size: 11px; font-weight: 700; }
+.planet-charge-heading strong { color: #c6e8f5; font-size: 13px; white-space: nowrap; }
+.planet-charge-summary small { color: #638395; font-size: 9px; line-height: 1.25; }
 .planet-abilities { position: relative; display: flex; gap: 8px; min-width: 0; }
 .planet-ability { display: flex; flex: 1; align-items: center; justify-content: flex-start; gap: 8px; min-width: 0; padding: 10px; text-align: left; border: 1px solid color-mix(in srgb, var(--weapon-color) 35%, transparent); border-radius: 10px; background: linear-gradient(145deg, color-mix(in srgb, var(--weapon-color) 14%, #081b2b), #071725); color: var(--weapon-color); box-shadow: inset 0 1px rgba(255, 255, 255, .025); transition: border-color .15s, filter .15s, transform .15s; }
 .planet-ability-icon { display: grid; flex: 0 0 26px; place-items: center; filter: drop-shadow(0 0 8px currentColor); }
@@ -48,6 +47,8 @@
 .planet-ability-title { width: 100%; color: #d4f1fb; font-size: 11px; font-weight: 700; }
 .planet-ability-title strong { white-space: nowrap; }
 .planet-ability-description { display: none; }
+.planet-ability-track { display: block; height: 3px; overflow: hidden; background: rgba(17, 53, 77, .85); border-radius: 999px; box-shadow: inset 0 1px 3px rgba(0, 0, 0, .45); }
+.planet-ability-track > span { display: block; height: 100%; min-width: 2px; background: var(--weapon-color); border-radius: inherit; box-shadow: 0 0 8px color-mix(in srgb, var(--weapon-color) 55%, transparent); transition: width .2s; }
 .planet-ability.targeting { border-color: var(--weapon-color); background: linear-gradient(145deg, color-mix(in srgb, var(--weapon-color) 23%, #081b2b), #071725); box-shadow: inset 0 1px rgba(255, 255, 255, .08), 0 0 22px color-mix(in srgb, var(--weapon-color) 24%, transparent); }
 .planet-ability small { color: #638395; font-size: 8px; line-height: 1.25; }
 .planet-ability:disabled { opacity: .72; cursor: default; }
@@ -82,12 +83,10 @@
   .planet-fleet-sizes button { min-height: 36px; }
   .planet-control-label { margin-bottom: 5px; font-size: 10px; }
   .planet-command-hint { margin-top: 5px; font-size: 9px; }
-  .planet-energy-block { grid-column: 1 / -1; }
-  .planet-energy { font-size: 10px; }
-  .planet-energy strong { font-size: 11px; }
-  .planet-energy-track { height: 5px; margin: 5px 0 0; }
+  .planet-charge-summary { grid-column: 1 / -1; }
+  .planet-charge-heading { font-size: 10px; }
+  .planet-charge-heading strong { font-size: 11px; }
   .planet-abilities { grid-column: 1 / -1; gap: 8px; }
-  .planet-energy-track { margin-bottom: 0; }
   .planet-ability { min-height: 52px; gap: 6px; padding: 8px; border-radius: 9px; }
   .planet-ability-icon { flex-basis: 22px; }
   .planet-ability-icon svg { width: 21px; height: 21px; }
@@ -118,7 +117,6 @@
   grid-column: auto; display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
 }
-.planet-energy strong { white-space: nowrap; }
 .empire-hint { grid-column: 1 / -1; min-width: 0; }
 .empire-hint button { color: #c4ebf5; text-decoration: underline; padding: 5px; }
 .planet-ability.targeting { border-color: currentColor; }

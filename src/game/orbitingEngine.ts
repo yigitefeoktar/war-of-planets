@@ -1,10 +1,7 @@
-import { energyMultiplier } from './factions';
 import { GameEngine } from './engine';
 import { DYSON_SPHERE_ID, type OrbitDefinition } from './campaign';
 import type { SuperweaponTargetMode } from './superweapons';
 import type { Base } from './types';
-
-const ORBITING_PASSIVE_ENERGY_PER_SECOND = 1;
 
 // A rigid rotating system, not a gravity simulation. The center is either a
 // decorative star or an optional capturable Dyson sphere defined by the map.
@@ -12,25 +9,15 @@ export class OrbitingGameEngine extends GameEngine {
   private readonly orbitIds: Set<string>;
 
   constructor(width: number, height: number, private readonly orbit: OrbitDefinition) {
-    super(width, height, { superweaponUnlocksEnabled: Boolean(orbit.dysonSphere) });
+    super(width, height, {
+      superweaponUnlocksEnabled: Boolean(orbit.dysonSphere),
+      dysonChargeIntervalSeconds: orbit.dysonSphere?.chargeIntervalSeconds,
+    });
     this.orbitIds = new Set(orbit.planetIds);
-  }
-
-  override getEnergyRate(color: string) {
-    if (!this.orbit.dysonSphere || !Array.from(this.bases.values()).some(base => base.isCapital && base.color === color)) return 0;
-    const ownsSphere = this.bases.get(DYSON_SPHERE_ID)?.color === color;
-    return (ORBITING_PASSIVE_ENERGY_PER_SECOND + (ownsSphere ? this.orbit.dysonSphere.energyPerSecond : 0)) * energyMultiplier(color);
   }
 
   override update(dt: number) {
     if (!Number.isFinite(dt) || dt <= 0) return;
-    if (this.orbit.dysonSphere) {
-      const worldCounts = new Map<string, number>();
-      for (const base of this.bases.values()) {
-        if (!base.isDysonSphere && base.color !== '#6b7280') worldCounts.set(base.color, (worldCounts.get(base.color) ?? 0) + 1);
-      }
-      for (const [color, count] of worldCounts) if (count >= 5) this.grantSuperweapon(color, 'omni');
-    }
     const angle = (Math.PI * 2 * dt) / this.orbit.periodSeconds;
     const cos = Math.cos(angle), sin = Math.sin(angle);
     const { x: cx, y: cy } = this.orbit;

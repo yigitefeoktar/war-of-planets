@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DYSON_SPHERE_ID, TURNING_TIDE, PLAYER, NEUTRAL, validateMap, getOutcome } from './campaign';
 import { createMatch } from './mapLoader';
+import { SUPERWEAPON_IDS } from './superweapons';
 
 function quietMap() {
   const engine = createMatch(TURNING_TIDE);
@@ -45,7 +46,8 @@ test('a neutral Dyson sphere stays unguarded and the first arriving ship capture
   assert.equal(ship.dead, undefined);
   assert.equal(ship.state, 'idle');
   assert.equal(ship.baseId, sphere.id);
-  assert.equal(engine.getEnergyRate(PLAYER), 1.4);
+  assert.equal(engine.ownsDysonSphere(PLAYER), true);
+  assert.equal(Math.ceil(engine.getSuperweaponSecondsRemaining(PLAYER, 'omni')!), 90);
 });
 
 test('opening gives three affordable expansion choices without an immediate enemy attack', () => {
@@ -81,20 +83,18 @@ test('full rotation preserves clear spacing, fixed fortresses, and map connectiv
   }
 });
 
-test('Dyson sphere grants configurable bonus energy, makes no ships, and five worlds unlock Omni Strike', () => {
+test('Dyson sphere generates one universal charge, makes no ships, and grants access to every weapon', () => {
   const engine = quietMap();
   const sphere = engine.bases.get(DYSON_SPHERE_ID)!;
   sphere.color = PLAYER;
-  engine.setEnergy(PLAYER, 0);
   engine.lastSpawnTime = 0;
   const sphereShips = () => engine.pixels.filter(ship => ship.baseId === DYSON_SPHERE_ID).length;
+  engine.update(89);
+  assert.equal(engine.getUniversalCharge(PLAYER), 0);
   engine.update(1);
-  assert.equal(engine.getEnergy(PLAYER), 1.4);
+  assert.equal(engine.getUniversalCharge(PLAYER), 1);
   assert.equal(sphereShips(), 0);
-
-  for (const base of [...engine.bases.values()].filter(base => !base.isDysonSphere).slice(0, 5)) base.color = PLAYER;
-  engine.update(1 / 60);
-  assert.equal(engine.isSuperweaponUnlocked(PLAYER, 'omni'), true);
+  assert.deepEqual([...engine.getOwnedSuperweapons(PLAYER)], SUPERWEAPON_IDS);
 });
 
 test('a boarding world leaves home range and opens an attack on the red command', () => {
