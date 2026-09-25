@@ -2,11 +2,11 @@
 
 Map data and chapter ordering live in `src/game/campaign.ts`. `createMatch` loads an authored map or uses the existing random generator when no map is supplied. The gameplay engine remains shared.
 
-Each map defines a stable ID, title, briefing, world size, attack range, objective, and planets. Planet coordinates are world units; ships are non-negative integers. Supported owners are the four existing faction colors and neutral gray. The current objective is enemy-capital elimination; the player's capital must survive. Validation rejects duplicate IDs, invalid dimensions or owners, missing capitals, and unreachable planets.
+Each map defines a stable ID, title, briefing, world size, attack range, objective, and planets. Planet coordinates are world units; ships are non-negative integers. Supported owners are the four existing faction colors and neutral gray. Planets can optionally list the superweapons they produce while owned. The current objective is enemy-capital elimination; the player's capital must survive. Validation rejects duplicate IDs, invalid dimensions or owners, invalid weapon lists, missing capitals, and unreachable planets.
 
-To add a level, create another `MapDefinition` and append it to the chapter's `maps` array. Do not rename released map IDs. Winning records the ID and automatically starts the next array entry after six seconds; the victory button can start it immediately. If no next map is released, the player can replay or return to the menu. Chapter 2 remains unavailable until its first map is added.
+To add a level, create another `MapDefinition` and place it at the intended position in the chapter's `maps` array. Do not rename released map IDs. Winning records the ID and automatically starts the next array entry after six seconds; the victory button can start it immediately. If no next map is released, the player can replay or return to the menu. Chapter 2 remains unavailable until its first map is added.
 
-The versioned browser save stores completed map IDs; its legacy selected-mode field is ignored when loading, so every page opening selects Chapter 1. Players can still choose another mode for the current session. Start Chapter 1 always begins with First Strike's tutorial, regardless of previous wins, then victory automatically advances to The Turning Tide as Level 2. Retrying a defeat stays on the current level. Starting another run from the menu or refreshing returns to the tutorial, without deleting completed-level records. Invalid saves reset safely; unavailable browser storage shows a warning.
+The versioned browser save stores completed map IDs; its legacy selected-mode field is ignored when loading, so every page opening selects Chapter 1. Players can still choose another mode for the current session. Start Chapter 1 always begins with First Strike's tutorial, regardless of previous wins, then victory advances to The Breach Line as Level 2 and The Turning Tide as Level 3. Retrying a defeat stays on the current level. Starting another run from the menu or refreshing returns to the tutorial, without deleting completed-level records. Existing completion IDs remain valid when a new map is inserted. Invalid saves reset safely; unavailable browser storage shows a warning.
 
 Checks: `npm run lint`, `npx tsx --test src/game/*.test.ts`, `npm run build`.
 
@@ -16,7 +16,7 @@ The 600-world-unit range remains a strict source-to-target limit for attacks aga
 
 Connectivity is recalculated when the order is issued, using current ownership and live positions. Capturing a bridge can join or split networks, and moving planets can create temporary connections. Once launched, a transfer continues to its destination even if the connection later breaks. Mouse and touch orders share the same rule. Selection and range visuals remain the existing game visuals; this feature adds no network lines or destination rings. Hostile AI logic, Omni-Strike range, and ordinary attack range are unchanged.
 
-Current content: Chapter 1 / First Strike (9 fixed planets, two factions) and The Turning Tide (24 planets, three factions, one orbiting system). Missions 3–5 and Chapter 2 are not released yet.
+Current content: Chapter 1 / First Strike (9 fixed planets), The Breach Line (15 fixed planets and an Overdrive site), and The Turning Tide (24 planets, one orbiting system and a Dyson sphere). Missions 4–5 and Chapter 2 are not released yet.
 
 ## First Strike tutorial
 
@@ -30,7 +30,18 @@ The zoom lesson and two-circle cue are touch-only (`hover: none` and `pointer: c
 
 The simulation runs continuously during every tutorial prompt, including the initial selection and attack instructions: ships move, planets produce units, and AI keeps playing. Only the player's normal Pause control stops gameplay. The camera settles on the player's opening fleet on both desktop and mobile. Selecting/deselecting updates the first prompt; a real launch advances it, and manually zooming out to the map overview advances to the win explanation on touch devices. The intro camera never completes that lesson. Players can skip at any time or dismiss the final explanation with Got it. The tutorial restarts on mission retry/replay and does not change campaign saves. Other missions and Quick Match have no tutorial. The old persistent mission title/objective overlay and pause-menu mission briefing are removed from every level.
 
-## Mission 2: The Turning Tide
+## Mission 2: The Breach Line
+
+A 2100 × 2100 static battlefield with one red capital and a central Overdrive world. The blue capital begins in the south with 220 ships. Three cheap neutral planets are in its initial attack range: one central supply world and a harbour on each flank.
+
+- Central route: take the supply world and then the marked Overdrive world. The Overdrive site is outside the capital's direct range and needs 60 seconds of current ownership to produce one charge. The northern gate and red capital are further ahead, so a successful attack requires staging and reinforcement.
+- Western route: neutral relay, bastion, and approach worlds lead past a red outpost. It offers a second way into the capital's range, with more early enemy pressure.
+- Eastern route: the same length through neutral worlds, with a safer opening. Red can still expand toward it from the capital.
+- The central site connects to both flanks. Losing it pauses charge generation; an already earned charge remains available. Overdrive can triple production on one owned planet for 15 seconds.
+
+Winning First Strike starts The Breach Line in the current run. Winning The Breach Line starts The Turning Tide. No tutorial prompts repeat after Mission 1.
+
+## Mission 3: The Turning Tide
 
 A 2600 × 2600 battlefield, with 12 fixed outer worlds and 12 rotating worlds around one white star. Rotation remains clockwise, once every 180 seconds. Both enemy capitals must fall; the blue capital must survive.
 
@@ -38,12 +49,12 @@ A 2600 × 2600 battlefield, with 12 fixed outer worlds and 12 rotating worlds ar
 - Moving route: board the outer orbit, develop the four inner worlds, and use passing planets as staging positions. All 12 orbiting worlds share angular speed; connections to the fixed outer ring open and close.
 - Fixed routes: the west and east flanks provide permanent, more heavily defended alternatives to riding the orbit.
 - Pressure: red and green each begin with a capital, a fixed outpost, and an orbiting foothold. The northern neutral divide separates their command worlds, but they can fight each other too.
-- Reward: more captured worlds mean more ship production and access to the existing five-planet Omni-Strike. No new special-planet mechanic is introduced.
+- Reward: more captured worlds mean more ship production. Capturing the central Dyson sphere generates one universal superweapon charge every 90 seconds while it is held.
 
-The full orbit stays clear of fixed planets. Desktop opens on the complete map; `mobileFocus: 'capital'` moves from the overview intro to a readable southern opening on phones. Normal panning and zoom remain available. Mission 2 is reached by winning the tutorial mission in the current campaign run, not by skipping ahead using old completion records.
+The full orbit stays clear of fixed planets. Desktop opens on the complete map; `mobileFocus: 'capital'` moves from the overview intro to a readable southern opening on phones. Normal panning and zoom remain available.
 
 ## Orbiting system
 
-An optional `orbit` defines the fixed white star centre (`x`, `y`), a clockwise rotation period in simulation seconds (`periodSeconds`), and participating `planetIds`. The Turning Tide rotates 12 of its 24 planets once every 180 seconds. Every member uses the same angular speed, preserving their spacing and mutual attack ranges. The star is decorative: no ownership, collision, gravity, damage, ships, or effect on victory. Orbit regression tests use an independent fixture so tutorial map changes do not change their coverage.
+An optional `orbit` defines the fixed white star centre (`x`, `y`), a clockwise rotation period in simulation seconds (`periodSeconds`), and participating `planetIds`. The Turning Tide rotates 12 of its 24 planets once every 180 seconds. Every member uses the same angular speed, preserving their spacing and mutual attack ranges. A map without a Dyson sphere has a decorative star. The Turning Tide's Dyson sphere is capturable and produces universal charges; it does not affect gravity, collision, damage, or victory. Orbit regression tests use an independent fixture so tutorial map changes do not change their coverage.
 
 Stationed ships move with their planet; launched ships pursue the moving target in world space. Captures do not stop an orbit. Pausing stops rotation, retry resets positions, and end-of-battle slow motion applies to orbits too. Quick Match still uses the unchanged static random map. Validation checks membership, period, star clearance, and the complete orbit's map-edge clearance. Only one system per map is supported for now; multiple stars are intentionally deferred.

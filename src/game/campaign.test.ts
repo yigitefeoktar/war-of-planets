@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FIRST_STRIKE, TURNING_TIDE, CHAPTERS, PLAYER, completeMission, emptyProgress, followingMission, getOutcome, launchMission, nextMission, parseProgress, validateMap, type Chapter } from './campaign';
+import { FIRST_STRIKE, BREACH_LINE, TURNING_TIDE, CHAPTERS, PLAYER, completeMission, emptyProgress, followingMission, getOutcome, launchMission, nextMission, parseProgress, validateMap, type Chapter } from './campaign';
 import { createMatch } from './mapLoader';
 
 test('authored map loads exact planets, ships, factions, dimensions and range', () => {
@@ -37,21 +37,24 @@ test('victory and defeat are resolved with defeat precedence', () => {
   engine.bases.delete('player_1'); assert.equal(getOutcome(engine.bases.values()), 'defeat');
   assert.equal(getOutcome([{ color: PLAYER, isCapital: false }]), 'defeat');
 });
-test('Chapter 1 always launches its tutorial and advances to the orbiting second level', () => {
+test('Chapter 1 starts with the tutorial, then the breach line, then the orbiting mission', () => {
   let progress = emptyProgress();
   assert.equal(launchMission(CHAPTERS['chapter-1'], progress.completed)?.id, FIRST_STRIKE.id);
   progress = completeMission(progress, FIRST_STRIKE.id);
   progress = completeMission(progress, FIRST_STRIKE.id);
   assert.equal(progress.completed.length, 1);
-  assert.equal(nextMission(CHAPTERS['chapter-1'], progress.completed)?.id, TURNING_TIDE.id);
+  assert.equal(nextMission(CHAPTERS['chapter-1'], progress.completed)?.id, BREACH_LINE.id);
   assert.equal(launchMission(CHAPTERS['chapter-1'], progress.completed)?.id, FIRST_STRIKE.id);
   assert.ok(launchMission(CHAPTERS['chapter-1'], progress.completed)?.tutorial);
-  assert.ok(CHAPTERS['chapter-1'].maps[1].orbit);
+  assert.equal(CHAPTERS['chapter-1'].maps[1].orbit, undefined);
   assert.equal(CHAPTERS['chapter-1'].maps[1].tutorial, undefined);
-  assert.equal(followingMission(CHAPTERS['chapter-1'], FIRST_STRIKE.id)?.id, TURNING_TIDE.id);
+  assert.ok(CHAPTERS['chapter-1'].maps[2].orbit);
+  assert.equal(followingMission(CHAPTERS['chapter-1'], FIRST_STRIKE.id)?.id, BREACH_LINE.id);
+  assert.equal(followingMission(CHAPTERS['chapter-1'], BREACH_LINE.id)?.id, TURNING_TIDE.id);
   assert.equal(followingMission(CHAPTERS['chapter-1'], TURNING_TIDE.id), undefined);
-  const finished = completeMission(progress, TURNING_TIDE.id);
+  const finished = completeMission(completeMission(progress, BREACH_LINE.id), TURNING_TIDE.id);
   assert.equal(nextMission(CHAPTERS['chapter-1'], finished.completed), undefined);
+  assert.equal(nextMission(CHAPTERS['chapter-1'], completeMission(progress, TURNING_TIDE.id).completed)?.id, BREACH_LINE.id);
   assert.equal(launchMission(CHAPTERS['chapter-1'], finished.completed)?.id, FIRST_STRIKE.id);
   const second = { ...FIRST_STRIKE, id: 'test-next-map' };
   const expanded: Chapter = { ...CHAPTERS['chapter-1'], maps: [FIRST_STRIKE, second] };
@@ -70,7 +73,7 @@ test('startup selects Chapter 1 for new and existing saves without deleting comp
     assert.equal(loaded.selectedMode, 'chapter-1');
     assert.deepEqual(loaded.completed, completed);
     assert.equal(launchMission(CHAPTERS['chapter-1'], loaded.completed)?.id, FIRST_STRIKE.id);
-    assert.equal(followingMission(CHAPTERS['chapter-1'], FIRST_STRIKE.id)?.id, TURNING_TIDE.id);
+    assert.equal(followingMission(CHAPTERS['chapter-1'], FIRST_STRIKE.id)?.id, BREACH_LINE.id);
   }
 });
 test('corrupt, outdated and malformed saves recover safely', () => {

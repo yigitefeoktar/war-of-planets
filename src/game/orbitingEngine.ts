@@ -8,9 +8,9 @@ import type { Base } from './types';
 export class OrbitingGameEngine extends GameEngine {
   private readonly orbitIds: Set<string>;
 
-  constructor(width: number, height: number, private readonly orbit: OrbitDefinition) {
+  constructor(width: number, height: number, private readonly orbit: OrbitDefinition, hasWeaponPlanets = false) {
     super(width, height, {
-      superweaponUnlocksEnabled: Boolean(orbit.dysonSphere),
+      superweaponUnlocksEnabled: Boolean(orbit.dysonSphere) || hasWeaponPlanets,
       dysonChargeIntervalSeconds: orbit.dysonSphere?.chargeIntervalSeconds,
     });
     this.orbitIds = new Set(orbit.planetIds);

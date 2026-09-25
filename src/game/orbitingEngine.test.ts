@@ -49,6 +49,18 @@ test('all orbiting planets rotate at the same rate and preserve every pair dista
   assert.equal(engine.bases.size, 9); // The white star is not a capturable base.
 });
 
+test('an authored orbit can charge a marked weapon world without a Dyson sphere', () => {
+  const map: MapDefinition = { ...ORBIT_FIXTURE, planets: ORBIT_FIXTURE.planets.map(planet => planet.id === 'midway'
+    ? { ...planet, owner: PLAYER, superweaponUnlocks: ['overdrive'] }
+    : planet) };
+  const engine = quietEngine(map);
+  engine.pixels = [];
+  assert.equal(engine.superweaponUnlocksEnabled, true);
+  assert.deepEqual(engine.bases.get('midway')?.superweaponUnlocks, ['overdrive']);
+  engine.update(60);
+  assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 1);
+});
+
 test('rotation is frame-rate independent, returns after a full turn, and retry resets it', () => {
   const a = quietEngine(ORBIT_FIXTURE), b = quietEngine(ORBIT_FIXTURE);
   a.pixels = []; b.pixels = [];

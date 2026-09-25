@@ -1,10 +1,13 @@
+import { SUPERWEAPON_IDS } from './superweapons';
+import type { SuperweaponId } from './types';
+
 export const PLAYER = '#3b82f6';
 export const NEUTRAL = '#6b7280';
 export const FACTIONS = [PLAYER, '#ef4444', '#22c55e', '#eab308'] as const;
 export const DYSON_SPHERE_ID = 'dyson-sphere';
 export type ModeId = 'chapter-1' | 'chapter-2' | 'quick-match';
 export type ChapterId = Exclude<ModeId, 'quick-match'>;
-export type PlanetDefinition = { id: string; x: number; y: number; owner: typeof FACTIONS[number] | typeof NEUTRAL; ships: number; capital?: boolean };
+export type PlanetDefinition = { id: string; x: number; y: number; owner: typeof FACTIONS[number] | typeof NEUTRAL; ships: number; capital?: boolean; superweaponUnlocks?: SuperweaponId[] };
 export type DysonSphereDefinition = { chargeIntervalSeconds: number };
 export type OrbitDefinition = { x: number; y: number; periodSeconds: number; planetIds: string[]; dysonSphere?: DysonSphereDefinition };
 export type MapDefinition = {
@@ -39,6 +42,33 @@ export const FIRST_STRIKE: MapDefinition = {
     { id: 'northwest-pass', x: 430, y: 430, owner: NEUTRAL, ships: 24 },
     { id: 'east-harbour', x: 1150, y: 1020, owner: NEUTRAL, ships: 12 },
     { id: 'east-approach', x: 1320, y: 760, owner: NEUTRAL, ships: 20 },
+  ],
+};
+
+export const BREACH_LINE: MapDefinition = {
+  id: 'helios-breach-line', title: 'The Breach Line',
+  briefing: 'Choose a route through the red defensive line. Capture and hold the central Overdrive world to charge a production burst, or build strength along the flanks before striking the red capital.',
+  width: 2100, height: 2100, attackRange: 600, mobileFocus: 'capital',
+  objective: { type: 'eliminate-capitals', description: 'Capture the red capital. Hold the central Overdrive world to gain a production burst.' },
+  planets: [
+    // Three affordable opening choices. The marked centre is one hop beyond home.
+    { id: 'breach-home', x: 1050, y: 1840, owner: PLAYER, ships: 220, capital: true },
+    { id: 'breach-supply', x: 1050, y: 1470, owner: NEUTRAL, ships: 14 },
+    { id: 'breach-overdrive', x: 1050, y: 1080, owner: NEUTRAL, ships: 35, superweaponUnlocks: ['overdrive'] },
+    { id: 'breach-gate', x: 1050, y: 700, owner: NEUTRAL, ships: 50 },
+    { id: 'breach-red-capital', x: 1050, y: 260, owner: '#ef4444', ships: 125, capital: true },
+    // Western flank has a red foothold near its northern exit.
+    { id: 'breach-west-harbour', x: 600, y: 1700, owner: NEUTRAL, ships: 12 },
+    { id: 'breach-west-relay', x: 350, y: 1320, owner: NEUTRAL, ships: 20 },
+    { id: 'breach-west-bastion', x: 520, y: 940, owner: NEUTRAL, ships: 36 },
+    { id: 'breach-west-approach', x: 520, y: 540, owner: NEUTRAL, ships: 30 },
+    { id: 'breach-west-outpost', x: 600, y: 260, owner: '#ef4444', ships: 35 },
+    // Eastern flank is a slower, safer route to the enemy capital.
+    { id: 'breach-east-harbour', x: 1500, y: 1700, owner: NEUTRAL, ships: 12 },
+    { id: 'breach-east-relay', x: 1750, y: 1320, owner: NEUTRAL, ships: 20 },
+    { id: 'breach-east-bastion', x: 1580, y: 940, owner: NEUTRAL, ships: 36 },
+    { id: 'breach-east-approach', x: 1580, y: 540, owner: NEUTRAL, ships: 30 },
+    { id: 'breach-east-lookout', x: 1500, y: 260, owner: NEUTRAL, ships: 35 },
   ],
 };
 
@@ -84,7 +114,7 @@ export const TURNING_TIDE: MapDefinition = {
 };
 
 export const CHAPTERS: Record<ChapterId, Chapter> = {
-  'chapter-1': { id: 'chapter-1', plannedLevels: 5, maps: [FIRST_STRIKE, TURNING_TIDE] },
+  'chapter-1': { id: 'chapter-1', plannedLevels: 5, maps: [FIRST_STRIKE, BREACH_LINE, TURNING_TIDE] },
   'chapter-2': { id: 'chapter-2', plannedLevels: 5, maps: [] },
 };
 
@@ -126,7 +156,7 @@ export function progressLabel(mode: ModeId, progress: Progress): string {
   if (mode === 'quick-match') return 'Instant action';
   const chapter = CHAPTERS[mode];
   if (!chapter.maps.length) return 'Coming soon';
-  if (mode === 'chapter-1') return 'Tutorial first · Orbiting planets next';
+  if (mode === 'chapter-1') return 'Tutorial first · Breach Line next';
   const next = nextMission(chapter, progress.completed);
   return next ? `Mission ${chapter.maps.indexOf(next) + 1} · ${chapter.plannedLevels} planned` : `${chapter.maps.length}/${chapter.plannedLevels} complete · More coming soon`;
 }
@@ -139,6 +169,7 @@ export function validateMap(map: MapDefinition): void {
     if (!p.id || ids.has(p.id)) throw new Error('Planet IDs must be unique');
     ids.add(p.id);
     if (![...FACTIONS, NEUTRAL].includes(p.owner) || !Number.isInteger(p.ships) || p.ships < 0) throw new Error('Invalid planet owner or ships');
+    if (p.superweaponUnlocks && (new Set(p.superweaponUnlocks).size !== p.superweaponUnlocks.length || p.superweaponUnlocks.some(weapon => !SUPERWEAPON_IDS.includes(weapon)))) throw new Error('Invalid planet superweapons');
     if (!Number.isFinite(p.x) || !Number.isFinite(p.y) || p.x < 0 || p.x > map.width || p.y < 0 || p.y > map.height) throw new Error('Planet outside map');
     if (p.capital && p.owner === NEUTRAL) throw new Error('Neutral capital is not supported');
   }
