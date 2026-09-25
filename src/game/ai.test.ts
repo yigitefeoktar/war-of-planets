@@ -11,7 +11,9 @@ function world(bases: Base[]) {
     id, baseId: b.id, x: b.x, y: 0, color: b.color, targetX: b.x, targetY: 0,
     speed: 1, state: 'idle' as const, angle: 0,
   })));
-  return { bases, pixels, range: 600, seconds: 0, hard: false, canOmni: () => false, random: () => 0.5, recentOmniCaptureId: null as string | null, recentOmniCaptureTime: 0 };
+  return { bases, pixels, range: 600, seconds: 0, hard: false, canOmni: () => false,
+    canAbility: (_color: string, _id: string, _weapon: 'overdrive' | 'repulse') => false,
+    random: () => 0.5, recentOmniCaptureId: null as string | null, recentOmniCaptureTime: 0 };
 }
 
 test('every eligible planet makes a large attack without waiting for a faction cooldown', () => {
@@ -123,6 +125,90 @@ test('Omni replaces ordinary orders so a capital is not emptied twice', () => {
   const plan = ai.plan(w).get(RED)!;
   assert.equal(plan.omniTarget, 'captured');
   assert.deepEqual(plan.orders, []);
+});
+
+test('Repulse is reserved for a substantial approaching attack and uses an eligible world', () => {
+  const ai = new TacticalAI();
+  const w = world([base('capital', 0, RED, 30, true), base('enemy', 400, BLUE, 50)]);
+  w.canAbility = (_color, id, weapon) => id === 'capital' && weapon === 'repulse';
+  for (const ship of w.pixels.filter(ship => ship.color === BLUE).slice(0, 40)) {
+    ship.state = 'moving'; ship.targetBaseId = 'capital'; ship.x = 300; ship.speed = 1;
+  }
+  assert.equal(ai.plan(w).get(RED)!.repulseTarget, undefined);
+  w.seconds = 11;
+  assert.equal(ai.plan(w).get(RED)!.repulseTarget, 'capital');
+
+  const small = world([base('capital', 0, RED, 30, true), base('enemy', 400, BLUE, 50)]);
+  small.canAbility = w.canAbility;
+  for (const ship of small.pixels.filter(ship => ship.color === BLUE).slice(0, 10)) {
+    ship.state = 'moving'; ship.targetBaseId = 'capital'; ship.x = 300; ship.speed = 1;
+  }
+  const cautious = new TacticalAI();
+  cautious.plan(small);
+  small.seconds = 11;
+  assert.equal(cautious.plan(small).get(RED)!.repulseTarget, undefined);
+});
+
+test('Overdrive chooses a safe productive front world and difficulty affects timing', () => {
+  const w = world([base('capital', 0, RED, 50, true), base('front', 500, RED, 40), base('enemy', 800, BLUE, 100)]);
+  w.canAbility = (_color, _id, weapon) => weapon === 'overdrive';
+  const ai = new TacticalAI();
+  ai.plan(w);
+  w.seconds = 7;
+  assert.equal(ai.plan(w).get(RED)!.overdriveTarget, undefined);
+  w.hard = true;
+  w.seconds = 11;
+  assert.equal(ai.plan(w).get(RED)!.overdriveTarget, 'front');
+  w.seconds = 13;
+  assert.equal(ai.plan(w).get(RED)!.overdriveTarget, undefined);
+});
+
+test('enemy Repulse consumes the same charge and announces its target', () => {
+  let now = 0;
+  const engine = new GameEngine(1000, 1000, { now: () => now, rng: () => 0.5 });
+  engine.bases.clear(); engine.pixels = [];
+  engine.addBase('capital', 0, 0, RED, 30, true);
+  engine.addBase('enemy', 400, 0, BLUE, 50, true);
+  engine.lastSpawnTime = Infinity;
+  engine.setSuperweaponCharge(RED, 'repulse', 1);
+  const launches: string[] = [];
+  engine.onSuperweapon = (weapon, color, targetId) => launches.push(`${weapon}:${color}:${targetId}`);
+  now = 2001;
+  engine.update(0.016);
+  engine.lastAITime = Infinity;
+  engine.update(11);
+  for (const ship of engine.pixels.filter(ship => ship.color === BLUE).slice(0, 40)) {
+    ship.state = 'moving'; ship.targetBaseId = 'capital'; ship.x = 300; ship.y = 0; ship.speed = 1;
+  }
+  engine.lastAITime = 0;
+  now = 12000;
+  engine.update(0.016);
+  assert.ok(engine.bases.get('capital')!.repulse);
+  assert.equal(engine.getSuperweaponCharge(RED, 'repulse'), 0);
+  assert.deepEqual(launches, [`repulse:${RED}:capital`]);
+});
+
+test('enemy Overdrive spends one universal Dyson charge on a productive front world', () => {
+  let now = 0;
+  const engine = new GameEngine(1200, 1000, { now: () => now, rng: () => 0.5 });
+  engine.bases.clear(); engine.pixels = [];
+  engine.addBase('capital', 0, 0, RED, 40, true);
+  engine.addBase('front', 500, 0, RED, 40);
+  engine.addBase('enemy', 800, 0, BLUE, 100, true);
+  engine.isHardMode = true;
+  engine.lastSpawnTime = Infinity;
+  engine.setUniversalCharge(RED, 1);
+  now = 2001;
+  engine.update(0.016);
+  engine.lastAITime = Infinity;
+  engine.update(11);
+  engine.lastAITime = 0;
+  now = 12000;
+  engine.update(0.016);
+  assert.ok(engine.bases.get('front')!.overdrive);
+  assert.equal(engine.bases.get('capital')!.overdrive, undefined);
+  assert.equal(engine.getUniversalCharge(RED), 0);
+  assert.equal(engine.getSuperweaponCharge(RED, 'overdrive'), 0);
 });
 
 test('engine executes the large capital attack and hard mode gives no hidden production', () => {

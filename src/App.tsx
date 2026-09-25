@@ -274,6 +274,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   const [targetingMode, setTargetingMode] = useState<SuperweaponId | null>(null);
   const targetingModeRef = useRef<SuperweaponId | null>(null);
   const [wasWeaponReady, setWasWeaponReady] = useState(false);
+  const [enemyWeaponAlert, setEnemyWeaponAlert] = useState<{ weapon: SuperweaponId; color: string; target: string } | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isPaused, setIsPaused] = useState(false);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
@@ -429,12 +430,25 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       updatePlayerStats();
     };
 
-    engine.onOmniStrike = (color) => {
-      // Play the sonic boom sound whenever ANYONE uses Omni-Strike
-      playSound('omniLaunch', isSoundEnabledRef.current);
+    let enemyAlertTimeout: ReturnType<typeof setTimeout> | undefined;
+    const announceEnemyWeapon = (weapon: SuperweaponId, color: string, targetId: string) => {
+      if (color === '#3b82f6') return;
+      const target = targetId.replace(/[-_]/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase());
+      setEnemyWeaponAlert({ weapon, color, target });
+      clearTimeout(enemyAlertTimeout);
+      enemyAlertTimeout = setTimeout(() => setEnemyWeaponAlert(null), 4500);
     };
 
-    engine.onSuperweapon = (weapon) => playSound(weapon, isSoundEnabledRef.current);
+    engine.onOmniStrike = (color, targetId) => {
+      // Play the sonic boom sound whenever ANYONE uses Omni-Strike
+      playSound('omniLaunch', isSoundEnabledRef.current);
+      announceEnemyWeapon('omni', color, targetId);
+    };
+
+    engine.onSuperweapon = (weapon, color, targetId) => {
+      playSound(weapon, isSoundEnabledRef.current);
+      announceEnemyWeapon(weapon, color, targetId);
+    };
     let lastAbilitySound = 0;
     engine.onAbilityPulse = (weapon, color) => {
       if (color !== '#3b82f6' || performance.now() - lastAbilitySound < 180) return;
@@ -1309,6 +1323,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
     return () => {
       engineRef.current = null;
+      clearTimeout(enemyAlertTimeout);
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
       window.removeEventListener('mousemove', handleMouseMove);
@@ -1382,6 +1397,16 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
           </div>
         </div>
       </div>
+
+      {showUI && !winner && enemyWeaponAlert && (
+        <div className="enemy-weapon-alert" role="alert" style={{ '--enemy-color': enemyWeaponAlert.color } as React.CSSProperties}>
+          <span className="enemy-weapon-alert-marker" aria-hidden="true" />
+          <span>
+            <strong>{enemyWeaponAlert.color === '#ef4444' ? 'RED' : enemyWeaponAlert.color === '#22c55e' ? 'GREEN' : 'YELLOW'} SUPERWEAPON</strong>
+            <span>{enemyWeaponAlert.weapon === 'omni' ? 'Omni Strike incoming' : enemyWeaponAlert.weapon === 'repulse' ? 'Repulse Shield activated' : 'Production Overdrive activated'} · {enemyWeaponAlert.target}</span>
+          </span>
+        </div>
+      )}
 
       {/* Paused Overlay */}
       {isPaused && !winner && (

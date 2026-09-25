@@ -140,8 +140,8 @@ export class GameEngine {
   onCapitalDestroyed?: (color: string) => void;
   onLaunch?: (fromId: string, toId: string) => void;
   onCollision?: (x: number, y: number, color: string) => void;
-  onOmniStrike?: (color: string) => void;
-  onSuperweapon?: (weapon: 'overdrive' | 'repulse', color: string) => void;
+  onOmniStrike?: (color: string, targetId: string) => void;
+  onSuperweapon?: (weapon: 'overdrive' | 'repulse', color: string, targetId: string) => void;
   onAbilityPulse?: (weapon: 'overdrive' | 'repulse', color: string) => void;
   private rng: () => number;
   private nowProvider: () => number;
@@ -490,7 +490,7 @@ export class GameEngine {
     if (totalLaunched > 0) {
       this.shakeAmount = 15;
       this.shakeDuration = 0.5;
-      this.onOmniStrike?.(playerColor);
+      this.onOmniStrike?.(playerColor, toId);
       return true;
     }
     return false;
@@ -512,7 +512,7 @@ export class GameEngine {
     this.createExplosion(base.x, base.y, tint, 32);
     this.shakeAmount = 9;
     this.shakeDuration = 0.25;
-    this.onSuperweapon?.(weapon, color);
+    this.onSuperweapon?.(weapon, color, id);
     return true;
   }
 
@@ -667,12 +667,15 @@ export class GameEngine {
         bases: [...this.bases.values()], pixels: this.pixels,
         range: this.MAX_ATTACK_RANGE, seconds: this.aiSeconds, hard: this.isHardMode,
         canOmni: color => this.hasSuperweaponCharge(color, 'omni'),
+        canAbility: (color, id, weapon) => this.canActivatePlanetAbility(color, id, weapon),
         random: () => this.random(),
         recentOmniCaptureId: now - this.lastOmniCaptureTime < 10000 ? this.lastOmniCaptureBaseId : null,
         recentOmniCaptureTime: this.lastOmniCaptureTime,
       });
       for (const [color, plan] of plans) {
+        if (plan.repulseTarget) this.activatePlanetAbility(color, plan.repulseTarget, 'repulse');
         if (plan.omniTarget) this.activateOmniStrike(color, plan.omniTarget);
+        if (plan.overdriveTarget) this.activatePlanetAbility(color, plan.overdriveTarget, 'overdrive');
         for (const order of plan.orders) {
           const idle = this.pixels.filter(p => !p.dead && p.baseId === order.from && p.state === 'idle').length;
           if (idle > 0 && canIssueFleetOrder(this.bases.values(), order.from, order.to, this.MAX_ATTACK_RANGE)) {

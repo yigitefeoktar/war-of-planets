@@ -6,11 +6,12 @@ const NEUTRAL = '#6b7280';
 const FACTIONS = ['#ef4444', '#22c55e', '#eab308'];
 const distance = (a: Base, b: Base) => Math.hypot(a.x - b.x, a.y - b.y);
 type Command = { from: string; to: string; count: number };
-export type AIPlan = { orders: Command[]; omniTarget?: string };
-type FactionState = { lastAttack: number; nextOmni: number; lastRevengeSeen?: string };
+export type AIPlan = { orders: Command[]; omniTarget?: string; repulseTarget?: string; overdriveTarget?: string };
+type FactionState = { lastAttack: number; nextOmni: number; nextAbility: number; lastRevengeSeen?: string };
 type World = {
   bases: Base[]; pixels: Pixel[]; range: number; seconds: number; hard: boolean;
   canOmni: (color: string) => boolean;
+  canAbility?: (color: string, id: string, weapon: 'overdrive' | 'repulse') => boolean;
   random?: () => number;
   recentOmniCaptureId?: string | null;
   recentOmniCaptureTime?: number;
@@ -25,6 +26,7 @@ export class TacticalAI {
     const random = world.random ?? Math.random;
     const stationed = new Map<string, number>();
     const incoming = new Map<string, Map<string, number>>();
+    const incomingShips = new Map<string, Pixel[]>();
     for (const ship of world.pixels) {
       if (ship.dead) continue;
       if (ship.state === 'idle') stationed.set(ship.baseId, (stationed.get(ship.baseId) ?? 0) + 1);
@@ -32,6 +34,9 @@ export class TacticalAI {
         const fleets = incoming.get(ship.targetBaseId) ?? new Map<string, number>();
         fleets.set(ship.color, (fleets.get(ship.color) ?? 0) + 1);
         incoming.set(ship.targetBaseId, fleets);
+        const ships = incomingShips.get(ship.targetBaseId) ?? [];
+        ships.push(ship);
+        incomingShips.set(ship.targetBaseId, ships);
       }
     }
     const ships = (base: Base) => stationed.get(base.id) ?? 0;
@@ -39,7 +44,10 @@ export class TacticalAI {
     for (const color of FACTIONS) {
       const owned = world.bases.filter(base => base.color === color);
       if (!owned.length) { this.states.delete(color); continue; }
-      const state = this.states.get(color) ?? { lastAttack: world.seconds, nextOmni: world.seconds + 8 };
+      const state = this.states.get(color) ?? {
+        lastAttack: world.seconds, nextOmni: world.seconds + 8,
+        nextAbility: world.seconds + (world.hard ? 6 : 10),
+      };
       this.states.set(color, state);
       const plan: AIPlan = { orders: [] };
       plans.set(color, plan);
@@ -58,6 +66,38 @@ export class TacticalAI {
         fleets.set(color, (fleets.get(color) ?? 0) + amount);
         incoming.set(to.id, fleets);
       };
+
+      if (world.seconds >= state.nextAbility && world.canAbility) {
+        // Cast while a real attack is approaching, early enough for the shield
+        // and its warning to be visible before the leading ships arrive.
+        const endangered = owned.map(base => {
+          const arrivals = (incomingShips.get(base.id) ?? []).filter(ship => ship.color !== color);
+          const soon = arrivals.filter(ship => {
+            const speed = ship.speed * (ship.isWarp ? 4 : 1.5) * 60;
+            const eta = speed > 0 ? Math.max(0, Math.hypot(ship.x - base.x, ship.y - base.y) - (base.isCapital ? 64 : 44)) / speed : Infinity;
+            return eta >= 2 && eta <= 5.5;
+          }).length;
+          return { base, soon, danger: threat(base) - ships(base) - arriving(base, color) };
+        }).filter(({ base, soon, danger }) => world.canAbility!(color, base.id, 'repulse')
+          && soon >= (world.hard ? 12 : 18)
+          && (danger >= -Math.max(12, ships(base) * 0.4) || base.isCapital && soon >= 30))
+          .sort((a, b) => b.danger - a.danger || Number(b.base.isCapital) - Number(a.base.isCapital));
+        if (endangered.length && (world.hard || random() < 0.8)) {
+          plan.repulseTarget = endangered[0].base.id;
+        } else {
+          const productive = owned.filter(base => !base.isDysonSphere && !base.overdrive
+            && threat(base) === 0 && world.canAbility!(color, base.id, 'overdrive'))
+            .map(base => ({ base, front: Math.min(...targets.map(target => distance(base, target))) }))
+            .filter(({ front }) => front <= world.range * 1.5)
+            .sort((a, b) => a.front - b.front || ships(b.base) - ships(a.base));
+          if (productive.length && random() < (world.hard ? 0.7 : 0.4)) {
+            plan.overdriveTarget = productive[0].base.id;
+          }
+        }
+        if (plan.repulseTarget || plan.overdriveTarget) {
+          state.nextAbility = world.seconds + (world.hard ? 8 : 14);
+        }
+      }
 
       // A capital under attack draws help before its neighbours make new attacks.
       for (const capital of capitals) {
@@ -121,6 +161,8 @@ export class TacticalAI {
           // orders would silently strip the capital reserve in the same tick.
           plan.orders = [];
           plan.omniTarget = chosen.id;
+          if (plan.overdriveTarget) state.nextAbility = world.seconds;
+          plan.overdriveTarget = undefined;
           state.nextOmni = world.seconds + 15;
           state.lastAttack = world.seconds;
         }

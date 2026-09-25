@@ -25,9 +25,13 @@ Omni-Strike requires a generated charge, a viable target and a safe capital.
 It is considered after an eight-second opening delay. A recent Omni capture can
 inspire a 40% retaliation attempt per decision, once per capture, with a 15-second cooldown after
 use. Otherwise the standard expansion attempt has a 15% chance. A warp
-replaces ordinary orders in that decision so the capital reserve survives. The AI does not
-use Overdrive or Repulse. There are no hidden resources or adjustments based on
-the player's win/loss history.
+replaces ordinary orders in that decision so the capital reserve survives. The AI
+uses Repulse when a substantial hostile fleet is a few seconds from a threatened
+world, and Overdrive on an unthreatened productive world near the front. Normal
+mode reacts later and sometimes passes on a useful cast; hard mode responds sooner.
+Every cast uses the same stored charge, target rules, strength and duration as the
+player. Enemy activations are announced on screen. There are no hidden resources
+or adjustments based on the player's win/loss history.
 
 # Colour specialties
 

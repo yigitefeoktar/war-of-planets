@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+.enemy-weapon-alert {
+  position: absolute; z-index: 41; top: 72px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px; max-width: calc(100% - 24px);
+  padding: 9px 13px; border: 1px solid var(--enemy-color); border-radius: 8px;
+  background: rgba(8, 16, 29, .96); color: #e7f7ff; pointer-events: none;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .6), 0 0 18px color-mix(in srgb, var(--enemy-color) 35%, transparent);
+  font-family: monospace; font-size: 11px;
+}
+.enemy-weapon-alert > span:last-child { display: flex; flex-direction: column; gap: 2px; }
+.enemy-weapon-alert strong { color: var(--enemy-color); letter-spacing: .07em; }
+.enemy-weapon-alert-marker { flex: 0 0 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--enemy-color); box-shadow: 0 0 10px var(--enemy-color); }
+@media (max-width: 760px) { .enemy-weapon-alert { top: 58px; font-size: 10px; } }
+
 .planet-command {
   position: relative;
   flex: 0 1 auto; width: max-content; max-width: 100%;
