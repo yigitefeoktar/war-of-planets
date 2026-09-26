@@ -33,14 +33,12 @@
   display: flex; justify-content: center; align-items: flex-end;
   gap: 12px; width: 100%; pointer-events: auto;
 }
-.planet-command-group-normal { align-items: stretch; }
-.planet-command-group-normal .planet-command-empire { min-width: min(210px, 100%); }
 .planet-command-content { display: grid; align-items: stretch; gap: 14px; width: max-content; max-width: 100%; }
 .planet-command::before { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; background: linear-gradient(90deg, rgba(59, 130, 246, .035), transparent 30%, transparent 70%, rgba(34, 211, 238, .025)); }
 .planet-command-summary { position: relative; display: flex; min-width: 0; flex-direction: column; justify-content: center; border-right: 1px solid rgba(83, 151, 180, .17); padding-right: 14px; }
 .planet-command-kicker { font-size: 11px; font-weight: 700; letter-spacing: .045em; text-shadow: 0 0 16px currentColor; }
 .planet-command-count { margin-top: 4px; color: #f2fbff; font-size: 30px; line-height: 1; letter-spacing: -.035em; text-shadow: 0 0 22px rgba(151, 225, 255, .25); }
-.planet-charge-heading, .planet-ability-title { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.planet-ability-title { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .planet-fleet-control { position: relative; display: flex; min-width: 0; flex-direction: column; justify-content: center; }
 .planet-control-label { display: block; margin-bottom: 5px; color: #80bee0; font-size: 11px; font-weight: 700; letter-spacing: .035em; }
 .planet-fleet-sizes { display: flex; gap: 5px; }
@@ -48,10 +46,6 @@
 .planet-fleet-sizes button[aria-pressed="true"] { background: linear-gradient(180deg, #73e9f6, #4dcde2); border-color: #a5f3fc; color: #061a25; box-shadow: 0 0 20px rgba(65, 218, 238, .22), inset 0 1px rgba(255, 255, 255, .45); }
 .planet-fleet-sizes button:not([aria-pressed="true"]):hover { border-color: rgba(88, 177, 215, .7); transform: translateY(-1px); }
 .planet-command-hint { color: #69899d; font-size: 9px; line-height: 1.25; margin: 5px 0 0; }
-.planet-charge-summary { position: relative; display: flex; min-width: 0; flex-direction: column; justify-content: center; gap: 5px; }
-.planet-charge-heading { color: #80bee0; font-size: 11px; font-weight: 700; }
-.planet-charge-heading strong { color: #c6e8f5; font-size: 13px; white-space: nowrap; }
-.planet-charge-summary small { color: #638395; font-size: 9px; line-height: 1.25; }
 .planet-abilities { position: relative; display: flex; gap: 8px; min-width: 0; }
 .planet-ability { display: flex; flex: 1; align-items: center; justify-content: flex-start; gap: 8px; min-width: 0; padding: 10px; text-align: left; border: 1px solid color-mix(in srgb, var(--weapon-color) 35%, transparent); border-radius: 10px; background: linear-gradient(145deg, color-mix(in srgb, var(--weapon-color) 14%, #081b2b), #071725); color: var(--weapon-color); box-shadow: inset 0 1px rgba(255, 255, 255, .025); transition: border-color .15s, filter .15s, transform .15s; }
 .planet-ability-icon { display: grid; flex: 0 0 26px; place-items: center; filter: drop-shadow(0 0 8px currentColor); }
@@ -96,9 +90,6 @@
   .planet-fleet-sizes button { min-height: 36px; }
   .planet-control-label { margin-bottom: 5px; font-size: 10px; }
   .planet-command-hint { margin-top: 5px; font-size: 9px; }
-  .planet-charge-summary { grid-column: 1 / -1; }
-  .planet-charge-heading { font-size: 10px; }
-  .planet-charge-heading strong { font-size: 11px; }
   .planet-abilities { grid-column: 1 / -1; gap: 8px; }
   .planet-ability { min-height: 52px; gap: 6px; padding: 8px; border-radius: 9px; }
   .planet-ability-icon { flex-basis: 22px; }
@@ -116,17 +107,13 @@
   .planet-ability small { display: none; }
 }
 
-/* Size each bar for the controls it actually contains, capped by the viewport. */
-.planet-command-friendly { width: min(330px, 100%); }
-.planet-command-friendly .planet-command-content { width: 100%; grid-template-columns: minmax(0, 1fr); }
+/* Keep fleet and weapon controls in one panel, capped by the viewport. */
+.planet-command-normal { width: calc(330px + var(--weapon-count, 0) * 240px); }
+.planet-command-normal .planet-command-content { width: 100%; grid-template-columns: minmax(240px, 300px) minmax(0, 1fr); }
+.planet-command-normal:not(:has(.planet-abilities)) .planet-command-content { grid-template-columns: minmax(0, 1fr); }
 .planet-command-enemy .planet-command-content { grid-template-columns: minmax(0, 1fr); }
 .planet-command-enemy .planet-command-summary { border-right: 0; padding-right: 0; }
-.planet-command-empire { width: calc(210px + var(--weapon-count, 0) * 240px); }
-.planet-command-empire .planet-command-content {
-  width: 100%; grid-template-columns: minmax(150px, 180px) minmax(0, 1fr);
-}
-.planet-command-empire:not(:has(.planet-abilities)) .planet-command-content { grid-template-columns: minmax(0, 1fr); }
-.planet-command-empire .planet-abilities {
+.planet-command-normal .planet-abilities {
   grid-column: auto; display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
 }
@@ -134,10 +121,9 @@
 .empire-hint button { color: #c4ebf5; text-decoration: underline; padding: 5px; }
 .planet-ability.targeting { border-color: currentColor; }
 @media (max-width: 760px) {
-  .planet-command-group-normal { display: grid; width: min(100%, 480px); margin-inline: auto; grid-template-columns: minmax(0, 1fr); grid-auto-rows: 1fr; }
-  .planet-command-group-normal .planet-command { width: 100%; }
-  .planet-command-empire .planet-command-content { grid-template-columns: minmax(0, 1fr); }
-  .planet-command-empire .planet-abilities { grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); }
+  .planet-command-normal { width: min(100%, 480px); }
+  .planet-command-normal .planet-command-content { grid-template-columns: minmax(0, 1fr); }
+  .planet-command-normal .planet-abilities { grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); }
 }
 html, body {
   margin: 0;
