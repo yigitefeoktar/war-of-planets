@@ -5,8 +5,8 @@ export const PLAYER = '#3b82f6';
 export const NEUTRAL = '#6b7280';
 export const FACTIONS = [PLAYER, '#ef4444', '#22c55e', '#eab308'] as const;
 export const DYSON_SPHERE_ID = 'dyson-sphere';
-export type ModeId = 'chapter-1' | 'chapter-2' | 'quick-match';
-export type ChapterId = Exclude<ModeId, 'quick-match'>;
+export type ModeId = 'chapter-1' | 'chapter-2' | 'quick-match' | 'hard-mode';
+export type ChapterId = Exclude<ModeId, 'quick-match' | 'hard-mode'>;
 export type PlanetDefinition = { id: string; x: number; y: number; owner: typeof FACTIONS[number] | typeof NEUTRAL; ships: number; capital?: boolean; superweaponUnlocks?: SuperweaponId[] };
 export type DysonSphereDefinition = { chargeIntervalSeconds: number };
 export type OrbitDefinition = { x: number; y: number; periodSeconds: number; planetIds: string[]; dysonSphere?: DysonSphereDefinition };
@@ -154,6 +154,7 @@ export function followingMission(chapter: Chapter, currentId: string): MapDefini
 }
 export function progressLabel(mode: ModeId, progress: Progress): string {
   if (mode === 'quick-match') return 'Instant action';
+  if (mode === 'hard-mode') return 'Hard AI · Instant action';
   const chapter = CHAPTERS[mode];
   if (!chapter.maps.length) return 'Coming soon';
   if (mode === 'chapter-1') return 'Tutorial first · Breach Line next';

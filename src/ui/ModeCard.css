@@ -12,6 +12,10 @@
   color: #ecfeff;
   box-shadow: 0 0 30px #06b6d41a;
 }
+.mode-card.mode-hard { border-color: #ef444480; box-shadow: 0 0 30px #ef444422; }
+.mode-hard .mode-eyebrow, .mode-hard .mode-select { color: #fca5a5; }
+.mode-hard .mode-shade { background: linear-gradient(90deg, #140305d9, #14030530), linear-gradient(180deg, #14030520 0%, #14030580 35%, #140305ed 72%, #140305 100%); }
+.mode-option.mode-hard:hover, .mode-option.mode-hard.is-selected { border-color: #f87171; box-shadow: inset 0 0 0 1px #f8717166, 0 0 30px #ef444444; }
 
 /* Original briefing: 512 × 270 on the menu's shared scaling canvas. */
 .mode-current {

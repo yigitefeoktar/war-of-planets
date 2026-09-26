@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronRight, Layers, Swords, X } from 'lucide-react';
+import { Check, ChevronRight, Layers, Skull, Swords, X } from 'lucide-react';
 import { playSound } from '../audio';
 import './ModeCard.css';
 import { progressLabel, type ModeId, type Progress } from '../game/campaign';
@@ -8,16 +8,17 @@ import { progressLabel, type ModeId, type Progress } from '../game/campaign';
 const modes = [
   { id: 'chapter-1', title: 'Chapter 1', subtitle: 'The Helios Breach', description: 'Lead your fleet through five tactical battles. Capture new worlds and push into enemy territory.', accent: '#73dcff', rgb: '115, 220, 255', label: 'Campaign · 5 battles' },
   { id: 'quick-match', title: 'Quick Match', subtitle: 'One battle. Total conquest.', description: 'Command your fleet. Defend your capital. Conquer the system.', accent: '#ffc184', rgb: '255, 193, 132', label: 'Instant action' },
+  { id: 'hard-mode', title: 'Hard Mode', subtitle: 'A tougher conquest.', description: 'Take on a Quick Match against a more aggressive AI. Defend your capital and conquer the system.', accent: '#f87171', rgb: '248, 113, 113', label: 'Hard AI' },
 ];
 type Mode = typeof modes[number];
 
 function Artwork({ mode }: { mode: Mode }) {
-  return <><img className="mode-art" src={`/images/modes/${mode.id}.jpg`} alt="" draggable={false} /><span className="mode-shade" /></>;
+  return <><img className="mode-art" src={`/images/modes/${mode.id === 'hard-mode' ? 'quick-match' : mode.id}.jpg`} alt="" draggable={false} /><span className="mode-shade" /></>;
 }
 
 function CardContent({ mode, compact = false }: { mode: Mode; compact?: boolean }) {
   return <>
-    <span className="mode-eyebrow">{mode.id === 'quick-match' ? <Swords size={13} /> : <Layers size={13} />}{mode.title}</span>
+    <span className="mode-eyebrow">{mode.id === 'hard-mode' ? <Skull size={13} /> : mode.id === 'quick-match' ? <Swords size={13} /> : <Layers size={13} />}{mode.title}</span>
     <div className="mode-copy">
       <h2>{mode.subtitle}</h2>
       {mode.id === 'quick-match' && !compact ? (
@@ -55,7 +56,7 @@ export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress 
   }, []);
 
   return <>
-    <section aria-label="Selected game mode" className="mode-card mode-current">
+    <section aria-label="Selected game mode" className={`mode-card mode-current ${selected.id === 'hard-mode' ? 'mode-hard' : ''}`}>
       <Artwork mode={selected} />
       <CardContent mode={selected} />
       <div className="mode-footer">
@@ -70,7 +71,7 @@ export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress 
       </header>
       <div className="mode-grid">
         {modes.map(mode => (
-          <button key={mode.id} type="button" aria-label={`Select ${mode.title}`} aria-pressed={selected.id === mode.id} onClick={() => { onSelectMode(mode.id as ModeId); playSound('select', isSoundEnabled); dialog.current?.close(); }} className={`mode-card mode-option ${selected.id === mode.id ? 'is-selected' : ''}`}>
+          <button key={mode.id} type="button" aria-label={`Select ${mode.title}`} aria-pressed={selected.id === mode.id} onClick={() => { onSelectMode(mode.id as ModeId); playSound('select', isSoundEnabled); dialog.current?.close(); }} className={`mode-card mode-option ${mode.id === 'hard-mode' ? 'mode-hard' : ''} ${selected.id === mode.id ? 'is-selected' : ''}`}>
             <Artwork mode={mode} />
             <CardContent mode={mode} compact />
             <div className="mode-footer"><span className="mode-meta">{progressLabel(mode.id as ModeId, progress)}</span><span className="mode-select">{selected.id === mode.id ? <><Check size={15} /> Selected</> : <>Select <ChevronRight size={16} /></>}</span></div>
