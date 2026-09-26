@@ -1469,7 +1469,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
               <div className="planet-fleet-sizes" aria-label="Fleet deployment size">
                 {[0.1, 0.5, 1].map(size => <button key={size} aria-pressed={fleetSize === size} onClick={() => handleFleetSizeChange(size)}>{size * 100}%</button>)}
               </div>
-              <p className="planet-command-hint">{shownPlanet ? 'Choose a destination' : 'Select a friendly planet'}</p>
             </div>
           </>}
           {state === 'normal' && availableWeapons.size > 0 && <>
