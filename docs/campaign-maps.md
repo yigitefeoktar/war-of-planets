@@ -16,7 +16,7 @@ The 600-world-unit range remains a strict source-to-target limit for attacks aga
 
 Connectivity is recalculated when the order is issued, using current ownership and live positions. Capturing a bridge can join or split networks, and moving planets can create temporary connections. Once launched, a transfer continues to its destination even if the connection later breaks. Mouse and touch orders share the same rule. Selection and range visuals remain the existing game visuals; this feature adds no network lines or destination rings. Hostile AI logic, Omni-Strike range, and ordinary attack range are unchanged.
 
-Current content: Chapter 1 / First Strike (9 fixed planets), The Breach Line (23 fixed planets and six Overdrive sites), and The Turning Tide (24 planets, one orbiting system and a decorative star). Missions 4–5 and Chapter 2 are not released yet.
+Current content: Chapter 1 / First Strike (9 fixed planets), The Breach Line (23 fixed planets and seven Overdrive sites), and The Turning Tide (24 planets, one orbiting system and a decorative star). Missions 4–5 and Chapter 2 are not released yet.
 
 ## Galaxy and camera
 
@@ -26,7 +26,7 @@ The camera's minimum zoom follows the viewport size relative to the map, so an o
 
 ## First Strike tutorial
 
-First Strike alone opts into an action-driven tutorial via `tutorial.attackTargetId`. It is an authored 1500 × 1500 static map with one blue capital, one red capital, a weak red outpost directly ahead of the player, and six neutral worlds. The outpost is the first attack target. The red capital is beyond direct attack range from that outpost, so the player must take another world to reach it. A central crossing is the shortest route; western and eastern worlds offer optional expansion. All nine positions, owners, and starting ship counts are identical on each launch. No orbit, central star, or superweapon is present.
+First Strike alone opts into an action-driven tutorial via `tutorial.attackTargetId`. It is an authored 1500 × 1500 static map with three blue worlds, four red worlds, and two neutral worlds. Red controls most of the far side, but its outpost directly ahead of the player's capital has only 10 ships and remains the first attack target. The red capital is beyond direct attack range from that outpost, so the player must take another world to reach it. The red central crossing is the shortest route; blue western and eastern harbours offer optional expansion. All nine positions, owners, and starting ship counts are identical on each launch. No orbit, central star, or superweapon is present.
 
 Prompts teach selecting blue then attacking red, scrolling down/pinching fingers together to zoom out, and capturing the red capital while protecting the player's own. They also explain that later battles can have several enemy capitals. Tutorial accents use the existing Chapter 1 cyan-blue (`#73dcff`). Click targets have a circle pulsing every 700ms with no arrow. The zoom prompt shows two matching circles at 58% across/down the viewport; they spread apart and snap back side-by-side every 1.6 seconds while also pulsing in scale, brightness, and glow every 700ms. This requested outward visual cue does not change actual pinch controls. Reduced-motion preferences disable the CSS animations. The win lesson highlights the surviving red capital, not ordinary planets.
 
@@ -38,12 +38,12 @@ The simulation runs continuously during every tutorial prompt, including the ini
 
 ## Mission 2: The Breach Line
 
-A 2500 × 2500 static battlefield with one red capital and six Overdrive worlds clustered in a ring near the center. The blue capital begins in the south with 220 ships. Three cheap neutral planets are in its initial attack range: one central supply world and a harbour on each flank.
+A 2500 × 2500 static battlefield rotated into a west-to-east confrontation. Blue starts with eight connected worlds on the left, including its capital with 220 ships. Red controls ten of the 23 planets on the right, just under half the map. Seven Overdrive worlds cluster near the center; five start neutral, and red holds the two eastern ring sites.
 
-- Central route: take the supply world, then the southern Overdrive world. A central hub, northern Overdrive world, and gate lead toward the red capital. This is the shortest route to a weapon site and the most direct route to the enemy.
-- Western route: the harbour and entry lead into two marked junctions in the central ring. An outer relay, bastion, approach, and red outpost provide another path to the capital with more enemy pressure.
-- Eastern route: a matching entry leads into two marked junctions. An outer relay, bastion, approach, and neutral lookout provide another path to the capital.
-- All six marked planets sit within 500 units of the map center and produce only Overdrive. One held site generates a charge in 60 seconds, two in 30 seconds, and six in 10 seconds. Losing sites pauses future generation; an already earned charge remains available. Overdrive triples production on one owned planet for 15 seconds.
+- Central route: move ships through the blue supply world into the western Overdrive site. The exact center planet is also a marked Overdrive world. Another marked site and a red gate lead toward the eastern capital.
+- Upper route: the blue harbour, entry, and relay lead into the central ring or into a red bastion, approach, and outpost.
+- Lower route: a matching blue flank leads into the ring or through a red bastion, approach, and lookout.
+- All seven marked planets sit within 500 units of the map center and produce only Overdrive. One held site generates a charge in 60 seconds, two in 30 seconds, and seven in about 9 seconds. Losing sites pauses future generation; an already earned charge remains available. Overdrive triples production on one owned planet for 15 seconds.
 
 Winning First Strike starts The Breach Line in the current run. Winning The Breach Line starts The Turning Tide. No tutorial prompts repeat after Mission 1.
 

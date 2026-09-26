@@ -79,6 +79,11 @@ test('tutorial map is compact, deterministic, connected and stationary', () => {
   assert.equal(FIRST_STRIKE.orbit, undefined);
   assert.equal(FIRST_STRIKE.planets.length, 9);
   assert.deepEqual(FIRST_STRIKE.planets.filter(p => p.capital).map(p => p.id), ['player_1', 'ai_1']);
+  const red = FIRST_STRIKE.planets.filter(p => p.owner === '#ef4444');
+  const blue = FIRST_STRIKE.planets.filter(p => p.owner === PLAYER);
+  assert.equal(red.length, 4);
+  assert.equal(blue.length, 3);
+  assert.ok(red.every(planet => planet.y < Math.min(...blue.map(p => p.y))));
   validateMap(FIRST_STRIKE);
   const a = createMatch(FIRST_STRIKE), b = createMatch(FIRST_STRIKE);
   assert.deepEqual([...a.bases.values()], [...b.bases.values()]);
