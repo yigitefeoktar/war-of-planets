@@ -16,7 +16,7 @@ The 600-world-unit range remains a strict source-to-target limit for attacks aga
 
 Connectivity is recalculated when the order is issued, using current ownership and live positions. Capturing a bridge can join or split networks, and moving planets can create temporary connections. Once launched, a transfer continues to its destination even if the connection later breaks. Mouse and touch orders share the same rule. Selection and range visuals remain the existing game visuals; this feature adds no network lines or destination rings. Hostile AI logic, Omni-Strike range, and ordinary attack range are unchanged.
 
-Current content: Chapter 1 / First Strike (9 fixed planets), The Breach Line (15 fixed planets and an Overdrive site), and The Turning Tide (24 planets, one orbiting system and a Dyson sphere). Missions 4–5 and Chapter 2 are not released yet.
+Current content: Chapter 1 / First Strike (9 fixed planets), The Breach Line (20 fixed planets and three Overdrive sites), and The Turning Tide (24 planets, one orbiting system and a Dyson sphere). Missions 4–5 and Chapter 2 are not released yet.
 
 ## First Strike tutorial
 
@@ -32,12 +32,12 @@ The simulation runs continuously during every tutorial prompt, including the ini
 
 ## Mission 2: The Breach Line
 
-A 2100 × 2100 static battlefield with one red capital and a central Overdrive world. The blue capital begins in the south with 220 ships. Three cheap neutral planets are in its initial attack range: one central supply world and a harbour on each flank.
+A 2400 × 2400 static battlefield with one red capital and three Overdrive worlds. The blue capital begins in the south with 220 ships. Three cheap neutral planets are in its initial attack range: one central supply world and a harbour on each flank.
 
-- Central route: take the supply world and then the marked Overdrive world. The Overdrive site is outside the capital's direct range and needs 60 seconds of current ownership to produce one charge. The northern gate and red capital are further ahead, so a successful attack requires staging and reinforcement.
-- Western route: neutral relay, bastion, and approach worlds lead past a red outpost. It offers a second way into the capital's range, with more early enemy pressure.
-- Eastern route: the same length through neutral worlds, with a safer opening. Red can still expand toward it from the capital.
-- The central site connects to both flanks. Losing it pauses charge generation; an already earned charge remains available. Overdrive can triple production on one owned planet for 15 seconds.
+- Central route: take the supply world and then the first marked Overdrive world. Two northern gates lead toward the red capital. This is the shortest route to a weapon site and the most direct route to the enemy.
+- Western route: a neutral relay leads to a marked Overdrive bastion, then to an approach and signal world beside a red outpost. It offers a second way into the capital's range, with more early enemy pressure.
+- Eastern route: another marked Overdrive bastion sits beyond its relay. The eastern approach and signal lead toward the capital through neutral territory, with a safer opening.
+- Junction worlds link the flanks to the central front. Every marked planet produces only Overdrive: one held site generates a charge in 60 seconds, two in 30 seconds, and three in 20 seconds. Losing sites pauses future generation; an already earned charge remains available. Overdrive triples production on one owned planet for 15 seconds.
 
 Winning First Strike starts The Breach Line in the current run. Winning The Breach Line starts The Turning Tide. No tutorial prompts repeat after Mission 1.
 

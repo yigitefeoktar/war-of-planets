@@ -47,28 +47,33 @@ export const FIRST_STRIKE: MapDefinition = {
 
 export const BREACH_LINE: MapDefinition = {
   id: 'helios-breach-line', title: 'The Breach Line',
-  briefing: 'Choose a route through the red defensive line. Capture and hold the central Overdrive world to charge a production burst, or build strength along the flanks before striking the red capital.',
-  width: 2100, height: 2100, attackRange: 600, mobileFocus: 'capital',
-  objective: { type: 'eliminate-capitals', description: 'Capture the red capital. Hold the central Overdrive world to gain a production burst.' },
+  briefing: 'Break through the red defensive line. Each route has an Overdrive world: hold one to charge a production burst, or hold more to charge it faster before striking the red capital.',
+  width: 2400, height: 2400, attackRange: 600, mobileFocus: 'capital',
+  objective: { type: 'eliminate-capitals', description: 'Capture the red capital. Hold Overdrive worlds to charge production bursts faster.' },
   planets: [
-    // Three affordable opening choices. The marked centre is one hop beyond home.
-    { id: 'breach-home', x: 1050, y: 1840, owner: PLAYER, ships: 220, capital: true },
-    { id: 'breach-supply', x: 1050, y: 1470, owner: NEUTRAL, ships: 14 },
-    { id: 'breach-overdrive', x: 1050, y: 1080, owner: NEUTRAL, ships: 35, superweaponUnlocks: ['overdrive'] },
-    { id: 'breach-gate', x: 1050, y: 700, owner: NEUTRAL, ships: 50 },
-    { id: 'breach-red-capital', x: 1050, y: 260, owner: '#ef4444', ships: 125, capital: true },
-    // Western flank has a red foothold near its northern exit.
-    { id: 'breach-west-harbour', x: 600, y: 1700, owner: NEUTRAL, ships: 12 },
-    { id: 'breach-west-relay', x: 350, y: 1320, owner: NEUTRAL, ships: 20 },
-    { id: 'breach-west-bastion', x: 520, y: 940, owner: NEUTRAL, ships: 36 },
-    { id: 'breach-west-approach', x: 520, y: 540, owner: NEUTRAL, ships: 30 },
-    { id: 'breach-west-outpost', x: 600, y: 260, owner: '#ef4444', ships: 35 },
-    // Eastern flank is a slower, safer route to the enemy capital.
-    { id: 'breach-east-harbour', x: 1500, y: 1700, owner: NEUTRAL, ships: 12 },
-    { id: 'breach-east-relay', x: 1750, y: 1320, owner: NEUTRAL, ships: 20 },
-    { id: 'breach-east-bastion', x: 1580, y: 940, owner: NEUTRAL, ships: 36 },
-    { id: 'breach-east-approach', x: 1580, y: 540, owner: NEUTRAL, ships: 30 },
-    { id: 'breach-east-lookout', x: 1500, y: 260, owner: NEUTRAL, ships: 35 },
+    // Three affordable opening choices; each route reaches a marked Overdrive world.
+    { id: 'breach-home', x: 1200, y: 2140, owner: PLAYER, ships: 220, capital: true },
+    { id: 'breach-supply', x: 1200, y: 1770, owner: NEUTRAL, ships: 14 },
+    { id: 'breach-overdrive', x: 1200, y: 1380, owner: NEUTRAL, ships: 35, superweaponUnlocks: ['overdrive'] },
+    { id: 'breach-gate', x: 1200, y: 1000, owner: NEUTRAL, ships: 50 },
+    { id: 'breach-north-gate', x: 1200, y: 620, owner: NEUTRAL, ships: 48 },
+    { id: 'breach-red-capital', x: 1200, y: 240, owner: '#ef4444', ships: 125, capital: true },
+    // Western route has a second weapon site and a red foothold near its exit.
+    { id: 'breach-west-harbour', x: 700, y: 2020, owner: NEUTRAL, ships: 12 },
+    { id: 'breach-west-relay', x: 400, y: 1640, owner: NEUTRAL, ships: 20 },
+    { id: 'breach-west-bastion', x: 560, y: 1250, owner: NEUTRAL, ships: 36, superweaponUnlocks: ['overdrive'] },
+    { id: 'breach-west-junction', x: 880, y: 1070, owner: NEUTRAL, ships: 22 },
+    { id: 'breach-west-approach', x: 560, y: 800, owner: NEUTRAL, ships: 30 },
+    { id: 'breach-northwest-signal', x: 880, y: 580, owner: NEUTRAL, ships: 35 },
+    { id: 'breach-west-outpost', x: 650, y: 300, owner: '#ef4444', ships: 35 },
+    // Eastern route has the third weapon site and a neutral northern lookout.
+    { id: 'breach-east-harbour', x: 1700, y: 2020, owner: NEUTRAL, ships: 12 },
+    { id: 'breach-east-relay', x: 2000, y: 1640, owner: NEUTRAL, ships: 20 },
+    { id: 'breach-east-bastion', x: 1840, y: 1250, owner: NEUTRAL, ships: 36, superweaponUnlocks: ['overdrive'] },
+    { id: 'breach-east-junction', x: 1520, y: 1070, owner: NEUTRAL, ships: 22 },
+    { id: 'breach-east-approach', x: 1840, y: 800, owner: NEUTRAL, ships: 30 },
+    { id: 'breach-northeast-signal', x: 1520, y: 580, owner: NEUTRAL, ships: 35 },
+    { id: 'breach-east-lookout', x: 1750, y: 300, owner: NEUTRAL, ships: 35 },
   ],
 };
 
