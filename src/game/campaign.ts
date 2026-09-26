@@ -1,5 +1,6 @@
 import { SUPERWEAPON_IDS } from './superweapons';
 import type { SuperweaponId } from './types';
+import type { GalaxyTheme } from './galaxy';
 
 export const PLAYER = '#3b82f6';
 export const NEUTRAL = '#6b7280';
@@ -17,6 +18,7 @@ export type MapDefinition = {
   width: number;
   height: number;
   attackRange: number;
+  galaxyTheme?: GalaxyTheme;
   objective: { type: 'eliminate-capitals'; description: string };
   planets: PlanetDefinition[];
   orbit?: OrbitDefinition;
@@ -27,6 +29,7 @@ export type Chapter = { id: ChapterId; plannedLevels: number; maps: MapDefinitio
 
 export const FIRST_STRIKE: MapDefinition = {
   id: 'helios-first-strike', title: 'First Strike',
+  galaxyTheme: 'tutorial',
   briefing: 'Break through the red outpost, capture nearby worlds, and take the red capital. Keep your blue capital safe.',
   width: 1500, height: 1500, attackRange: 600,
   tutorial: { attackTargetId: 'west-landing' },
@@ -47,6 +50,7 @@ export const FIRST_STRIKE: MapDefinition = {
 
 export const BREACH_LINE: MapDefinition = {
   id: 'helios-breach-line', title: 'The Breach Line',
+  galaxyTheme: 'breach',
   briefing: 'Break through the red defensive line. Six Overdrive worlds surround the center: hold one to charge a production burst, or hold more to charge it faster before striking the red capital.',
   width: 2500, height: 2500, attackRange: 600, mobileFocus: 'capital',
   objective: { type: 'eliminate-capitals', description: 'Capture the red capital. Hold Overdrive worlds to charge production bursts faster.' },
@@ -82,6 +86,7 @@ export const BREACH_LINE: MapDefinition = {
 
 export const TURNING_TIDE: MapDefinition = {
   id: 'helios-turning-tide', title: 'The Turning Tide',
+  galaxyTheme: 'orbit',
   briefing: 'Capture the cheap worlds beside your blue capital, then board the rotating planets. Omni Strike and Production Overdrive worlds alternate around the star. Your capital stays still: leave a defence behind.',
   width: 2600, height: 2600, attackRange: 600, mobileFocus: 'capital',
   objective: { type: 'eliminate-capitals', description: 'Destroy both enemy capitals. Use rotating worlds to open new attack routes.' },

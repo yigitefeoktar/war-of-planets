@@ -5,6 +5,7 @@ import { TacticalAI } from './ai';
 import { FactionBonuses, superweaponChargeMultiplier } from './factions';
 import { assignQuickMatchSuperweaponPlanets, isPointAccessible, SUPERWEAPON_CHARGE_INTERVAL_SECONDS, SUPERWEAPON_IDS, SUPERWEAPON_MAX_CHARGES, OVERDRIVE_DURATION, OVERDRIVE_MULTIPLIER, REPULSE_DURATION, type SuperweaponTargetMode } from './superweapons';
 import { SUPERWEAPON_VISUALS, superweaponIconLayout } from './superweaponVisuals';
+import { galaxyAppearance, type GalaxyTheme } from './galaxy';
 
 interface Star {
   x: number;
@@ -97,6 +98,7 @@ type GameEngineOptions = {
   now?: () => number;
   superweaponUnlocksEnabled?: boolean;
   dysonChargeIntervalSeconds?: number;
+  galaxyTheme?: GalaxyTheme;
 };
 
 export class GameEngine {
@@ -113,6 +115,8 @@ export class GameEngine {
   factionUniversalProgress: Map<string, number> = new Map();
   readonly superweaponUnlocksEnabled: boolean;
   readonly dysonChargeIntervalSeconds?: number;
+  readonly backgroundColor: string;
+  private readonly galaxyStyle: ReturnType<typeof galaxyAppearance>;
   width: number;
   height: number;
   lastSpawnTime: number = Date.now();
@@ -153,6 +157,8 @@ export class GameEngine {
     this.nowProvider = options.now ?? Date.now;
     this.superweaponUnlocksEnabled = options.superweaponUnlocksEnabled ?? true;
     this.dysonChargeIntervalSeconds = options.dysonChargeIntervalSeconds;
+    this.galaxyStyle = galaxyAppearance(width, height, options.galaxyTheme);
+    this.backgroundColor = this.galaxyStyle.backgroundColor;
     this.lastSpawnTime = this.now();
     this.lastAITime = this.now();
     this.init();
@@ -210,8 +216,8 @@ export class GameEngine {
       }
     }
 
-    const nebulaPalette = ['65, 48, 156', '11, 105, 122', '28, 69, 151', '126, 40, 127'];
-    for (let i = 0; i < 9; i++) {
+    const { palette, cloudCount, starCount, alphaMultiplier } = this.galaxyStyle;
+    for (let i = 0; i < cloudCount; i++) {
       this.nebulae.push({
         x: this.random() * this.width,
         y: this.random() * this.height,
@@ -219,14 +225,14 @@ export class GameEngine {
         radiusY: 260 + this.random() * 420,
         rotation: this.random() * Math.PI,
         depth: 0.08 + this.random() * 0.18,
-        alpha: 0.07 + this.random() * 0.055,
-        rgb: nebulaPalette[i % nebulaPalette.length],
+        alpha: (0.07 + this.random() * 0.055) * alphaMultiplier,
+        rgb: palette[i % palette.length],
       });
     }
 
     // Generate several depths of stars. Most remain steady; a restrained
     // minority twinkles so the map feels alive without becoming noisy.
-    for (let i = 0; i < 850; i++) {
+    for (let i = 0; i < starCount; i++) {
       const depth = this.random();
       const alpha = 0.2 + this.random() * (0.38 + depth * 0.32);
       const tintRoll = this.random();
@@ -1075,7 +1081,7 @@ export class GameEngine {
     }
 
     // Clear background
-    ctx.fillStyle = '#03040c'; // Deep space navy-black
+    ctx.fillStyle = this.backgroundColor;
     ctx.fillRect(0, 0, this.width, this.height);
 
     // Calculate visible bounds

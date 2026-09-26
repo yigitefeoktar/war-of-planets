@@ -18,6 +18,12 @@ Connectivity is recalculated when the order is issued, using current ownership a
 
 Current content: Chapter 1 / First Strike (9 fixed planets), The Breach Line (23 fixed planets and six Overdrive sites), and The Turning Tide (24 planets, one orbiting system and a decorative star). Missions 4–5 and Chapter 2 are not released yet.
 
+## Galaxy and camera
+
+Authored maps choose a `galaxyTheme`: First Strike has one faint blue cloud, The Breach Line uses muted violet and rose, and The Turning Tide uses teal and violet. Cloud and star counts grow with battlefield area. Quick Match keeps the original palette; Hard Mode uses a slightly redder backdrop and more red clouds. These are visual settings and do not affect combat.
+
+The camera's minimum zoom follows the viewport size relative to the map, so an overview remains available without pulling far beyond a small battlefield. Maximum zoom grows from 1.8 on the tutorial map to 3 on the 3000-unit random maps. Wheel, pinch, double tap, intro, camera shortcuts, and the end-of-battle camera use those limits.
+
 ## First Strike tutorial
 
 First Strike alone opts into an action-driven tutorial via `tutorial.attackTargetId`. It is an authored 1500 × 1500 static map with one blue capital, one red capital, a weak red outpost directly ahead of the player, and six neutral worlds. The outpost is the first attack target. The red capital is beyond direct attack range from that outpost, so the player must take another world to reach it. A central crossing is the shortest route; western and eastern worlds offer optional expansion. All nine positions, owners, and starting ship counts are identical on each launch. No orbit, central star, or superweapon is present.

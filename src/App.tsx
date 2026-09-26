@@ -11,6 +11,7 @@ import { issueFleetOrder } from './game/logistics';
 import { GameEngine } from './game/engine';
 import { SUPERWEAPON_IDS, type SuperweaponId } from './game/superweapons';
 import { SUPERWEAPON_VISUALS } from './game/superweaponVisuals';
+import { clampZoom, zoomLimits } from './game/camera';
 import type { Base } from './game/types';
 
 function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled }: { selectedMode: ModeId, onSelectMode: (mode: ModeId) => void, progress: Progress, saveWarning: boolean, onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void }) {
@@ -367,9 +368,10 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     // World size
     const WORLD_WIDTH = map?.width ?? 3000;
     const WORLD_HEIGHT = map?.height ?? 3000;
+    const getZoomLimits = () => zoomLimits(width, height, WORLD_WIDTH, WORLD_HEIGHT);
 
     // Initialize Game Engine
-    const engine = createMatch(map);
+    const engine = createMatch(map, { hardMode: isHardMode });
     engine.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     engineRef.current = engine;
     // Availability includes weapons that can be produced later in this match.
@@ -452,15 +454,15 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     const introStartTime = Date.now() + 500; // 500ms pause before zooming
     const introDuration = 2500; // 2.5 seconds zoom
 
-    const startZoom = Math.min(width / WORLD_WIDTH, height / WORLD_HEIGHT) * 0.9;
+    const startZoom = clampZoom(Math.min(width / WORLD_WIDTH, height / WORLD_HEIGHT) * 0.9, getZoomLimits());
     const startX = (WORLD_WIDTH - width / startZoom) / 2;
     const startY = (WORLD_HEIGHT - height / startZoom) / 2;
 
     // Larger missions fit on desktop. On phones their overview intro settles
     // on the opening fleet, keeping nearby planets large enough to tap.
     const focusCapital = (map?.tutorial || (map?.mobileFocus === 'capital' && width < 700)) && playerBase;
-    const targetZoom = map && focusCapital ? width < 700 ? Math.min(0.35, width / (map.attackRange * 2 + 100)) : 0.6
-      : map ? Math.max(width < 700 ? 0.35 : 0.15, Math.min(width / WORLD_WIDTH, height / WORLD_HEIGHT) * 0.9) : 0.6;
+    const targetZoom = clampZoom(map && focusCapital ? width < 700 ? Math.min(0.35, width / (map.attackRange * 2 + 100)) : 0.6
+      : map ? Math.max(width < 700 ? 0.35 : 0.15, Math.min(width / WORLD_WIDTH, height / WORLD_HEIGHT) * 0.9) : 0.6, getZoomLimits());
     const targetX = focusCapital ? playerBase.x - (width / 2) / targetZoom : map ? (WORLD_WIDTH - width / targetZoom) / 2 : playerBase ? playerBase.x - (width / 2) / targetZoom : startX;
     const targetY = focusCapital ? playerBase.y - (height * 0.7) / targetZoom : map ? (WORLD_HEIGHT - height / targetZoom) / 2 : playerBase ? playerBase.y - (height / 2) / targetZoom : startY;
 
@@ -474,6 +476,9 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     // the world plus overscan (very zoomed out), centerline the camera.
     const CAMERA_OVERSCAN = 2000;
     const clampCamera = () => {
+      const limits = getZoomLimits();
+      cameraZoom = clampZoom(cameraZoom, limits);
+      desiredZoom = clampZoom(desiredZoom, limits);
       const viewW = canvas.width / cameraZoom;
       const viewH = canvas.height / cameraZoom;
       if (viewW >= WORLD_WIDTH + CAMERA_OVERSCAN * 2) {
@@ -510,7 +515,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       desiredZoom = cameraZoom;
     };
     const tweenTo = (ex: number, ey: number, ez: number, dur = 400) => {
-      camTween = { sx: cameraX, sy: cameraY, sz: cameraZoom, ex, ey, ez, t0: Date.now(), dur };
+      camTween = { sx: cameraX, sy: cameraY, sz: cameraZoom, ex, ey, ez: clampZoom(ez, getZoomLimits()), t0: Date.now(), dur };
     };
 
     // Camera bookmarks (slots 1..4) and held-key state for WASD/arrow panning.
@@ -696,7 +701,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       const worldY = (mouseY / cameraZoom) + cameraY;
 
       const zoomFactor = Math.exp(-e.deltaY * 0.002);
-      const newZoom = Math.max(0.1, Math.min(cameraZoom * zoomFactor, 3));
+      const newZoom = clampZoom(cameraZoom * zoomFactor, getZoomLimits());
       updateTutorial({ type: 'zoom', before: cameraZoom, after: newZoom });
 
       // Apply the zoom instantly (PC behavior matches the original — no
@@ -779,7 +784,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         const worldY = (centerScreenY / cameraZoom) + cameraY;
         const rawFactor = lastPinchDist > 0 ? dist / lastPinchDist : 1;
         const zoomFactor = Math.max(0.5, Math.min(rawFactor, 2.0));
-        const newZoom = Math.max(0.1, Math.min(cameraZoom * zoomFactor, 3));
+        const newZoom = clampZoom(cameraZoom * zoomFactor, getZoomLimits());
         updateTutorial({ type: 'zoom', before: cameraZoom, after: newZoom });
         cameraX = worldX - (centerScreenX / newZoom);
         cameraY = worldY - (centerScreenY / newZoom);
@@ -853,7 +858,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
           const tapMove = Math.hypot(touch.clientX - lastTapX, touch.clientY - lastTapY);
           if (tapDt < DOUBLE_TAP_MS && tapMove < DOUBLE_TAP_PX) {
             cancelTween();
-            const newZoom = Math.max(0.1, Math.min(cameraZoom * 1.5, 3));
+            const newZoom = clampZoom(cameraZoom * 1.5, getZoomLimits());
             const worldAnchorX = (touchX / cameraZoom) + cameraX;
             const worldAnchorY = (touchY / cameraZoom) + cameraY;
             cameraX = worldAnchorX - touchX / newZoom;
@@ -956,7 +961,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       const playerBases = Array.from(engine.bases.values()).filter(b => b.color === '#3b82f6');
       const target = playerBases.find(b => b.isCapital) ?? playerBases[0];
       if (!target) return;
-      const targetZoomVal = Math.max(cameraZoom, 1.0);
+      const targetZoomVal = clampZoom(Math.max(cameraZoom, 1.0), getZoomLimits());
       const ex = target.x - canvas.width / (2 * targetZoomVal);
       const ey = target.y - canvas.height / (2 * targetZoomVal);
       tweenTo(ex, ey, targetZoomVal, 400);
@@ -1038,7 +1043,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     let cinematicStartRotation = 0;
     let cinematicTargetRotation = 0;
     let cameraRotation = 0;
-    const cinematicTargetZoom = 2.5;
+    const cinematicTargetZoom = clampZoom(2.5, getZoomLimits());
     let isPlayerWinner = false;
 
     const loop = () => {
@@ -1211,7 +1216,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
       // Clear screen
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.fillStyle = '#05050a'; // Dark background
+      ctx.fillStyle = engine.backgroundColor;
       ctx.fillRect(0, 0, width, height);
 
       // Apply camera transform with rotation

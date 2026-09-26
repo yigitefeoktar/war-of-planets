@@ -4,12 +4,13 @@ import { DYSON_SPHERE_ID, validateMap, type MapDefinition } from './campaign';
 
 // Keep the legacy random generator for Quick Match. Authored games replace
 // only the initial planets and ships; stars, combat, AI, and controls are shared.
-export function createMatch(map?: MapDefinition): GameEngine {
+export function createMatch(map?: MapDefinition, options: { hardMode?: boolean } = {}): GameEngine {
   if (map) validateMap(map);
   const hasWeaponPlanets = map?.planets.some(planet => planet.superweaponUnlocks?.length) ?? false;
+  const galaxyTheme = options.hardMode ? 'hard' : map?.galaxyTheme;
   const engine = map?.orbit
-    ? new OrbitingGameEngine(map.width, map.height, map.orbit, hasWeaponPlanets)
-    : new GameEngine(map?.width ?? 3000, map?.height ?? 3000, { superweaponUnlocksEnabled: !map || hasWeaponPlanets });
+    ? new OrbitingGameEngine(map.width, map.height, map.orbit, hasWeaponPlanets, galaxyTheme)
+    : new GameEngine(map?.width ?? 3000, map?.height ?? 3000, { superweaponUnlocksEnabled: !map || hasWeaponPlanets, galaxyTheme });
   if (map) {
     engine.bases.clear();
     engine.pixels = [];

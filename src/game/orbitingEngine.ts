@@ -2,16 +2,18 @@ import { GameEngine } from './engine';
 import { DYSON_SPHERE_ID, type OrbitDefinition } from './campaign';
 import type { SuperweaponTargetMode } from './superweapons';
 import type { Base } from './types';
+import type { GalaxyTheme } from './galaxy';
 
 // A rigid rotating system, not a gravity simulation. The center is either a
 // decorative star or an optional capturable Dyson sphere defined by the map.
 export class OrbitingGameEngine extends GameEngine {
   private readonly orbitIds: Set<string>;
 
-  constructor(width: number, height: number, private readonly orbit: OrbitDefinition, hasWeaponPlanets = false) {
+  constructor(width: number, height: number, private readonly orbit: OrbitDefinition, hasWeaponPlanets = false, galaxyTheme?: GalaxyTheme) {
     super(width, height, {
       superweaponUnlocksEnabled: Boolean(orbit.dysonSphere) || hasWeaponPlanets,
       dysonChargeIntervalSeconds: orbit.dysonSphere?.chargeIntervalSeconds,
+      galaxyTheme,
     });
     this.orbitIds = new Set(orbit.planetIds);
   }
