@@ -6,17 +6,19 @@ import { createMatch } from './mapLoader';
 const byId = (id: string) => BREACH_LINE.planets.find(planet => planet.id === id)!;
 const inRange = (from: string, to: string) => Math.hypot(byId(from).x - byId(to).x, byId(from).y - byId(to).y) <= BREACH_LINE.attackRange;
 
-test('Breach Line has three affordable openings and connected routes to the red capital', () => {
+test('Breach Line has three affordable openings and connected routes through the larger map', () => {
   validateMap(BREACH_LINE);
-  assert.deepEqual([BREACH_LINE.width, BREACH_LINE.height, BREACH_LINE.planets.length], [2400, 2400, 20]);
+  assert.deepEqual([BREACH_LINE.width, BREACH_LINE.height, BREACH_LINE.planets.length], [2500, 2500, 23]);
   assert.deepEqual(BREACH_LINE.planets.filter(planet => planet.capital).map(planet => planet.id), ['breach-home', 'breach-red-capital']);
   const opening = BREACH_LINE.planets.filter(planet => planet.id !== 'breach-home' && inRange('breach-home', planet.id));
   assert.deepEqual(opening.map(planet => planet.id), ['breach-supply', 'breach-west-harbour', 'breach-east-harbour']);
   assert.ok(opening.every(planet => planet.owner === NEUTRAL && planet.ships <= 14));
   for (const route of [
-    ['breach-home', 'breach-supply', 'breach-overdrive', 'breach-gate', 'breach-north-gate', 'breach-red-capital'],
-    ['breach-home', 'breach-west-harbour', 'breach-west-relay', 'breach-west-bastion', 'breach-west-approach', 'breach-northwest-signal', 'breach-red-capital'],
-    ['breach-home', 'breach-east-harbour', 'breach-east-relay', 'breach-east-bastion', 'breach-east-approach', 'breach-northeast-signal', 'breach-red-capital'],
+    ['breach-home', 'breach-supply', 'breach-overdrive', 'breach-gate', 'breach-overdrive-north', 'breach-north-gate', 'breach-red-capital'],
+    ['breach-home', 'breach-west-harbour', 'breach-west-entry', 'breach-west-junction', 'breach-northwest-signal', 'breach-overdrive-north', 'breach-north-gate', 'breach-red-capital'],
+    ['breach-home', 'breach-east-harbour', 'breach-east-entry', 'breach-east-junction', 'breach-northeast-signal', 'breach-overdrive-north', 'breach-north-gate', 'breach-red-capital'],
+    ['breach-home', 'breach-west-harbour', 'breach-west-relay', 'breach-west-bastion', 'breach-west-approach', 'breach-west-outpost', 'breach-red-capital'],
+    ['breach-home', 'breach-east-harbour', 'breach-east-relay', 'breach-east-bastion', 'breach-east-approach', 'breach-east-lookout', 'breach-red-capital'],
   ]) for (let index = 1; index < route.length; index++) {
     assert.ok(inRange(route[index - 1], route[index]), `${route[index - 1]} cannot reach ${route[index]}`);
   }
@@ -48,10 +50,14 @@ test('holding the authored Overdrive site generates a charge that can be used', 
   assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 0);
 });
 
-test('all three marked worlds produce only Overdrive and duplicate sites charge faster', () => {
+test('all six central worlds produce only Overdrive and duplicate sites charge faster', () => {
   const sites = BREACH_LINE.planets.filter(planet => planet.superweaponUnlocks?.length);
-  assert.deepEqual(sites.map(planet => planet.id), ['breach-overdrive', 'breach-west-bastion', 'breach-east-bastion']);
+  assert.deepEqual(sites.map(planet => planet.id), [
+    'breach-overdrive', 'breach-overdrive-north', 'breach-west-junction',
+    'breach-northwest-signal', 'breach-east-junction', 'breach-northeast-signal',
+  ]);
   assert.ok(sites.every(planet => planet.owner === NEUTRAL && planet.superweaponUnlocks?.join() === 'overdrive'));
+  assert.ok(sites.every(planet => Math.hypot(planet.x - BREACH_LINE.width / 2, planet.y - BREACH_LINE.height / 2) <= 500));
 
   const engine = createMatch(BREACH_LINE);
   engine.lastAITime = Number.MAX_SAFE_INTEGER;
@@ -67,8 +73,9 @@ test('all three marked worlds produce only Overdrive and duplicate sites charge 
   assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 1);
   assert.equal(engine.activatePlanetAbility(PLAYER, 'breach-home', 'overdrive'), true);
 
-  engine.bases.get(sites[2].id)!.color = PLAYER;
-  engine.update(19);
+  for (const site of sites.slice(2)) engine.bases.get(site.id)!.color = PLAYER;
+  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'overdrive'), 6);
+  engine.update(9);
   assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 0);
   engine.update(1);
   assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 1);
