@@ -125,6 +125,9 @@
   .planet-command-normal .planet-command-content { grid-template-columns: minmax(0, 1fr); }
   .planet-command-normal .planet-abilities { grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); }
 }
+@media (max-width: 480px) {
+  .planet-command-normal .planet-abilities { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 html, body {
   margin: 0;
   padding: 0;
