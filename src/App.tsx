@@ -1451,7 +1451,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         const planet = commandPlanet ? engine?.bases.get(commandPlanet) : undefined;
         if (!engine) return null;
         const enemySelected = !!planet && planet.color !== '#3b82f6';
-        const weapons = ['overdrive', 'repulse', 'omni'] as SuperweaponId[];
+        const weapons = ['overdrive', 'omni', 'repulse'] as SuperweaponId[];
         const labels = { omni: 'Omni Strike', overdrive: 'Production Overdrive', repulse: 'Repulse Shield' };
         const descriptions = { omni: 'Warp 30% of every idle fleet here.', overdrive: '3x production / 15 seconds', repulse: 'Repel and destroy arrivals / 6 seconds' };
         const renderBar = (state: 'normal' | 'enemy') => {

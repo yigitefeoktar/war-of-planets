@@ -82,7 +82,7 @@ export const BREACH_LINE: MapDefinition = {
 
 export const TURNING_TIDE: MapDefinition = {
   id: 'helios-turning-tide', title: 'The Turning Tide',
-  briefing: 'Capture the cheap worlds beside your blue capital, then board the rotating planets. Seize the central Dyson sphere to generate a universal superweapon charge. Your capital stays still: leave a defence behind.',
+  briefing: 'Capture the cheap worlds beside your blue capital, then board the rotating planets. Omni Strike and Production Overdrive worlds alternate around the star. Your capital stays still: leave a defence behind.',
   width: 2600, height: 2600, attackRange: 600, mobileFocus: 'capital',
   objective: { type: 'eliminate-capitals', description: 'Destroy both enemy capitals. Use rotating worlds to open new attack routes.' },
   planets: [
@@ -99,24 +99,23 @@ export const TURNING_TIDE: MapDefinition = {
     { id: 'east-bastion', x: 2360, y: 1300, owner: NEUTRAL, ships: 40 },
     { id: 'east-approach', x: 2218, y: 1830, owner: NEUTRAL, ships: 28 },
     { id: 'southeast-harbour', x: 1830, y: 2218, owner: NEUTRAL, ships: 12 },
-    // Moving transport ring. Enemy footholds rotate toward the player's flank.
-    { id: 'tide-boarding', x: 1300, y: 1920, owner: NEUTRAL, ships: 12 },
-    { id: 'tide-southwest', x: 862, y: 1738, owner: NEUTRAL, ships: 20 },
-    { id: 'tide-west', x: 680, y: 1300, owner: NEUTRAL, ships: 30 },
-    { id: 'tide-red', x: 862, y: 862, owner: '#ef4444', ships: 60 },
-    { id: 'tide-north', x: 1300, y: 680, owner: NEUTRAL, ships: 38 },
-    { id: 'tide-green', x: 1738, y: 862, owner: '#22c55e', ships: 60 },
-    { id: 'tide-east', x: 1920, y: 1300, owner: NEUTRAL, ships: 30 },
-    { id: 'tide-southeast', x: 1738, y: 1738, owner: NEUTRAL, ships: 20 },
-    // Inner shortcuts: the extra production is useful, but exposed on all sides.
-    { id: 'inner-south', x: 1300, y: 1600, owner: NEUTRAL, ships: 18 },
-    { id: 'inner-west', x: 1000, y: 1300, owner: NEUTRAL, ships: 24 },
-    { id: 'inner-north', x: 1300, y: 1000, owner: NEUTRAL, ships: 35 },
-    { id: 'inner-east', x: 1600, y: 1300, owner: NEUTRAL, ships: 24 },
+    // Both rotating rings alternate Omni Strike and Production Overdrive sites.
+    { id: 'tide-boarding', x: 1300, y: 1920, owner: NEUTRAL, ships: 12, superweaponUnlocks: ['omni'] },
+    { id: 'tide-southwest', x: 862, y: 1738, owner: NEUTRAL, ships: 20, superweaponUnlocks: ['overdrive'] },
+    { id: 'tide-west', x: 680, y: 1300, owner: NEUTRAL, ships: 30, superweaponUnlocks: ['omni'] },
+    { id: 'tide-red', x: 862, y: 862, owner: '#ef4444', ships: 60, superweaponUnlocks: ['overdrive'] },
+    { id: 'tide-north', x: 1300, y: 680, owner: NEUTRAL, ships: 38, superweaponUnlocks: ['omni'] },
+    { id: 'tide-green', x: 1738, y: 862, owner: '#22c55e', ships: 60, superweaponUnlocks: ['overdrive'] },
+    { id: 'tide-east', x: 1920, y: 1300, owner: NEUTRAL, ships: 30, superweaponUnlocks: ['omni'] },
+    { id: 'tide-southeast', x: 1738, y: 1738, owner: NEUTRAL, ships: 20, superweaponUnlocks: ['overdrive'] },
+    // Inner shortcuts offer the same alternating rewards closer to the star.
+    { id: 'inner-south', x: 1300, y: 1600, owner: NEUTRAL, ships: 18, superweaponUnlocks: ['omni'] },
+    { id: 'inner-west', x: 1000, y: 1300, owner: NEUTRAL, ships: 24, superweaponUnlocks: ['overdrive'] },
+    { id: 'inner-north', x: 1300, y: 1000, owner: NEUTRAL, ships: 35, superweaponUnlocks: ['omni'] },
+    { id: 'inner-east', x: 1600, y: 1300, owner: NEUTRAL, ships: 24, superweaponUnlocks: ['overdrive'] },
   ],
   orbit: {
     x: 1300, y: 1300, periodSeconds: 180,
-    dysonSphere: { chargeIntervalSeconds: 90 },
     planetIds: ['tide-boarding', 'tide-southwest', 'tide-west', 'tide-red', 'tide-north', 'tide-green', 'tide-east', 'tide-southeast', 'inner-south', 'inner-west', 'inner-north', 'inner-east'],
   },
 };

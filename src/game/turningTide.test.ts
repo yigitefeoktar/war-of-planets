@@ -2,7 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DYSON_SPHERE_ID, TURNING_TIDE, PLAYER, NEUTRAL, validateMap, getOutcome } from './campaign';
 import { createMatch } from './mapLoader';
-import { SUPERWEAPON_IDS } from './superweapons';
 
 function quietMap() {
   const engine = createMatch(TURNING_TIDE);
@@ -12,13 +11,13 @@ function quietMap() {
   return engine;
 }
 
-test('Turning Tide loads its authored planets, central Dyson sphere, orbit members, and three factions', () => {
+test('Turning Tide loads its authored planets, decorative star, orbit members, and three factions', () => {
   validateMap(TURNING_TIDE);
   const engine = createMatch(TURNING_TIDE);
-  assert.equal(engine.bases.size, 25);
-  const sphere = engine.bases.get(DYSON_SPHERE_ID)!;
-  assert.deepEqual([sphere.x, sphere.y, sphere.color, sphere.pixelCount, sphere.isDysonSphere], [1300, 1300, NEUTRAL, 0, true]);
-  assert.equal(engine.pixels.some(ship => ship.baseId === DYSON_SPHERE_ID), false);
+  assert.equal(engine.bases.size, 24);
+  assert.equal(TURNING_TIDE.orbit!.dysonSphere, undefined);
+  assert.equal(engine.bases.has(DYSON_SPHERE_ID), false);
+  assert.equal(engine.ownsDysonSphere(PLAYER), false);
   assert.equal(TURNING_TIDE.orbit!.planetIds.length, 12);
   assert.equal([...engine.bases.values()].filter(p => p.isCapital).length, 3);
   assert.equal(getOutcome(engine.bases.values()), null);
@@ -28,26 +27,12 @@ test('Turning Tide loads its authored planets, central Dyson sphere, orbit membe
   }
 });
 
-test('a neutral Dyson sphere stays unguarded and the first arriving ship captures it', () => {
-  const engine = createMatch(TURNING_TIDE);
-  engine.lastAITime = Number.MAX_SAFE_INTEGER;
-  engine.lastSpawnTime = 0;
-  engine.update(1 / 60);
-  const sphere = engine.bases.get(DYSON_SPHERE_ID)!;
-  assert.equal(engine.pixels.some(ship => ship.baseId === sphere.id), false);
-
-  const ship = engine.pixels.find(ship => ship.color === PLAYER)!;
-  ship.state = 'moving';
-  ship.targetBaseId = sphere.id;
-  ship.x = sphere.x;
-  ship.y = sphere.y;
-  engine.update(1 / 60);
-  assert.equal(sphere.color, PLAYER);
-  assert.equal(ship.dead, undefined);
-  assert.equal(ship.state, 'idle');
-  assert.equal(ship.baseId, sphere.id);
-  assert.equal(engine.ownsDysonSphere(PLAYER), true);
-  assert.equal(Math.ceil(engine.getSuperweaponSecondsRemaining(PLAYER, 'omni')!), 90);
+test('the star cannot be captured or generate universal charges', () => {
+  const engine = quietMap();
+  assert.equal(engine.bases.has(DYSON_SPHERE_ID), false);
+  engine.update(90);
+  assert.equal(engine.getUniversalCharge(PLAYER), 0);
+  assert.equal(engine.getSuperweaponSecondsRemaining(PLAYER, 'omni'), null);
 });
 
 test('opening gives three affordable expansion choices without an immediate enemy attack', () => {
@@ -64,10 +49,6 @@ test('full rotation preserves clear spacing, fixed fortresses, and map connectiv
   for (let second = 0; second <= 180; second++) {
     const bases = [...engine.bases.values()];
     for (const p of bases) {
-      if (p.isDysonSphere) {
-        assert.deepEqual([p.x, p.y], [TURNING_TIDE.orbit!.x, TURNING_TIDE.orbit!.y]);
-        continue;
-      }
       if (!orbitIds.has(p.id)) {
         const original = TURNING_TIDE.planets.find(q => q.id === p.id)!;
         assert.equal(p.x, original.x); assert.equal(p.y, original.y);
@@ -83,18 +64,28 @@ test('full rotation preserves clear spacing, fixed fortresses, and map connectiv
   }
 });
 
-test('Dyson sphere generates one universal charge, makes no ships, and grants access to every weapon', () => {
+test('outer and inner rotating worlds alternate Omni Strike and Production Overdrive', () => {
+  const orbitIds = TURNING_TIDE.orbit!.planetIds;
+  for (const ring of [orbitIds.slice(0, 8), orbitIds.slice(8)]) {
+    assert.deepEqual(ring.map(id => TURNING_TIDE.planets.find(planet => planet.id === id)!.superweaponUnlocks),
+      ring.map((_, index) => [index % 2 === 0 ? 'omni' : 'overdrive']));
+  }
+  assert.ok(TURNING_TIDE.planets.filter(planet => !orbitIds.includes(planet.id)).every(planet => !planet.superweaponUnlocks?.length));
+
   const engine = quietMap();
-  const sphere = engine.bases.get(DYSON_SPHERE_ID)!;
-  sphere.color = PLAYER;
-  engine.lastSpawnTime = 0;
-  const sphereShips = () => engine.pixels.filter(ship => ship.baseId === DYSON_SPHERE_ID).length;
-  engine.update(89);
-  assert.equal(engine.getUniversalCharge(PLAYER), 0);
+  engine.bases.get('tide-boarding')!.color = PLAYER;
+  engine.bases.get('tide-southwest')!.color = PLAYER;
+  assert.deepEqual([...engine.getOwnedSuperweapons(PLAYER)], ['omni', 'overdrive']);
+  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'omni'), 1);
+  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'overdrive'), 1);
+  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'repulse'), 0);
+  engine.update(59);
+  assert.equal(engine.getSuperweaponCharge(PLAYER, 'omni'), 0);
+  assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 0);
   engine.update(1);
-  assert.equal(engine.getUniversalCharge(PLAYER), 1);
-  assert.equal(sphereShips(), 0);
-  assert.deepEqual([...engine.getOwnedSuperweapons(PLAYER)], SUPERWEAPON_IDS);
+  assert.equal(engine.getSuperweaponCharge(PLAYER, 'omni'), 1);
+  assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 1);
+  assert.equal(engine.getUniversalCharge(PLAYER), 0);
 });
 
 test('a boarding world leaves home range and opens an attack on the red command', () => {

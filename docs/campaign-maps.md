@@ -16,7 +16,7 @@ The 600-world-unit range remains a strict source-to-target limit for attacks aga
 
 Connectivity is recalculated when the order is issued, using current ownership and live positions. Capturing a bridge can join or split networks, and moving planets can create temporary connections. Once launched, a transfer continues to its destination even if the connection later breaks. Mouse and touch orders share the same rule. Selection and range visuals remain the existing game visuals; this feature adds no network lines or destination rings. Hostile AI logic, Omni-Strike range, and ordinary attack range are unchanged.
 
-Current content: Chapter 1 / First Strike (9 fixed planets), The Breach Line (20 fixed planets and three Overdrive sites), and The Turning Tide (24 planets, one orbiting system and a Dyson sphere). Missions 4–5 and Chapter 2 are not released yet.
+Current content: Chapter 1 / First Strike (9 fixed planets), The Breach Line (23 fixed planets and six Overdrive sites), and The Turning Tide (24 planets, one orbiting system and a decorative star). Missions 4–5 and Chapter 2 are not released yet.
 
 ## First Strike tutorial
 
@@ -46,15 +46,15 @@ Winning First Strike starts The Breach Line in the current run. Winning The Brea
 A 2600 × 2600 battlefield, with 12 fixed outer worlds and 12 rotating worlds around one white star. Rotation remains clockwise, once every 180 seconds. Both enemy capitals must fall; the blue capital must survive.
 
 - Opening: 260 ships at the fixed southern capital. Two cheap outer harbours and the boarding planet provide three expansion choices before enemy territory.
-- Moving route: board the outer orbit, develop the four inner worlds, and use passing planets as staging positions. All 12 orbiting worlds share angular speed; connections to the fixed outer ring open and close.
+- Moving route: board the outer orbit, develop the four inner worlds, and use passing planets as staging positions. All 12 orbiting worlds share angular speed; connections to the fixed outer ring open and close. Both rotating rings alternate Omni Strike and Production Overdrive worlds.
 - Fixed routes: the west and east flanks provide permanent, more heavily defended alternatives to riding the orbit.
 - Pressure: red and green each begin with a capital, a fixed outpost, and an orbiting foothold. The northern neutral divide separates their command worlds, but they can fight each other too.
-- Reward: more captured worlds mean more ship production. Capturing the central Dyson sphere generates one universal superweapon charge every 90 seconds while it is held.
+- Reward: capturing marked rotating worlds unlocks their weapon and generates charges while held. The center is a normal star and cannot be captured.
 
 The full orbit stays clear of fixed planets. Desktop opens on the complete map; `mobileFocus: 'capital'` moves from the overview intro to a readable southern opening on phones. Normal panning and zoom remain available.
 
 ## Orbiting system
 
-An optional `orbit` defines the fixed white star centre (`x`, `y`), a clockwise rotation period in simulation seconds (`periodSeconds`), and participating `planetIds`. The Turning Tide rotates 12 of its 24 planets once every 180 seconds. Every member uses the same angular speed, preserving their spacing and mutual attack ranges. A map without a Dyson sphere has a decorative star. The Turning Tide's Dyson sphere is capturable and produces universal charges; it does not affect gravity, collision, damage, or victory. Orbit regression tests use an independent fixture so tutorial map changes do not change their coverage.
+An optional `orbit` defines the fixed white star centre (`x`, `y`), a clockwise rotation period in simulation seconds (`periodSeconds`), and participating `planetIds`. The Turning Tide rotates 12 of its 24 planets once every 180 seconds. Every member uses the same angular speed, preserving their spacing and mutual attack ranges. With no Dyson sphere configured, its star is decorative and has no effect on gravity, collision, damage, or victory. Orbit regression tests use an independent fixture so tutorial map changes do not change their coverage.
 
 Stationed ships move with their planet; launched ships pursue the moving target in world space. Captures do not stop an orbit. Pausing stops rotation, retry resets positions, and end-of-battle slow motion applies to orbits too. Quick Match still uses the unchanged static random map. Validation checks membership, period, star clearance, and the complete orbit's map-edge clearance. Only one system per map is supported for now; multiple stars are intentionally deferred.
