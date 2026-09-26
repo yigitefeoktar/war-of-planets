@@ -263,7 +263,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   const [fleetSize, setFleetSize] = useState<number>(1.0);
   const fleetSizeRef = useRef<number>(1.0);
   const [availableWeapons, setAvailableWeapons] = useState<Set<SuperweaponId>>(() => new Set());
-  const [ownedWeapons, setOwnedWeapons] = useState<Set<SuperweaponId>>(() => new Set());
   const [chargeState, setChargeState] = useState(() => ({
     weapons: Object.fromEntries(SUPERWEAPON_IDS.map(weapon => [weapon, { charge: 0, progress: 0, sources: 0, secondsRemaining: null as number | null }])) as Record<SuperweaponId, { charge: number; progress: number; sources: number; secondsRemaining: number | null }>,
     universalCharge: 0,
@@ -401,7 +400,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
     const updatePlayerStats = () => {
       const color = '#3b82f6';
-      setOwnedWeapons(engine.getOwnedSuperweapons(color));
       setChargeState({
         weapons: Object.fromEntries(SUPERWEAPON_IDS.map(weapon => [weapon, {
           charge: engine.getSuperweaponCharge(color, weapon),
@@ -1522,7 +1520,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
                 </button>;
               })}
             </div>
-            <p className="planet-command-hint empire-hint" aria-live="polite">{targetingMode ? `${labels[targetingMode]}: ${targetingMode === 'omni' ? 'choose a highlighted enemy or neutral planet' : 'choose a highlighted friendly planet'}.` : availableWeapons.size ? `${ownedWeapons.size ? `Producing: ${weapons.filter(weapon => ownedWeapons.has(weapon)).map(weapon => labels[weapon]).join(', ')}.` : 'Capture a marked weapon planet to begin charging.'} Charges are stored when a site is lost.` : 'No superweapons in this mission.'} {targetingMode && <button onClick={() => { targetingModeRef.current = null; setTargetingMode(null); }}>Cancel targeting (Esc)</button>}</p>
+            {targetingMode && <p className="planet-command-hint empire-hint" aria-live="polite">{`${labels[targetingMode]}: ${targetingMode === 'omni' ? 'choose a highlighted enemy or neutral planet' : 'choose a highlighted friendly planet'}.`} <button onClick={() => { targetingModeRef.current = null; setTargetingMode(null); }}>Cancel targeting (Esc)</button></p>}
           </>}
             </div>
           </div>;
