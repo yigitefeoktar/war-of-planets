@@ -20,6 +20,35 @@
   display: flex; justify-content: center; align-items: flex-end;
   gap: 12px; width: 100%; pointer-events: auto;
 }
+.superweapon-targeting-banner {
+  position: absolute; z-index: 45; top: 96px; left: 50%;
+  display: flex; align-items: center; justify-content: space-between; gap: 18px;
+  width: min(560px, calc(100% - 24px)); padding: 11px 12px 11px 16px;
+  transform: translateX(-50%); box-sizing: border-box;
+  border: 1px solid var(--weapon-color); border-radius: 12px;
+  background: rgba(3, 13, 25, .96); color: #e9f7fc;
+  box-shadow: 0 12px 42px rgba(0, 0, 0, .55), 0 0 24px color-mix(in srgb, var(--weapon-color) 22%, transparent);
+  font-family: monospace; pointer-events: auto;
+}
+.superweapon-targeting-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.superweapon-targeting-copy strong { color: var(--weapon-color); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+.superweapon-targeting-copy span { color: #c4ebf5; font-size: 11px; }
+.superweapon-targeting-banner button {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 10px;
+  min-height: 44px; padding: 0 16px; border: 1px solid var(--weapon-color); border-radius: 8px;
+  background: color-mix(in srgb, var(--weapon-color) 18%, #081b2b);
+  color: #fff; font: 700 12px monospace; text-transform: uppercase; cursor: pointer;
+}
+.superweapon-targeting-banner button:hover { background: color-mix(in srgb, var(--weapon-color) 32%, #081b2b); }
+.superweapon-targeting-banner button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.superweapon-targeting-banner button span { color: #b9d0dc; font-size: 10px; }
+@media (max-width: 760px) {
+  .superweapon-targeting-banner { top: 64px; }
+}
+@media (max-width: 480px) {
+  .superweapon-targeting-banner { gap: 8px; padding: 9px; }
+  .superweapon-targeting-banner button { gap: 4px; padding: 0 11px; }
+}
 .planet-command-content { display: grid; align-items: stretch; gap: 14px; width: max-content; max-width: 100%; }
 .planet-command::before { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; background: linear-gradient(90deg, rgba(59, 130, 246, .035), transparent 30%, transparent 70%, rgba(34, 211, 238, .025)); }
 .planet-command-summary { position: relative; display: flex; min-width: 0; flex-direction: column; justify-content: center; border-right: 1px solid rgba(83, 151, 180, .17); padding-right: 14px; }
@@ -104,8 +133,6 @@
   grid-column: auto; display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
 }
-.empire-hint { grid-column: 1 / -1; min-width: 0; }
-.empire-hint button { color: #c4ebf5; text-decoration: underline; padding: 5px; }
 .planet-ability.targeting { border-color: currentColor; }
 @media (max-width: 760px) {
   .planet-command-normal { width: min(100%, 480px); }

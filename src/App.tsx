@@ -14,6 +14,10 @@ import { SUPERWEAPON_VISUALS } from './game/superweaponVisuals';
 import { clampZoom, zoomLimits } from './game/camera';
 import type { Base } from './game/types';
 
+const SUPERWEAPON_LABELS: Record<SuperweaponId, string> = {
+  omni: 'Omni Strike', overdrive: 'Production Overdrive', repulse: 'Repulse Shield',
+};
+
 function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled }: { selectedMode: ModeId, onSelectMode: (mode: ModeId) => void, progress: Progress, saveWarning: boolean, onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [scale, setScale] = useState(1);
@@ -330,6 +334,11 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     targetingModeRef.current = next;
     setTargetingMode(next);
     playSound(next ? 'charge' : 'click', isSoundEnabledRef.current);
+  };
+
+  const cancelTargeting = () => {
+    targetingModeRef.current = null;
+    setTargetingMode(null);
   };
 
   useEffect(() => {
@@ -1372,6 +1381,16 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         </div>
       </div>
 
+      {showUI && targetingMode && !winner && !isPaused && (
+        <div className="superweapon-targeting-banner" style={{ '--weapon-color': SUPERWEAPON_VISUALS[targetingMode].color } as React.CSSProperties} role="region" aria-label={`${SUPERWEAPON_LABELS[targetingMode]} targeting`}>
+          <div className="superweapon-targeting-copy" aria-live="polite">
+            <strong>{SUPERWEAPON_LABELS[targetingMode]}</strong>
+            <span>Choose a highlighted {targetingMode === 'omni' ? 'enemy or neutral' : 'friendly'} planet</span>
+          </div>
+          <button type="button" onClick={cancelTargeting} aria-label={`Cancel ${SUPERWEAPON_LABELS[targetingMode]} targeting`}>Cancel <span aria-hidden="true">Esc</span></button>
+        </div>
+      )}
+
       {/* Paused Overlay */}
       {isPaused && !winner && (
         <div 
@@ -1434,7 +1453,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         if (!engine) return null;
         const enemySelected = !!planet && planet.color !== '#3b82f6';
         const weapons = ['overdrive', 'omni', 'repulse'] as SuperweaponId[];
-        const labels = { omni: 'Omni Strike', overdrive: 'Production Overdrive', repulse: 'Repulse Shield' };
         const descriptions = { omni: 'Warp 30% of every idle fleet here.', overdrive: '3x production / 15 seconds', repulse: 'Repel and destroy arrivals / 6 seconds' };
         const renderBar = (state: 'normal' | 'enemy') => {
           const shownPlanet = planet && (state === 'normal') === (planet.color === '#3b82f6') ? planet : undefined;
@@ -1470,22 +1488,21 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
                   : !targets.length ? 'No eligible target' : 'Ready';
                 const canPress = status === 'Ready' || targetingMode === weapon;
                 const visual = SUPERWEAPON_VISUALS[weapon];
-                return <button key={weapon} className={`planet-ability ${weapon} ${targetingMode === weapon ? 'targeting' : ''}`} style={{ '--weapon-color': visual.color } as React.CSSProperties} disabled={!canPress} aria-label={`${labels[weapon]}. ${status}`} aria-pressed={targetingMode === weapon} onClick={() => activateAbility(weapon)}>
+                return <button key={weapon} className={`planet-ability ${weapon} ${targetingMode === weapon ? 'targeting' : ''}`} style={{ '--weapon-color': visual.color } as React.CSSProperties} disabled={!canPress} aria-label={`${SUPERWEAPON_LABELS[weapon]}. ${status}`} aria-pressed={targetingMode === weapon} onClick={() => activateAbility(weapon)}>
                   <span className="planet-ability-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       {visual.paths.map(({ d, fill }, index) => <path key={index} d={d} fill={fill ? 'currentColor' : 'none'} stroke={fill ? 'none' : 'currentColor'} />)}
                     </svg>
                   </span>
                   <span className="planet-ability-copy">
-                    <span className="planet-ability-title"><span>{labels[weapon]}</span><strong>{ready ? charge.charge > 0 ? '1 CHARGE' : 'DYSON' : `${Math.floor(progress * 100)}%`}</strong></span>
+                    <span className="planet-ability-title"><span>{SUPERWEAPON_LABELS[weapon]}</span><strong>{ready ? charge.charge > 0 ? '1 CHARGE' : 'DYSON' : `${Math.floor(progress * 100)}%`}</strong></span>
                     <span className="planet-ability-description">{descriptions[weapon]}</span>
-                    {!ready && canProduce && <span className="planet-ability-track" role="progressbar" aria-label={`${labels[weapon]} charge`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(progress * 100)}><span style={{ width: `${progress * 100}%` }} /></span>}
+                    {!ready && canProduce && <span className="planet-ability-track" role="progressbar" aria-label={`${SUPERWEAPON_LABELS[weapon]} charge`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(progress * 100)}><span style={{ width: `${progress * 100}%` }} /></span>}
                     <small>{status}{active.length > 0 && ` · Active on ${active.length} ${active.length === 1 ? 'world' : 'worlds'} / ${Math.max(...active)}s`}</small>
                   </span>
                 </button>;
               })}
             </div>
-            {targetingMode && <p className="planet-command-hint empire-hint" aria-live="polite">{`${labels[targetingMode]}: ${targetingMode === 'omni' ? 'choose a highlighted enemy or neutral planet' : 'choose a highlighted friendly planet'}.`} <button onClick={() => { targetingModeRef.current = null; setTargetingMode(null); }}>Cancel targeting (Esc)</button></p>}
           </>}
             </div>
           </div>;
