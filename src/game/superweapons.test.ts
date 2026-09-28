@@ -92,12 +92,18 @@ test('accessible territory is the union of 600-unit areas around owned planets',
   assert.equal(isPointAccessible(engine.bases.values(), BLUE, 701, 100, 600), false);
 });
 
-test('Omni Strike spends one charge and launches from the whole empire', () => {
+test('Omni Strike spends one charge and creates 30% of idle ships on each owned planet', () => {
   const engine = fixture();
+  engine.addBase('second', 200, 300, BLUE, 7);
+  const originalShips = [...engine.pixels];
   engine.setSuperweaponCharge(BLUE, 'omni', 1);
   assert.equal(engine.activateOmniStrike(BLUE, 'enemy'), true);
   assert.equal(engine.getSuperweaponCharge(BLUE, 'omni'), 0);
-  assert.ok(engine.pixels.some(pixel => pixel.color === BLUE && pixel.state === 'moving' && pixel.isWarp));
+  assert.equal(engine.pixels.length, originalShips.length + 5);
+  assert.ok(originalShips.every(pixel => pixel.state === 'idle' && !pixel.isWarp));
+  assert.equal(engine.pixels.filter(pixel => pixel.baseId === 'capital' && pixel.state === 'moving' && pixel.isWarp && pixel.targetBaseId === 'enemy').length, 3);
+  assert.equal(engine.pixels.filter(pixel => pixel.baseId === 'second' && pixel.state === 'moving' && pixel.isWarp && pixel.targetBaseId === 'enemy').length, 2);
+  assert.equal(new Set(engine.pixels.map(pixel => pixel.id)).size, engine.pixels.length);
 });
 
 function incoming(engine: GameEngine, color = RED, warp = false) {

@@ -478,17 +478,18 @@ export class GameEngine {
 
     let totalLaunched = 0;
     for (const base of playerBases) {
-      const idlePixels = this.pixels.filter(p => !p.dead && p.baseId === base.id && p.state === 'idle');
+      const idlePixels = this.pixels.filter(p => !p.dead && p.color === playerColor && p.baseId === base.id && p.state === 'idle');
       const countToSend = Math.floor(idlePixels.length * 0.3);
       
       if (countToSend > 0) {
         totalLaunched += countToSend;
         for (let i = 0; i < countToSend; i++) {
-          const p = idlePixels[i];
+          const p = this.createIdlePixel(base.id, base.x, base.y, playerColor);
           p.state = 'moving';
           p.targetBaseId = toId;
           p.isWarp = true;
           p.trail = [];
+          this.pixels.push(p);
         }
       }
     }
