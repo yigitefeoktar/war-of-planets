@@ -1425,8 +1425,9 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         if (!engine || !planet) return null;
         const owned = planet.color === '#3b82f6';
         const weapons = (owned ? ['overdrive', 'repulse'] : ['omni']) as SuperweaponId[];
+        const shownWeapons = weapons.filter(weapon => availableWeapons.has(weapon));
         const descriptions = { omni: 'Warp 30% of every idle fleet here.', overdrive: '3x production / 15 seconds', repulse: 'Repel and destroy arrivals / 6 seconds' };
-        return <div className="planet-command-stage">
+        return <div className={`planet-command-stage${shownWeapons.length ? '' : owned ? ' planet-command-stage-fleet' : ' planet-command-stage-summary'}`}>
           <div className="planet-command" role="region" aria-label="Planet commands"
             onPointerDown={event => event.stopPropagation()} onTouchStart={event => event.stopPropagation()}>
             <div className="planet-command-summary">
@@ -1446,8 +1447,8 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
               </div>
               <p className="planet-command-hint">Choose a destination</p>
             </div>}
-            {weapons.some(weapon => availableWeapons.has(weapon)) && <div className="planet-abilities">
-              {weapons.filter(weapon => availableWeapons.has(weapon)).map(weapon => {
+            {shownWeapons.length > 0 && <div className="planet-abilities">
+              {shownWeapons.map(weapon => {
                 const active = weapon === 'omni' ? null : planet[weapon];
                 const charge = chargeState.weapons[weapon];
                 const ready = charge.charge > 0 || chargeState.universalCharge > 0;
