@@ -1,12 +1,18 @@
-import type { Base } from './types';
+import type { Base, Pixel } from './types';
 
 type FleetNetwork = {
   bases: Map<string, Base>;
+  pixels: Pixel[];
   MAX_ATTACK_RANGE: number;
   sendUnits: (fromId: string, toId: string, percentage?: number) => void;
 };
 
 const distance = (a: Base, b: Base) => Math.hypot(a.x - b.x, a.y - b.y);
+
+export function hasIncomingHostile(pixels: readonly Pixel[], base: Base): boolean {
+  return pixels.some(ship => !ship.dead && ship.state === 'moving'
+    && ship.targetBaseId === base.id && ship.color !== base.color);
+}
 
 /** Friendly planets connected by one or more in-range friendly links. */
 export function connectedFriendlyIds(bases: Iterable<Base>, sourceId: string, linkRange: number): Set<string> {
@@ -42,6 +48,9 @@ export function canIssueFleetOrder(bases: Iterable<Base>, fromId: string, toId: 
 /** Validate the order at launch time. A launched fleet is never cancelled later. */
 export function issueFleetOrder(engine: FleetNetwork, fromId: string, toId: string, percentage: number): boolean {
   if (!canIssueFleetOrder(engine.bases.values(), fromId, toId, engine.MAX_ATTACK_RANGE)) return false;
-  engine.sendUnits(fromId, toId, percentage);
+  const source = engine.bases.get(fromId)!;
+  // Leave a small garrison only when a full launch would empty a threatened planet.
+  const deployed = percentage === 1 && hasIncomingHostile(engine.pixels, source) ? 0.9 : percentage;
+  engine.sendUnits(fromId, toId, deployed);
   return true;
 }

@@ -60,3 +60,34 @@ test('invalid, missing and same-planet orders are rejected without launching shi
   assert.equal(issueFleetOrder(engine, 'player_1', 'missing', 1), false);
   assert.equal(engine.pixels.filter(ship => ship.state === 'moving').length, movingBefore);
 });
+
+test('a full launch keeps a small garrison when hostile ships are inbound', () => {
+  const engine = new GameEngine(1200, 800);
+  engine.bases.clear(); engine.pixels = []; engine.nextPixelId = 0;
+  engine.addBase('source', 100, 400, PLAYER, 20);
+  engine.addBase('target', 300, 400, RED, 1);
+  engine.addBase('enemy', 500, 400, RED, 1);
+  engine.sendUnits('enemy', 'source', 1);
+  const attacker = engine.pixels.find(ship => ship.baseId === 'enemy' && ship.state === 'moving')!;
+  attacker.x = 101; attacker.y = 400;
+
+  assert.equal(issueFleetOrder(engine, 'source', 'target', 1), true);
+  assert.equal(engine.pixels.filter(ship => ship.baseId === 'source' && ship.state === 'idle').length, 2);
+  assert.equal(engine.pixels.filter(ship => ship.baseId === 'source' && ship.state === 'moving').length, 18);
+  engine.lastAITime = Number.MAX_SAFE_INTEGER; engine.lastSpawnTime = Number.MAX_SAFE_INTEGER;
+  engine.update(1 / 60);
+  assert.equal(engine.bases.get('source')!.color, PLAYER);
+});
+
+test('a full launch still sends every ship when no hostile fleet is inbound', () => {
+  const engine = new GameEngine(1200, 800);
+  engine.bases.clear(); engine.pixels = []; engine.nextPixelId = 0;
+  engine.addBase('source', 100, 400, PLAYER, 20);
+  engine.addBase('target', 300, 400, RED, 1);
+  engine.addBase('enemy', 500, 400, RED, 1);
+  engine.sendUnits('enemy', 'target', 1);
+
+  assert.equal(issueFleetOrder(engine, 'source', 'target', 1), true);
+  assert.equal(engine.pixels.filter(ship => ship.baseId === 'source' && ship.state === 'idle').length, 0);
+  assert.equal(engine.pixels.filter(ship => ship.baseId === 'source' && ship.state === 'moving').length, 20);
+});

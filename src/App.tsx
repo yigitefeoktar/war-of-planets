@@ -7,7 +7,7 @@ import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAud
 import { ModeCard } from './ui/ModeCard';
 import { advanceTutorial, drawTutorialHighlights, tutorialTargets, type TutorialState, type TutorialEvent } from './game/tutorial';
 import './ui/Tutorial.css';
-import { issueFleetOrder } from './game/logistics';
+import { hasIncomingHostile, issueFleetOrder } from './game/logistics';
 import { GameEngine } from './game/engine';
 import { SUPERWEAPON_IDS, type SuperweaponId } from './game/superweapons';
 import { SUPERWEAPON_VISUALS } from './game/superweaponVisuals';
@@ -1470,7 +1470,10 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
             <div className="planet-fleet-control">
               <span className="planet-control-label">FLEET</span>
               <div className="planet-fleet-sizes" aria-label="Fleet deployment size">
-                {[0.1, 0.5, 1].map(size => <button key={size} aria-pressed={fleetSize === size} onClick={() => handleFleetSizeChange(size)}>{size * 100}%</button>)}
+                {[0.1, 0.5, 1].map(size => {
+                  const guarded = size === 1 && !!shownPlanet && hasIncomingHostile(engine.pixels, shownPlanet);
+                  return <button key={size} aria-pressed={fleetSize === size} title={guarded ? 'Keep 10% of ships to defend against incoming enemies' : undefined} onClick={() => handleFleetSizeChange(size)}>{guarded ? 90 : size * 100}%</button>;
+                })}
               </div>
             </div>
           </>}
