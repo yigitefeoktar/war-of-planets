@@ -71,7 +71,7 @@ test('Chapter 1 advances from the tutorial through the pincer mission', () => {
 });
 test('startup selects Chapter 1 for new and existing saves without deleting completed levels', () => {
   assert.equal(emptyProgress().selectedMode, 'chapter-1');
-  for (const selectedMode of ['chapter-1', 'chapter-2', 'quick-match']) {
+  for (const selectedMode of ['chapter-1', 'chapter-1-test', 'chapter-2', 'quick-match']) {
     const completed = [FIRST_STRIKE.id, TURNING_TIDE.id];
     const loaded = parseProgress(JSON.stringify({ version: 1, selectedMode, completed }));
     assert.equal(loaded.selectedMode, 'chapter-1');
@@ -79,6 +79,15 @@ test('startup selects Chapter 1 for new and existing saves without deleting comp
     assert.equal(launchMission(CHAPTERS['chapter-1'], loaded.completed)?.id, FIRST_STRIKE.id);
     assert.equal(followingMission(CHAPTERS['chapter-1'], FIRST_STRIKE.id)?.id, BREACH_LINE.id);
   }
+});
+test('testing mode always starts at Level 3 and continues through later Chapter 1 maps', () => {
+  const testChapter = CHAPTERS['chapter-1-test'];
+  assert.deepEqual(testChapter.maps, CHAPTERS['chapter-1'].maps.slice(2));
+  assert.equal(launchMission(testChapter, [])?.id, TURNING_TIDE.id);
+  assert.equal(launchMission(testChapter, [TURNING_TIDE.id, THE_PINCER.id])?.id, TURNING_TIDE.id);
+  assert.equal(followingMission(testChapter, TURNING_TIDE.id)?.id, THE_PINCER.id);
+  assert.equal(followingMission(testChapter, THE_PINCER.id), undefined);
+  assert.equal(testChapter.maps[0].tutorial, undefined);
 });
 test('corrupt, outdated and malformed saves recover safely', () => {
   for (const raw of [null, '{', '{}', '{"version":2}']) assert.deepEqual(parseProgress(raw), emptyProgress());

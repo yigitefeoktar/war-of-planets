@@ -7,13 +7,14 @@ import { progressLabel, type ModeId, type Progress } from '../game/campaign';
 
 const modes = [
   { id: 'chapter-1', title: 'Chapter 1', subtitle: 'The Helios Breach', description: 'Lead your fleet through five tactical battles. Capture new worlds and push into enemy territory.', accent: '#73dcff', rgb: '115, 220, 255', label: 'Campaign · 5 battles' },
+  { id: 'chapter-1-test', title: 'Chapter 1 Test', subtitle: 'Start at Level 3', description: 'Jump into The Turning Tide, then continue to later Chapter 1 levels.', accent: '#73dcff', rgb: '115, 220, 255', label: 'Testing' },
   { id: 'quick-match', title: 'Quick Match', subtitle: 'One battle. Total conquest.', description: 'Command your fleet. Defend your capital. Conquer the system.', accent: '#ffc184', rgb: '255, 193, 132', label: 'Instant action' },
   { id: 'hard-mode', title: 'Hard Mode', subtitle: 'A tougher conquest.', description: 'Take on a Quick Match against a more aggressive AI. Defend your capital and conquer the system.', accent: '#f87171', rgb: '248, 113, 113', label: 'Hard AI' },
 ];
 type Mode = typeof modes[number];
 
 function Artwork({ mode }: { mode: Mode }) {
-  return <><img className="mode-art" src={`/images/modes/${mode.id === 'hard-mode' ? 'quick-match' : mode.id}.jpg`} alt="" draggable={false} /><span className="mode-shade" /></>;
+  return <>{mode.id !== 'chapter-1-test' && <img className="mode-art" src={`/images/modes/${mode.id === 'hard-mode' ? 'quick-match' : mode.id}.jpg`} alt="" draggable={false} />}<span className="mode-shade" /></>;
 }
 
 function CardContent({ mode, compact = false }: { mode: Mode; compact?: boolean }) {
@@ -70,7 +71,7 @@ export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress 
         <button type="button" aria-label="Close mode selection" onClick={() => dialog.current?.close()} className="mode-close"><X size={22} /></button>
       </header>
       <div className="mode-grid">
-        {modes.map(mode => (
+        {modes.filter(mode => mode.id !== 'chapter-1-test').map(mode => (
           <button key={mode.id} type="button" aria-label={`Select ${mode.title}`} aria-pressed={selected.id === mode.id} onClick={() => { onSelectMode(mode.id as ModeId); playSound('select', isSoundEnabled); dialog.current?.close(); }} className={`mode-card mode-option ${mode.id === 'hard-mode' ? 'mode-hard' : ''} ${selected.id === mode.id ? 'is-selected' : ''}`}>
             <Artwork mode={mode} />
             <CardContent mode={mode} compact />
@@ -78,7 +79,11 @@ export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress 
           </button>
         ))}
       </div>
-      <p className="mode-dialog-hint">Select a card, then launch from the main menu.</p>
+      <button type="button" aria-label="Select Chapter 1 Test, start at Level 3" aria-pressed={selected.id === 'chapter-1-test'} onClick={() => { onSelectMode('chapter-1-test'); playSound('select', isSoundEnabled); dialog.current?.close(); }} className={`mode-test-option ${selected.id === 'chapter-1-test' ? 'is-selected' : ''}`}>
+        <span>Chapter 1 Test <small>Start at Level 3, then play later levels</small></span>
+        <span>{selected.id === 'chapter-1-test' ? 'Selected' : 'Select'} <ChevronRight size={16} /></span>
+      </button>
+      <p className="mode-dialog-hint">Select a mode, then launch from the main menu.</p>
     </dialog>, document.body)}
   </>;
 }

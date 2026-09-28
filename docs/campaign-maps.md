@@ -8,6 +8,8 @@ To add a level, create another `MapDefinition` and place it at the intended posi
 
 The versioned browser save stores completed map IDs; its legacy selected-mode field is ignored when loading, so every page opening selects Chapter 1. Players can still choose another mode for the current session. Start Chapter 1 always begins with First Strike's tutorial, regardless of previous wins, then victories advance through The Breach Line (Level 2), The Turning Tide (Level 3), and The Pincer (Level 4). Retrying a defeat stays on the current level. Starting another run from the menu or refreshing returns to the tutorial, without deleting completed-level records. Existing completion IDs remain valid when a new map is inserted. Invalid saves reset safely; unavailable browser storage shows a warning.
 
+The text-only Chapter 1 Test option in the mode picker starts directly at The Turning Tide (Level 3), regardless of saved wins. Victories advance through the remaining Chapter 1 maps in order, using the same maps and rules as the normal campaign. Test wins do not change saved campaign completion. Selecting normal Chapter 1 still starts at the tutorial.
+
 Checks: `npm run lint`, `npx tsx --test src/game/*.test.ts`, `npm run build`.
 
 ## Friendly logistics network

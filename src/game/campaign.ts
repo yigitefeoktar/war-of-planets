@@ -6,7 +6,7 @@ export const PLAYER = '#3b82f6';
 export const NEUTRAL = '#6b7280';
 export const FACTIONS = [PLAYER, '#ef4444', '#22c55e', '#eab308'] as const;
 export const DYSON_SPHERE_ID = 'dyson-sphere';
-export type ModeId = 'chapter-1' | 'chapter-2' | 'quick-match' | 'hard-mode';
+export type ModeId = 'chapter-1' | 'chapter-1-test' | 'chapter-2' | 'quick-match' | 'hard-mode';
 export type ChapterId = Exclude<ModeId, 'quick-match' | 'hard-mode'>;
 export type PlanetDefinition = { id: string; x: number; y: number; owner: typeof FACTIONS[number] | typeof NEUTRAL; ships: number; capital?: boolean; superweaponUnlocks?: SuperweaponId[] };
 export type DysonSphereDefinition = { chargeIntervalSeconds: number };
@@ -166,8 +166,11 @@ export const THE_PINCER: MapDefinition = {
   ],
 };
 
+const CHAPTER_ONE_MAPS = [FIRST_STRIKE, BREACH_LINE, TURNING_TIDE, THE_PINCER];
+
 export const CHAPTERS: Record<ChapterId, Chapter> = {
-  'chapter-1': { id: 'chapter-1', plannedLevels: 5, maps: [FIRST_STRIKE, BREACH_LINE, TURNING_TIDE, THE_PINCER] },
+  'chapter-1': { id: 'chapter-1', plannedLevels: 5, maps: CHAPTER_ONE_MAPS },
+  'chapter-1-test': { id: 'chapter-1-test', plannedLevels: 3, maps: CHAPTER_ONE_MAPS.slice(2) },
   'chapter-2': { id: 'chapter-2', plannedLevels: 5, maps: [] },
 };
 
@@ -198,7 +201,7 @@ export function nextMission(chapter: Chapter, completed: readonly string[]): Map
 export function launchMission(chapter: Chapter, completed: readonly string[]): MapDefinition | undefined {
   // A new Chapter 1 run always teaches the basics before the larger map.
   // In-run advancement still uses followingMission, not saved completion IDs.
-  if (chapter.id === 'chapter-1') return chapter.maps[0];
+  if (chapter.id === 'chapter-1' || chapter.id === 'chapter-1-test') return chapter.maps[0];
   return nextMission(chapter, completed) ?? chapter.maps[0];
 }
 export function followingMission(chapter: Chapter, currentId: string): MapDefinition | undefined {
@@ -208,6 +211,7 @@ export function followingMission(chapter: Chapter, currentId: string): MapDefini
 export function progressLabel(mode: ModeId, progress: Progress): string {
   if (mode === 'quick-match') return 'Instant action';
   if (mode === 'hard-mode') return 'Hard AI · Instant action';
+  if (mode === 'chapter-1-test') return 'Testing · starts at Level 3';
   const chapter = CHAPTERS[mode];
   if (!chapter.maps.length) return 'Coming soon';
   if (mode === 'chapter-1') return 'Tutorial first · Breach Line next';
