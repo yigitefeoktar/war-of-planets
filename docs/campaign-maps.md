@@ -61,9 +61,9 @@ The full orbit stays clear of fixed planets. Desktop opens on the complete map; 
 
 ## Mission 4: The Pincer
 
-A 2800 × 2600 static battlefield with 27 planets. Blue holds a compact five-world center with a 300-ship capital. Red controls four western worlds and yellow controls four eastern worlds, including a capital each. Fourteen neutral worlds separate the fronts. Both enemy capitals must fall while the blue capital survives.
+A 2800 × 2600 static battlefield with 27 planets. Blue holds a compact five-world center with a 300-ship capital and 440 ships total. Red controls four western worlds and yellow controls four eastern worlds, including a capital each and 340 ships per faction. Fourteen neutral worlds separate the fronts. Both enemy capitals must fall while the blue capital survives.
 
-- Defense: two 18-ship neutral Repulse Shield worlds sit just beyond the blue side relays, close enough for an early capture. Red and yellow each start with a Repulse fortress farther out. A single held site charges a shield in 60 seconds; taking both neutral sites cuts that to 30 seconds. The shield destroys incoming fleets for six seconds when activated on an owned planet.
+- Defense: all five blue starting worlds generate Repulse Shield charges, giving the player a charge after 12 seconds while all five remain held. Two 18-ship neutral Repulse worlds sit just beyond the blue side relays, close enough for an early capture; holding both brings the charge time to about nine seconds. Red and yellow each start with one Repulse fortress, so each has far fewer sources than blue. The shield destroys incoming fleets for six seconds when activated on an owned planet.
 - Pressure: enemy fronts can attack blue relays and contest the shield sites, but neither can attack the blue capital directly at the start. Capturing a shield site alone still does not put the capital in attack range.
 - Counterattack: the direct west and east routes lead to the red and yellow capitals. Northern bypasses offer two Production Overdrive worlds; southern bypasses offer two Omni Strike worlds. These optional routes reuse earlier weapons without obscuring the new defensive choice.
 

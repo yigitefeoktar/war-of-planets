@@ -14,6 +14,9 @@ test('The Pincer has a safe blue center, contested side shields, and routes to b
     ['pincer-home', 'pincer-red-capital', 'pincer-yellow-capital']);
   assert.deepEqual([PLAYER, '#ef4444', '#eab308', NEUTRAL].map(owner => THE_PINCER.planets.filter(planet => planet.owner === owner).length),
     [5, 4, 4, 14]);
+  const startingShips = (owner: string) => THE_PINCER.planets.filter(planet => planet.owner === owner)
+    .reduce((total, planet) => total + planet.ships, 0);
+  assert.deepEqual([PLAYER, '#ef4444', '#eab308'].map(startingShips), [440, 340, 340]);
   assert.ok(THE_PINCER.planets.filter(planet => planet.owner === '#ef4444').every(planet => planet.x < byId('pincer-home').x));
   assert.ok(THE_PINCER.planets.filter(planet => planet.owner === '#eab308').every(planet => planet.x > byId('pincer-home').x));
   assert.ok(THE_PINCER.planets.filter(planet => planet.owner !== PLAYER && planet.owner !== NEUTRAL)
@@ -38,27 +41,29 @@ test('The Pincer has a safe blue center, contested side shields, and routes to b
   }
 });
 
-test('Repulse is the main contested weapon while outer routes retain earlier weapons', () => {
+test('blue starts with five Repulse sources against one per enemy while outer routes retain earlier weapons', () => {
   const sites = THE_PINCER.planets.filter(planet => planet.superweaponUnlocks?.length);
   assert.deepEqual(['repulse', 'overdrive', 'omni'].map(weapon =>
-    sites.filter(planet => planet.superweaponUnlocks?.includes(weapon as 'repulse' | 'overdrive' | 'omni')).length), [4, 2, 2]);
+    sites.filter(planet => planet.superweaponUnlocks?.includes(weapon as 'repulse' | 'overdrive' | 'omni')).length), [9, 2, 2]);
   assert.deepEqual(sites.filter(planet => planet.superweaponUnlocks?.includes('repulse')).map(planet => planet.id),
-    ['pincer-west-shield', 'pincer-east-shield', 'pincer-red-front', 'pincer-yellow-front']);
+    ['pincer-home', 'pincer-north-reserve', 'pincer-south-reserve', 'pincer-west-relay', 'pincer-east-relay',
+      'pincer-west-shield', 'pincer-east-shield', 'pincer-red-front', 'pincer-yellow-front']);
   const engine = createMatch(THE_PINCER);
   engine.lastAITime = Number.MAX_SAFE_INTEGER;
   engine.lastSpawnTime = Number.MAX_SAFE_INTEGER;
   engine.pixels = [];
-  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'repulse'), 0);
+  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'repulse'), 5);
   assert.equal(engine.getSuperweaponSourceCount('#ef4444', 'repulse'), 1);
   assert.equal(engine.getSuperweaponSourceCount('#eab308', 'repulse'), 1);
-  engine.bases.get('pincer-west-shield')!.color = PLAYER;
-  engine.update(59);
+  engine.update(11);
   assert.equal(engine.getSuperweaponCharge(PLAYER, 'repulse'), 0);
   engine.update(1);
   assert.equal(engine.getSuperweaponCharge(PLAYER, 'repulse'), 1);
   assert.equal(engine.activatePlanetAbility(PLAYER, 'pincer-home', 'repulse'), true);
+  engine.bases.get('pincer-west-shield')!.color = PLAYER;
   engine.bases.get('pincer-east-shield')!.color = PLAYER;
-  engine.update(29);
+  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'repulse'), 7);
+  engine.update(8);
   assert.equal(engine.getSuperweaponCharge(PLAYER, 'repulse'), 0);
   engine.update(1);
   assert.equal(engine.getSuperweaponCharge(PLAYER, 'repulse'), 1);
