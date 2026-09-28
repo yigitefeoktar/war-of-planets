@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createMatch } from './game/mapLoader';
 import { CHAPTERS, DYSON_SPHERE_ID, completeMission, followingMission, getOutcome, launchMission, loadProgress, nextMission, saveProgress, type MapDefinition, type ModeId, type Progress } from './game/campaign';
 import { motion } from 'motion/react';
-import { Maximize, Minimize, Volume2, VolumeX, Music, Pause, Play, Flag } from 'lucide-react';
+import { Maximize, Minimize, Volume2, VolumeX, Music, Pause, Play, Flag, Shield } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
 import { ModeCard } from './ui/ModeCard';
 import { advanceTutorial, drawTutorialHighlights, tutorialTargets, type TutorialState, type TutorialEvent } from './game/tutorial';
@@ -1442,7 +1442,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
               <div className="planet-fleet-sizes" aria-label="Fleet deployment size">
                 {[0.1, 0.5, 1].map(size => {
                   const guarded = size === 1 && hasIncomingHostile(engine.pixels, planet);
-                  return <button key={size} aria-pressed={fleetSize === size} title={guarded ? 'Keep 10% of ships to defend against incoming enemies' : undefined} onClick={() => handleFleetSizeChange(size)}>{guarded ? 90 : size * 100}%</button>;
+                  return <button key={size} aria-pressed={fleetSize === size} aria-label={guarded ? '100% order: 90% launched, 10% held to defend' : undefined} onClick={() => handleFleetSizeChange(size)}>{size * 100}%{guarded && <Shield aria-hidden="true" size={14} strokeWidth={2.3} style={{ marginLeft: 4, verticalAlign: '-2px' }} />}</button>;
                 })}
               </div>
               <p className="planet-command-hint">Choose a destination</p>
