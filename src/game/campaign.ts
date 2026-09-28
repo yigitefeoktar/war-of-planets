@@ -125,8 +125,49 @@ export const TURNING_TIDE: MapDefinition = {
   },
 };
 
+export const THE_PINCER: MapDefinition = {
+  id: 'helios-the-pincer', title: 'The Pincer',
+  galaxyTheme: 'pincer',
+  briefing: 'Red presses from the west and yellow from the east. Capture the nearby Repulse worlds to protect your blue center, then break through both fronts and take their capitals.',
+  width: 2800, height: 2600, attackRange: 600, mobileFocus: 'capital',
+  objective: { type: 'eliminate-capitals', description: 'Capture both enemy capitals. Use Repulse Shields to hold the center while you advance.' },
+  planets: [
+    // A compact blue core can reinforce either threatened relay.
+    { id: 'pincer-home', x: 1400, y: 1300, owner: PLAYER, ships: 300, capital: true },
+    { id: 'pincer-north-reserve', x: 1400, y: 950, owner: PLAYER, ships: 35 },
+    { id: 'pincer-south-reserve', x: 1400, y: 1650, owner: PLAYER, ships: 35 },
+    { id: 'pincer-west-relay', x: 1050, y: 1300, owner: PLAYER, ships: 35 },
+    { id: 'pincer-east-relay', x: 1750, y: 1300, owner: PLAYER, ships: 35 },
+    // Both side approaches contest a neutral shield before reaching the capital.
+    { id: 'pincer-west-shield', x: 790, y: 1300, owner: NEUTRAL, ships: 18, superweaponUnlocks: ['repulse'] },
+    { id: 'pincer-east-shield', x: 2010, y: 1300, owner: NEUTRAL, ships: 18, superweaponUnlocks: ['repulse'] },
+    { id: 'pincer-red-front', x: 450, y: 1300, owner: '#ef4444', ships: 55, superweaponUnlocks: ['repulse'] },
+    { id: 'pincer-red-capital', x: 150, y: 1300, owner: '#ef4444', ships: 130, capital: true },
+    { id: 'pincer-yellow-front', x: 2350, y: 1300, owner: '#eab308', ships: 55, superweaponUnlocks: ['repulse'] },
+    { id: 'pincer-yellow-capital', x: 2650, y: 1300, owner: '#eab308', ships: 130, capital: true },
+    // Upper and lower wings can bypass a fortified center.
+    { id: 'pincer-red-north-wing', x: 450, y: 760, owner: '#ef4444', ships: 35 },
+    { id: 'pincer-red-south-wing', x: 450, y: 1840, owner: '#ef4444', ships: 35 },
+    { id: 'pincer-yellow-north-wing', x: 2350, y: 760, owner: '#eab308', ships: 35 },
+    { id: 'pincer-yellow-south-wing', x: 2350, y: 1840, owner: '#eab308', ships: 35 },
+    { id: 'pincer-northwest-gate', x: 850, y: 930, owner: NEUTRAL, ships: 22 },
+    { id: 'pincer-southwest-gate', x: 850, y: 1670, owner: NEUTRAL, ships: 22 },
+    { id: 'pincer-northeast-gate', x: 1950, y: 930, owner: NEUTRAL, ships: 22 },
+    { id: 'pincer-southeast-gate', x: 1950, y: 1670, owner: NEUTRAL, ships: 22 },
+    // Optional outer routes reward the weapons learned in Missions 2 and 3.
+    { id: 'pincer-northwest-overdrive', x: 950, y: 560, owner: NEUTRAL, ships: 28, superweaponUnlocks: ['overdrive'] },
+    { id: 'pincer-northeast-overdrive', x: 1850, y: 560, owner: NEUTRAL, ships: 28, superweaponUnlocks: ['overdrive'] },
+    { id: 'pincer-southwest-omni', x: 950, y: 2040, owner: NEUTRAL, ships: 28, superweaponUnlocks: ['omni'] },
+    { id: 'pincer-southeast-omni', x: 1850, y: 2040, owner: NEUTRAL, ships: 28, superweaponUnlocks: ['omni'] },
+    { id: 'pincer-north-crossing', x: 1400, y: 450, owner: NEUTRAL, ships: 36 },
+    { id: 'pincer-south-crossing', x: 1400, y: 2150, owner: NEUTRAL, ships: 36 },
+    { id: 'pincer-northwest-outpost', x: 250, y: 320, owner: NEUTRAL, ships: 24 },
+    { id: 'pincer-southeast-outpost', x: 2550, y: 2280, owner: NEUTRAL, ships: 24 },
+  ],
+};
+
 export const CHAPTERS: Record<ChapterId, Chapter> = {
-  'chapter-1': { id: 'chapter-1', plannedLevels: 5, maps: [FIRST_STRIKE, BREACH_LINE, TURNING_TIDE] },
+  'chapter-1': { id: 'chapter-1', plannedLevels: 5, maps: [FIRST_STRIKE, BREACH_LINE, TURNING_TIDE, THE_PINCER] },
   'chapter-2': { id: 'chapter-2', plannedLevels: 5, maps: [] },
 };
 

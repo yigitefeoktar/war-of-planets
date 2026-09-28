@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FIRST_STRIKE, BREACH_LINE, TURNING_TIDE, CHAPTERS, PLAYER, completeMission, emptyProgress, followingMission, getOutcome, launchMission, nextMission, parseProgress, validateMap, type Chapter } from './campaign';
+import { FIRST_STRIKE, BREACH_LINE, TURNING_TIDE, THE_PINCER, CHAPTERS, PLAYER, completeMission, emptyProgress, followingMission, getOutcome, launchMission, nextMission, parseProgress, validateMap, type Chapter } from './campaign';
 import { createMatch } from './mapLoader';
 
 test('authored map loads exact planets, ships, factions, dimensions and range', () => {
@@ -37,7 +37,7 @@ test('victory and defeat are resolved with defeat precedence', () => {
   engine.bases.delete('player_1'); assert.equal(getOutcome(engine.bases.values()), 'defeat');
   assert.equal(getOutcome([{ color: PLAYER, isCapital: false }]), 'defeat');
 });
-test('Chapter 1 starts with the tutorial, then the breach line, then the orbiting mission', () => {
+test('Chapter 1 advances from the tutorial through the pincer mission', () => {
   let progress = emptyProgress();
   assert.equal(launchMission(CHAPTERS['chapter-1'], progress.completed)?.id, FIRST_STRIKE.id);
   progress = completeMission(progress, FIRST_STRIKE.id);
@@ -49,10 +49,14 @@ test('Chapter 1 starts with the tutorial, then the breach line, then the orbitin
   assert.equal(CHAPTERS['chapter-1'].maps[1].orbit, undefined);
   assert.equal(CHAPTERS['chapter-1'].maps[1].tutorial, undefined);
   assert.ok(CHAPTERS['chapter-1'].maps[2].orbit);
+  assert.equal(CHAPTERS['chapter-1'].maps[3].orbit, undefined);
   assert.equal(followingMission(CHAPTERS['chapter-1'], FIRST_STRIKE.id)?.id, BREACH_LINE.id);
   assert.equal(followingMission(CHAPTERS['chapter-1'], BREACH_LINE.id)?.id, TURNING_TIDE.id);
-  assert.equal(followingMission(CHAPTERS['chapter-1'], TURNING_TIDE.id), undefined);
-  const finished = completeMission(completeMission(progress, BREACH_LINE.id), TURNING_TIDE.id);
+  assert.equal(followingMission(CHAPTERS['chapter-1'], TURNING_TIDE.id)?.id, THE_PINCER.id);
+  assert.equal(followingMission(CHAPTERS['chapter-1'], THE_PINCER.id), undefined);
+  const finishedThree = completeMission(completeMission(progress, BREACH_LINE.id), TURNING_TIDE.id);
+  assert.equal(nextMission(CHAPTERS['chapter-1'], finishedThree.completed)?.id, THE_PINCER.id);
+  const finished = completeMission(finishedThree, THE_PINCER.id);
   assert.equal(nextMission(CHAPTERS['chapter-1'], finished.completed), undefined);
   assert.equal(nextMission(CHAPTERS['chapter-1'], completeMission(progress, TURNING_TIDE.id).completed)?.id, BREACH_LINE.id);
   assert.equal(launchMission(CHAPTERS['chapter-1'], finished.completed)?.id, FIRST_STRIKE.id);

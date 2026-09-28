@@ -6,7 +6,7 @@ Each map defines a stable ID, title, briefing, world size, attack range, objecti
 
 To add a level, create another `MapDefinition` and place it at the intended position in the chapter's `maps` array. Do not rename released map IDs. Winning records the ID and automatically starts the next array entry after six seconds; the victory button can start it immediately. If no next map is released, the player can replay or return to the menu. Chapter 2 remains unavailable until its first map is added.
 
-The versioned browser save stores completed map IDs; its legacy selected-mode field is ignored when loading, so every page opening selects Chapter 1. Players can still choose another mode for the current session. Start Chapter 1 always begins with First Strike's tutorial, regardless of previous wins, then victory advances to The Breach Line as Level 2 and The Turning Tide as Level 3. Retrying a defeat stays on the current level. Starting another run from the menu or refreshing returns to the tutorial, without deleting completed-level records. Existing completion IDs remain valid when a new map is inserted. Invalid saves reset safely; unavailable browser storage shows a warning.
+The versioned browser save stores completed map IDs; its legacy selected-mode field is ignored when loading, so every page opening selects Chapter 1. Players can still choose another mode for the current session. Start Chapter 1 always begins with First Strike's tutorial, regardless of previous wins, then victories advance through The Breach Line (Level 2), The Turning Tide (Level 3), and The Pincer (Level 4). Retrying a defeat stays on the current level. Starting another run from the menu or refreshing returns to the tutorial, without deleting completed-level records. Existing completion IDs remain valid when a new map is inserted. Invalid saves reset safely; unavailable browser storage shows a warning.
 
 Checks: `npm run lint`, `npx tsx --test src/game/*.test.ts`, `npm run build`.
 
@@ -16,11 +16,11 @@ The 600-world-unit range remains a strict source-to-target limit for attacks aga
 
 Connectivity is recalculated when the order is issued, using current ownership and live positions. Capturing a bridge can join or split networks, and moving planets can create temporary connections. Once launched, a transfer continues to its destination even if the connection later breaks. Mouse and touch orders share the same rule. Selection and range visuals remain the existing game visuals; this feature adds no network lines or destination rings. Hostile AI logic, Omni-Strike range, and ordinary attack range are unchanged.
 
-Current content: Chapter 1 / First Strike (9 fixed planets), The Breach Line (23 fixed planets and seven Overdrive sites), and The Turning Tide (24 planets, one orbiting system and a decorative star). Missions 4–5 and Chapter 2 are not released yet.
+Current content: Chapter 1 / First Strike (9 fixed planets), The Breach Line (23 fixed planets and seven Overdrive sites), The Turning Tide (24 planets, one orbiting system and a decorative star), and The Pincer (27 fixed planets and Repulse Shield fronts). Mission 5 and Chapter 2 are not released yet.
 
 ## Galaxy and camera
 
-Authored maps choose a `galaxyTheme`: First Strike has one faint blue cloud, The Breach Line uses muted violet and rose, and The Turning Tide uses teal and violet. Cloud and star counts grow with battlefield area. Quick Match keeps the original palette; Hard Mode uses a slightly redder backdrop and more red clouds. These are visual settings and do not affect combat.
+Authored maps choose a `galaxyTheme`: First Strike has one faint blue cloud, The Breach Line uses muted violet and rose, The Turning Tide uses teal and violet, and The Pincer uses indigo and warm amber. Cloud and star counts grow with battlefield area. Quick Match keeps the original palette; Hard Mode uses a slightly redder backdrop and more red clouds. These are visual settings and do not affect combat.
 
 The camera's minimum zoom follows the viewport size relative to the map, so an overview remains available without pulling far beyond a small battlefield. Maximum zoom grows from 1.8 on the tutorial map to 3 on the 3000-unit random maps. Wheel, pinch, double tap, intro, camera shortcuts, and the end-of-battle camera use those limits.
 
@@ -58,6 +58,16 @@ A 2600 × 2600 battlefield, with 12 fixed outer worlds and 12 rotating worlds ar
 - Reward: capturing marked rotating worlds unlocks their weapon and generates charges while held. The center is a normal star and cannot be captured.
 
 The full orbit stays clear of fixed planets. Desktop opens on the complete map; `mobileFocus: 'capital'` moves from the overview intro to a readable southern opening on phones. Normal panning and zoom remain available.
+
+## Mission 4: The Pincer
+
+A 2800 × 2600 static battlefield with 27 planets. Blue holds a compact five-world center with a 300-ship capital. Red controls four western worlds and yellow controls four eastern worlds, including a capital each. Fourteen neutral worlds separate the fronts. Both enemy capitals must fall while the blue capital survives.
+
+- Defense: two 18-ship neutral Repulse Shield worlds sit just beyond the blue side relays, close enough for an early capture. Red and yellow each start with a Repulse fortress farther out. A single held site charges a shield in 60 seconds; taking both neutral sites cuts that to 30 seconds. The shield destroys incoming fleets for six seconds when activated on an owned planet.
+- Pressure: enemy fronts can attack blue relays and contest the shield sites, but neither can attack the blue capital directly at the start. Capturing a shield site alone still does not put the capital in attack range.
+- Counterattack: the direct west and east routes lead to the red and yellow capitals. Northern bypasses offer two Production Overdrive worlds; southern bypasses offer two Omni Strike worlds. These optional routes reuse earlier weapons without obscuring the new defensive choice.
+
+Winning The Turning Tide starts The Pincer in the current run. Mission 5 is still planned.
 
 ## Orbiting system
 
