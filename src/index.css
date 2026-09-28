@@ -20,34 +20,41 @@
   display: flex; justify-content: center; align-items: flex-end;
   gap: 12px; width: 100%; pointer-events: auto;
 }
+.superweapon-targeting-overlay {
+  position: absolute; z-index: 10; inset: 0; pointer-events: none;
+  border: 32px solid rgba(239, 68, 68, .08); box-sizing: border-box;
+  box-shadow: inset 0 0 100px rgba(239, 68, 68, .18);
+  background-image: linear-gradient(rgba(239, 68, 68, .045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(239, 68, 68, .045) 1px, transparent 1px),
+    linear-gradient(rgba(239, 68, 68, .025) 2px, transparent 2px);
+  background-size: 50px 50px, 50px 50px, 100% 4px;
+}
 .superweapon-targeting-banner {
   position: absolute; z-index: 45; top: 96px; left: 50%;
-  display: flex; align-items: center; justify-content: space-between; gap: 18px;
-  width: min(560px, calc(100% - 24px)); padding: 11px 12px 11px 16px;
-  transform: translateX(-50%); box-sizing: border-box;
-  border: 1px solid var(--weapon-color); border-radius: 12px;
-  background: rgba(3, 13, 25, .96); color: #e9f7fc;
-  box-shadow: 0 12px 42px rgba(0, 0, 0, .55), 0 0 24px color-mix(in srgb, var(--weapon-color) 22%, transparent);
-  font-family: monospace; pointer-events: auto;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  width: min(520px, calc(100% - 24px)); transform: translateX(-50%);
+  color: #fca5a5; font-family: monospace; text-align: center;
 }
-.superweapon-targeting-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.superweapon-targeting-copy strong { color: var(--weapon-color); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
-.superweapon-targeting-copy span { color: #c4ebf5; font-size: 11px; }
+.superweapon-targeting-copy { display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: 100%; }
+.superweapon-targeting-copy strong {
+  padding: 10px 20px; border: 1px solid #ef4444; background: rgba(69, 10, 10, .88);
+  box-shadow: 0 0 20px rgba(239, 68, 68, .3);
+  font-size: 12px; letter-spacing: .2em; text-transform: uppercase;
+}
+.superweapon-targeting-copy span { color: #fca5a5; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
 .superweapon-targeting-banner button {
-  flex: 0 0 auto; display: flex; align-items: center; gap: 10px;
-  min-height: 44px; padding: 0 16px; border: 1px solid var(--weapon-color); border-radius: 8px;
-  background: color-mix(in srgb, var(--weapon-color) 18%, #081b2b);
-  color: #fff; font: 700 12px monospace; text-transform: uppercase; cursor: pointer;
+  min-height: 44px; padding: 0 22px; border: 1px solid rgba(239, 68, 68, .65);
+  background: rgba(0, 0, 0, .8); color: #fca5a5;
+  font: 700 11px monospace; letter-spacing: .1em; text-transform: uppercase; cursor: pointer;
 }
-.superweapon-targeting-banner button:hover { background: color-mix(in srgb, var(--weapon-color) 32%, #081b2b); }
+.superweapon-targeting-banner button:hover { background: rgba(127, 29, 29, .8); color: #fff; }
 .superweapon-targeting-banner button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-.superweapon-targeting-banner button span { color: #b9d0dc; font-size: 10px; }
 @media (max-width: 760px) {
   .superweapon-targeting-banner { top: 64px; }
 }
 @media (max-width: 480px) {
-  .superweapon-targeting-banner { gap: 8px; padding: 9px; }
-  .superweapon-targeting-banner button { gap: 4px; padding: 0 11px; }
+  .superweapon-targeting-overlay { border-width: 16px; }
+  .superweapon-targeting-copy strong { padding: 8px 12px; font-size: 11px; letter-spacing: .12em; }
 }
 .planet-command-content { display: grid; align-items: stretch; gap: 14px; width: max-content; max-width: 100%; }
 .planet-command::before { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; background: linear-gradient(90deg, rgba(59, 130, 246, .035), transparent 30%, transparent 70%, rgba(34, 211, 238, .025)); }
@@ -72,7 +79,6 @@
 .planet-ability-description { display: none; }
 .planet-ability-track { display: block; height: 3px; overflow: hidden; background: rgba(17, 53, 77, .85); border-radius: 999px; box-shadow: inset 0 1px 3px rgba(0, 0, 0, .45); }
 .planet-ability-track > span { display: block; height: 100%; min-width: 2px; background: var(--weapon-color); border-radius: inherit; box-shadow: 0 0 8px color-mix(in srgb, var(--weapon-color) 55%, transparent); transition: width .2s; }
-.planet-ability.targeting { border-color: var(--weapon-color); background: linear-gradient(145deg, color-mix(in srgb, var(--weapon-color) 23%, #081b2b), #071725); box-shadow: inset 0 1px rgba(255, 255, 255, .08), 0 0 22px color-mix(in srgb, var(--weapon-color) 24%, transparent); }
 .planet-ability small { color: #638395; font-size: 8px; line-height: 1.25; }
 .planet-ability:disabled { opacity: .72; cursor: default; }
 .planet-ability:not(:disabled):hover { border-color: currentColor; filter: brightness(1.12); transform: translateY(-1px); }
@@ -133,7 +139,6 @@
   grid-column: auto; display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
 }
-.planet-ability.targeting { border-color: currentColor; }
 @media (max-width: 760px) {
   .planet-command-normal { width: min(100%, 480px); }
   .planet-command-normal .planet-command-content { grid-template-columns: minmax(0, 1fr); }

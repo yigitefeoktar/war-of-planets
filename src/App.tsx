@@ -1382,13 +1382,16 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       </div>
 
       {showUI && targetingMode && !winner && !isPaused && (
-        <div className="superweapon-targeting-banner" style={{ '--weapon-color': SUPERWEAPON_VISUALS[targetingMode].color } as React.CSSProperties} role="region" aria-label={`${SUPERWEAPON_LABELS[targetingMode]} targeting`}>
-          <div className="superweapon-targeting-copy" aria-live="polite">
-            <strong>{SUPERWEAPON_LABELS[targetingMode]}</strong>
-            <span>Choose a highlighted {targetingMode === 'omni' ? 'enemy or neutral' : 'friendly'} planet</span>
+        <>
+          <div className="superweapon-targeting-overlay" aria-hidden="true" />
+          <div className="superweapon-targeting-banner" role="region" aria-label={`${SUPERWEAPON_LABELS[targetingMode]} targeting`}>
+            <div className="superweapon-targeting-copy" aria-live="polite">
+              <strong>{SUPERWEAPON_LABELS[targetingMode]} Protocol</strong>
+              <span>Select a highlighted {targetingMode === 'omni' ? 'enemy or neutral' : 'friendly'} planet · Esc to cancel</span>
+            </div>
+            <button type="button" onClick={cancelTargeting} aria-label={`Cancel ${SUPERWEAPON_LABELS[targetingMode]} targeting`}>Cancel</button>
           </div>
-          <button type="button" onClick={cancelTargeting} aria-label={`Cancel ${SUPERWEAPON_LABELS[targetingMode]} targeting`}>Cancel <span aria-hidden="true">Esc</span></button>
-        </div>
+        </>
       )}
 
       {/* Paused Overlay */}
@@ -1480,15 +1483,14 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
                 const ready = charge.charge > 0 || chargeState.universalCharge > 0;
                 const canProduce = charge.sources > 0 || chargeState.dysonOwned;
                 const progress = Math.max(charge.sources > 0 ? charge.progress : 0, chargeState.dysonOwned ? chargeState.universalProgress : 0);
-                const status = targetingMode === weapon ? (weapon === 'omni' ? 'Select an enemy or neutral planet' : 'Select a friendly planet')
-                  : !ready && canProduce ? `Charging · ${Math.max(1, Math.ceil(charge.secondsRemaining ?? 0))}s`
+                const status = !ready && canProduce ? `Charging · ${Math.max(1, Math.ceil(charge.secondsRemaining ?? 0))}s`
                   : !ready && charge.progress > 0 ? 'Charge paused · recapture a matching site'
                   : !ready ? 'Capture a matching weapon planet or Dyson sphere'
                   : weapon === 'omni' && !engine.hasOmniFleet('#3b82f6') ? 'Need at least 4 idle ships on a world'
                   : !targets.length ? 'No eligible target' : 'Ready';
                 const canPress = status === 'Ready' || targetingMode === weapon;
                 const visual = SUPERWEAPON_VISUALS[weapon];
-                return <button key={weapon} className={`planet-ability ${weapon} ${targetingMode === weapon ? 'targeting' : ''}`} style={{ '--weapon-color': visual.color } as React.CSSProperties} disabled={!canPress} aria-label={`${SUPERWEAPON_LABELS[weapon]}. ${status}`} aria-pressed={targetingMode === weapon} onClick={() => activateAbility(weapon)}>
+                return <button key={weapon} className={`planet-ability ${weapon}`} style={{ '--weapon-color': visual.color } as React.CSSProperties} disabled={!canPress} aria-label={`${SUPERWEAPON_LABELS[weapon]}. ${status}`} aria-pressed={targetingMode === weapon} onClick={() => activateAbility(weapon)}>
                   <span className="planet-ability-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       {visual.paths.map(({ d, fill }, index) => <path key={index} d={d} fill={fill ? 'currentColor' : 'none'} stroke={fill ? 'none' : 'currentColor'} />)}
