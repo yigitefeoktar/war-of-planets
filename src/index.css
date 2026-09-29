@@ -16,15 +16,24 @@
   transform: translateX(-50%); width: calc(100% - 32px);
   max-height: calc(100% - 16px); pointer-events: none;
 }
-.superweapon-cancel {
-  position: absolute; right: 50%; bottom: calc(100% + 8px); transform: translateX(50%);
-  min-height: 36px; padding: 0 18px; pointer-events: auto; cursor: pointer;
-  border: 1px solid rgba(74, 160, 196, .6); border-radius: 8px;
-  background: rgba(3, 13, 25, .96); color: #c4ebf5;
-  font: 700 12px monospace;
+.superweapon-targeting-popover {
+  position: absolute; z-index: 45; top: 96px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 12px; box-sizing: border-box;
+  max-width: calc(100% - 16px); padding: 5px 5px 5px 12px;
+  border: 1px solid var(--weapon-color); border-radius: 8px;
+  background: color-mix(in srgb, var(--weapon-color) 14%, #071320);
+  box-shadow: 0 6px 24px #0008; color: var(--weapon-color);
+  font: 700 12px monospace; white-space: nowrap;
 }
-.superweapon-cancel:hover { border-color: #a5f3fc; color: white; }
-.superweapon-cancel:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+.superweapon-targeting-popover button {
+  min-height: 32px; padding: 0 12px; cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--weapon-color) 55%, transparent); border-radius: 5px;
+  background: #071320; color: var(--weapon-color); font: inherit;
+}
+.superweapon-targeting-popover button:hover { background: color-mix(in srgb, var(--weapon-color) 20%, #071320); }
+.superweapon-targeting-popover button:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+@media (max-width: 767px) { .superweapon-targeting-popover { top: 88px; } }
+@media (max-width: 639px) { .superweapon-targeting-popover { top: 64px; } }
 .planet-command-group {
   display: flex; justify-content: center; align-items: flex-end;
   gap: 12px; width: 100%; pointer-events: auto;

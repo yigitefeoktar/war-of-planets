@@ -14,6 +14,10 @@ import { SUPERWEAPON_VISUALS } from './game/superweaponVisuals';
 import { clampZoom, zoomLimits } from './game/camera';
 import type { Base } from './game/types';
 
+const SUPERWEAPON_LABELS: Record<SuperweaponId, string> = {
+  omni: 'Omni Strike', overdrive: 'Production Overdrive', repulse: 'Repulse Shield',
+};
+
 function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled }: { selectedMode: ModeId, onSelectMode: (mode: ModeId) => void, progress: Progress, saveWarning: boolean, onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [scale, setScale] = useState(1);
@@ -1372,6 +1376,13 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         </div>
       </div>
 
+      {showUI && targetingMode && !winner && !isPaused && (
+        <div className="superweapon-targeting-popover" style={{ '--weapon-color': SUPERWEAPON_VISUALS[targetingMode].color } as React.CSSProperties} role="region" aria-label={`${SUPERWEAPON_LABELS[targetingMode]} targeting`}>
+          <span>Choose a planet</span>
+          <button type="button" aria-label={`Cancel ${SUPERWEAPON_LABELS[targetingMode]} targeting`} onClick={() => { targetingModeRef.current = null; setTargetingMode(null); playSound('click', isSoundEnabledRef.current); }}>Cancel</button>
+        </div>
+      )}
+
       {/* Paused Overlay */}
       {isPaused && !winner && (
         <div 
@@ -1492,7 +1503,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
           </div>;
         };
         return <div className="planet-command-stage">
-          {targetingMode && <button type="button" className="superweapon-cancel" aria-label={`Cancel ${labels[targetingMode]} targeting`} onClick={() => { targetingModeRef.current = null; setTargetingMode(null); playSound('click', isSoundEnabledRef.current); }}>Cancel</button>}
           <AnimatePresence mode="wait" initial={false}>
             {enemySelected ? <motion.div key="enemy" className="planet-command-group" initial={{ y: '110%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '110%', opacity: 0 }} transition={{ duration: 0.22, ease: 'easeInOut' }}>
               {renderBar('enemy')}
