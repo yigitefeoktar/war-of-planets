@@ -166,7 +166,57 @@ export const THE_PINCER: MapDefinition = {
   ],
 };
 
-const CHAPTER_ONE_MAPS = [FIRST_STRIKE, BREACH_LINE, TURNING_TIDE, THE_PINCER];
+export const SIEGE_OF_HELIOS: MapDefinition = {
+  id: 'helios-siege-of-helios', title: 'Siege of Helios',
+  galaxyTheme: 'siege',
+  briefing: 'Red holds two northern capitals beyond the Helios core. Advance from your southern foothold, contest the Dyson Sphere for charges that can power any superweapon, or take the fixed outer routes. Capture both capitals while yours survives.',
+  width: 3000, height: 3000, attackRange: 600, mobileFocus: 'capital',
+  objective: { type: 'eliminate-capitals', description: 'Capture both red capitals. The Dyson Sphere and weapon worlds can help break the siege.' },
+  planets: [
+    // Blue can reach the orbit from its relay or advance up either fixed flank.
+    { id: 'siege-home', x: 1500, y: 2760, owner: PLAYER, ships: 360, capital: true, superweaponUnlocks: ['repulse'] },
+    { id: 'siege-south-relay', x: 1500, y: 2380, owner: PLAYER, ships: 55, superweaponUnlocks: ['repulse'] },
+    { id: 'siege-west-harbor', x: 1000, y: 2600, owner: PLAYER, ships: 45, superweaponUnlocks: ['overdrive'] },
+    { id: 'siege-east-harbor', x: 2000, y: 2600, owner: PLAYER, ships: 45, superweaponUnlocks: ['overdrive'] },
+    // Each outer route offers all three specialist weapons without needing the sphere.
+    { id: 'siege-west-outpost', x: 450, y: 2550, owner: NEUTRAL, ships: 20 },
+    { id: 'siege-east-outpost', x: 2550, y: 2550, owner: NEUTRAL, ships: 20 },
+    { id: 'siege-west-overdrive', x: 600, y: 2240, owner: NEUTRAL, ships: 26, superweaponUnlocks: ['overdrive'] },
+    { id: 'siege-east-overdrive', x: 2400, y: 2240, owner: NEUTRAL, ships: 26, superweaponUnlocks: ['overdrive'] },
+    { id: 'siege-west-bridge', x: 950, y: 2100, owner: NEUTRAL, ships: 25 },
+    { id: 'siege-east-bridge', x: 2050, y: 2100, owner: NEUTRAL, ships: 25 },
+    { id: 'siege-west-repulse', x: 320, y: 1790, owner: NEUTRAL, ships: 30, superweaponUnlocks: ['repulse'] },
+    { id: 'siege-east-repulse', x: 2680, y: 1790, owner: NEUTRAL, ships: 30, superweaponUnlocks: ['repulse'] },
+    { id: 'siege-west-corridor', x: 750, y: 1450, owner: NEUTRAL, ships: 35 },
+    { id: 'siege-east-corridor', x: 2250, y: 1450, owner: NEUTRAL, ships: 35 },
+    { id: 'siege-west-omni', x: 250, y: 1260, owner: NEUTRAL, ships: 36, superweaponUnlocks: ['omni'] },
+    { id: 'siege-east-omni', x: 2750, y: 1260, owner: NEUTRAL, ships: 36, superweaponUnlocks: ['omni'] },
+    // Red's southern spears race blue to the flanks; the northern network defends both capitals.
+    { id: 'siege-west-spear', x: 700, y: 1880, owner: '#ef4444', ships: 35 },
+    { id: 'siege-east-spear', x: 2300, y: 1880, owner: '#ef4444', ships: 35 },
+    { id: 'siege-west-gate', x: 650, y: 1090, owner: '#ef4444', ships: 40 },
+    { id: 'siege-east-gate', x: 2350, y: 1090, owner: '#ef4444', ships: 40 },
+    { id: 'siege-west-guard', x: 950, y: 620, owner: '#ef4444', ships: 55 },
+    { id: 'siege-east-guard', x: 2050, y: 620, owner: '#ef4444', ships: 55 },
+    { id: 'siege-command', x: 1500, y: 420, owner: '#ef4444', ships: 100 },
+    { id: 'siege-west-capital', x: 600, y: 310, owner: '#ef4444', ships: 160, capital: true },
+    { id: 'siege-east-capital', x: 2400, y: 310, owner: '#ef4444', ships: 160, capital: true },
+    // A smaller ring revisits moving routes; either side can reach the neutral sphere from it.
+    { id: 'siege-orbit-south', x: 1500, y: 1880, owner: NEUTRAL, ships: 24, superweaponUnlocks: ['omni'] },
+    { id: 'siege-orbit-southwest', x: 1128, y: 1665, owner: NEUTRAL, ships: 28, superweaponUnlocks: ['overdrive'] },
+    { id: 'siege-orbit-northwest', x: 1128, y: 1235, owner: '#ef4444', ships: 25, superweaponUnlocks: ['repulse'] },
+    { id: 'siege-orbit-north', x: 1500, y: 1020, owner: NEUTRAL, ships: 30, superweaponUnlocks: ['omni'] },
+    { id: 'siege-orbit-northeast', x: 1872, y: 1235, owner: '#ef4444', ships: 25, superweaponUnlocks: ['repulse'] },
+    { id: 'siege-orbit-southeast', x: 1872, y: 1665, owner: NEUTRAL, ships: 28, superweaponUnlocks: ['overdrive'] },
+  ],
+  orbit: {
+    x: 1500, y: 1450, periodSeconds: 220,
+    planetIds: ['siege-orbit-south', 'siege-orbit-southwest', 'siege-orbit-northwest', 'siege-orbit-north', 'siege-orbit-northeast', 'siege-orbit-southeast'],
+    dysonSphere: { chargeIntervalSeconds: 50 },
+  },
+};
+
+const CHAPTER_ONE_MAPS = [FIRST_STRIKE, BREACH_LINE, TURNING_TIDE, THE_PINCER, SIEGE_OF_HELIOS];
 
 export const CHAPTERS: Record<ChapterId, Chapter> = {
   'chapter-1': { id: 'chapter-1', plannedLevels: 5, maps: CHAPTER_ONE_MAPS },

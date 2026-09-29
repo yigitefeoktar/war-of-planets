@@ -1,4 +1,4 @@
-export type GalaxyTheme = 'tutorial' | 'breach' | 'orbit' | 'pincer' | 'standard' | 'hard';
+export type GalaxyTheme = 'tutorial' | 'breach' | 'orbit' | 'pincer' | 'siege' | 'standard' | 'hard';
 
 type GalaxyPreset = {
   backgroundColor: string;
@@ -31,6 +31,12 @@ const PRESETS: Record<GalaxyTheme, GalaxyPreset> = {
     palette: ['65, 76, 147', '115, 63, 120', '132, 84, 58', '61, 94, 143'],
     cloudMultiplier: 1.1,
     alphaMultiplier: 1,
+  },
+  siege: {
+    backgroundColor: '#0a070e',
+    palette: ['122, 55, 68', '149, 86, 47', '66, 89, 139', '111, 53, 110'],
+    cloudMultiplier: 1.2,
+    alphaMultiplier: 1.05,
   },
   standard: {
     backgroundColor: '#03040c',

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createMatch } from './game/mapLoader';
-import { CHAPTERS, DYSON_SPHERE_ID, completeMission, followingMission, getOutcome, launchMission, loadProgress, nextMission, saveProgress, type MapDefinition, type ModeId, type Progress } from './game/campaign';
+import { CHAPTERS, DYSON_SPHERE_ID, SIEGE_OF_HELIOS, completeMission, followingMission, getOutcome, launchMission, loadProgress, nextMission, saveProgress, type MapDefinition, type ModeId, type Progress } from './game/campaign';
 import { AnimatePresence, motion } from 'motion/react';
 import { Maximize, Minimize, Volume2, VolumeX, Music, Pause, Play, Flag, Shield } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
@@ -225,7 +225,7 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
   );
 }
 
-function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRetry, onMenu, resultDetail, actionLabel }: { isSoundEnabled: boolean, isMusicEnabled: boolean, isHardMode: boolean, map?: MapDefinition, onResult: (won: boolean) => void, onRetry: () => void, onMenu: () => void, resultDetail: string, actionLabel: string }) {
+function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRetry, onMenu, resultDetail, victoryTitle, actionLabel }: { isSoundEnabled: boolean, isMusicEnabled: boolean, isHardMode: boolean, map?: MapDefinition, onResult: (won: boolean) => void, onRetry: () => void, onMenu: () => void, resultDetail: string, victoryTitle?: string, actionLabel: string }) {
   const onResultRef = useRef(onResult);
   onResultRef.current = onResult;
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1535,8 +1535,9 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
               <div className="absolute inset-0" style={{ backgroundColor: winner.color, boxShadow: `0 0 45px ${winner.color}` }} />
             </div>
 
-            <h2 className={`classic-result-title mb-3 text-5xl font-black tracking-tighter md:text-7xl max-[500px]:mb-2 max-[500px]:text-4xl ${winner.color === '#3b82f6' ? 'bg-gradient-to-b from-white to-cyan-400' : 'bg-gradient-to-b from-white to-red-500'} bg-clip-text text-transparent`}>
-              {winner.color === '#3b82f6' ? 'VICTORY' : 'DEFEAT'}
+            {winner.color === '#3b82f6' && victoryTitle && <p className="mb-2 font-mono text-xs uppercase tracking-[0.3em] text-cyan-300">Chapter 1 complete</p>}
+            <h2 className={`classic-result-title mb-3 font-black tracking-tighter max-[500px]:mb-2 ${victoryTitle && winner.color === '#3b82f6' ? 'text-4xl md:text-5xl max-[500px]:text-3xl' : 'text-5xl md:text-7xl max-[500px]:text-4xl'} ${winner.color === '#3b82f6' ? 'bg-gradient-to-b from-white to-cyan-400' : 'bg-gradient-to-b from-white to-red-500'} bg-clip-text text-transparent`}>
+              {winner.color === '#3b82f6' ? victoryTitle ?? 'VICTORY' : 'DEFEAT'}
             </h2>
 
             <div className={`classic-result-divider mb-3 h-px w-full max-w-xs bg-gradient-to-r from-transparent ${winner.color === '#3b82f6' ? 'via-cyan-500' : 'via-red-500'} to-transparent opacity-60`} />
@@ -1673,12 +1674,14 @@ export default function App() {
 
 
   const chapter = session.mode === 'quick-match' || session.mode === 'hard-mode' ? undefined : CHAPTERS[session.mode];
+  const isChapterFinale = session.map?.id === SIEGE_OF_HELIOS.id;
   const resultDetail = followingMap ? 'Next mission starts automatically in a moment.'
+    : isChapterFinale ? 'The Helios Breach is yours. Unidentified signals wait beyond the frontier.'
     : chapter && chapter.maps.length < chapter.plannedLevels ? 'Mission complete. More chapter missions are coming soon.'
     : chapter ? 'Chapter complete. All missions secured.' : 'Sector secured.';
   return <React.Fragment key={session.attempt}><Game map={session.map}
     isSoundEnabled={isSoundEnabled} isMusicEnabled={isMusicEnabled} isHardMode={session.mode === 'hard-mode'}
-    onResult={onResult} resultDetail={resultDetail}
+    onResult={onResult} resultDetail={resultDetail} victoryTitle={isChapterFinale ? 'HELIOS SECURED' : undefined}
     actionLabel={result && followingMap ? 'Next Mission' : session.map ? result ? 'Replay Mission' : 'Retry Mission' : session.mode === 'hard-mode' ? 'New Hard Match' : 'New Quick Match'}
     onRetry={() => begin(session.mode, result && followingMap ? followingMap : session.map)}
     onMenu={() => { setSession(null); setResult(null); setMusicEnabled(isMusicEnabled); }} /></React.Fragment>;
