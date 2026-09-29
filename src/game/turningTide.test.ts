@@ -20,6 +20,8 @@ test('Turning Tide loads its authored planets, decorative star, orbit members, a
   assert.equal(engine.ownsDysonSphere(PLAYER), false);
   assert.equal(TURNING_TIDE.orbit!.planetIds.length, 12);
   assert.equal([...engine.bases.values()].filter(p => p.isCapital).length, 3);
+  assert.deepEqual([PLAYER, '#ef4444', '#22c55e', NEUTRAL].map(owner => TURNING_TIDE.planets.filter(planet => planet.owner === owner).length),
+    [1, 1, 1, 21]);
   assert.equal(getOutcome(engine.bases.values()), null);
   for (const p of TURNING_TIDE.planets) {
     const b = engine.bases.get(p.id)!;
@@ -41,6 +43,22 @@ test('opening gives three affordable expansion choices without an immediate enem
   assert.equal(reachable.length, 3);
   assert.ok(reachable.every(p => p.owner === NEUTRAL && p.ships <= 12));
   assert.ok(reachable.reduce((sum, p) => sum + p.ships, 0) < home.ships / 4);
+});
+
+test('red and green each have three affordable opening choices from one capital', () => {
+  for (const [capitalId, owner, outpostId, orbitId] of [
+    ['red-command', '#ef4444', 'red-outpost', 'tide-red'],
+    ['green-command', '#22c55e', 'green-outpost', 'tide-green'],
+  ]) {
+    const capital = TURNING_TIDE.planets.find(planet => planet.id === capitalId)!;
+    assert.equal(capital.owner, owner);
+    assert.equal(capital.ships, 200);
+    const reachable = TURNING_TIDE.planets.filter(planet => planet.id !== capitalId
+      && Math.hypot(planet.x - capital.x, planet.y - capital.y) <= TURNING_TIDE.attackRange);
+    assert.deepEqual(new Set(reachable.map(planet => planet.id)), new Set([outpostId, orbitId, 'northern-divide']));
+    assert.ok(reachable.every(planet => planet.owner === NEUTRAL && planet.ships <= 35));
+    assert.deepEqual(TURNING_TIDE.planets.find(planet => planet.id === orbitId)?.superweaponUnlocks, ['overdrive']);
+  }
 });
 
 test('full rotation preserves clear spacing, fixed fortresses, and map connectivity', () => {

@@ -53,10 +53,10 @@ Winning First Strike starts The Breach Line in the current run. Winning The Brea
 
 A 2600 × 2600 battlefield, with 12 fixed outer worlds and 12 rotating worlds around one white star. Rotation remains clockwise, once every 180 seconds. Both enemy capitals must fall; the blue capital must survive.
 
-- Opening: 260 ships at the fixed southern capital. Two cheap outer harbours and the boarding planet provide three expansion choices before enemy territory.
+- Opening: blue, red, and green each hold only their capital. Blue has 260 ships and three cheap nearby choices: two outer harbours and the boarding planet. Red and green each have 200 ships and can take a cheap outpost, an orbiting Overdrive world, or the contested northern divide.
 - Moving route: board the outer orbit, develop the four inner worlds, and use passing planets as staging positions. All 12 orbiting worlds share angular speed; connections to the fixed outer ring open and close. Both rotating rings alternate Omni Strike and Production Overdrive worlds.
 - Fixed routes: the west and east flanks provide permanent, more heavily defended alternatives to riding the orbit.
-- Pressure: red and green each begin with a capital, a fixed outpost, and an orbiting foothold. The northern neutral divide separates their command worlds, but they can fight each other too.
+- Pressure: red and green expand from their single northern capitals into neutral territory. Their orbiting footholds now start neutral, so control of the ring develops during the battle. The northern divide is affordable and reachable from both enemy capitals, inviting an early contest between them.
 - Reward: capturing marked rotating worlds unlocks their weapon and generates charges while held. The center is a normal star and cannot be captured.
 
 The full orbit stays clear of fixed planets. Desktop opens on the complete map; `mobileFocus: 'capital'` moves from the overview intro to a readable southern opening on phones. Normal panning and zoom remain available.
