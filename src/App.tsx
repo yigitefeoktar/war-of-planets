@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createMatch } from './game/mapLoader';
 import { CHAPTERS, DYSON_SPHERE_ID, completeMission, followingMission, getOutcome, launchMission, loadProgress, nextMission, saveProgress, type MapDefinition, type ModeId, type Progress } from './game/campaign';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { Maximize, Minimize, Volume2, VolumeX, Music, Pause, Play, Flag, Shield } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
 import { ModeCard } from './ui/ModeCard';
@@ -10,12 +10,9 @@ import './ui/Tutorial.css';
 import { hasIncomingHostile, issueFleetOrder } from './game/logistics';
 import { GameEngine } from './game/engine';
 import { SUPERWEAPON_IDS, type SuperweaponId } from './game/superweapons';
+import { SUPERWEAPON_VISUALS } from './game/superweaponVisuals';
 import { clampZoom, zoomLimits } from './game/camera';
 import type { Base } from './game/types';
-
-const SUPERWEAPON_LABELS: Record<SuperweaponId, string> = {
-  omni: 'Omni Strike', overdrive: 'Production Overdrive', repulse: 'Repulse Shield',
-};
 
 function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled }: { selectedMode: ModeId, onSelectMode: (mode: ModeId) => void, progress: Progress, saveWarning: boolean, onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -258,8 +255,8 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     dysonOwned: false,
   }));
   const [commandPlanet, setCommandPlanet] = useState<string | null>(null);
-  const clearSelectionRef = useRef<() => void>(() => {});
-  const refreshPlayerStatsRef = useRef<() => void>(() => {});
+  const [targetingMode, setTargetingMode] = useState<SuperweaponId | null>(null);
+  const targetingModeRef = useRef<SuperweaponId | null>(null);
   const [wasWeaponReady, setWasWeaponReady] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isPaused, setIsPaused] = useState(false);
@@ -326,14 +323,13 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     return () => window.removeEventListener('mousemove', handleGlobalMouseMove);
   }, []);
 
-  const activateAbility = (weapon: SuperweaponId, targetId: string) => {
+  const activateAbility = (weapon: SuperweaponId) => {
     const engine = engineRef.current;
     if (!engine || isPausedRef.current || winner) return;
-    const activated = weapon === 'omni'
-      ? engine.activateOmniStrike('#3b82f6', targetId)
-      : engine.activatePlanetAbility('#3b82f6', targetId, weapon);
-    if (!activated) playSound('error', isSoundEnabledRef.current);
-    refreshPlayerStatsRef.current();
+    const next = targetingModeRef.current === weapon ? null : weapon;
+    targetingModeRef.current = next;
+    setTargetingMode(next);
+    playSound(next ? 'charge' : 'click', isSoundEnabledRef.current);
   };
 
   useEffect(() => {
@@ -401,7 +397,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         dysonOwned: engine.ownsDysonSphere(color),
       });
     };
-    refreshPlayerStatsRef.current = updatePlayerStats;
 
     engine.onLaunch = (fromId, toId) => {
       const base = engine.bases.get(fromId);
@@ -535,13 +530,25 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       selectedBaseId = id;
       setCommandPlanet(id);
     };
-    clearSelectionRef.current = () => selectPlanet(null);
     const handlePlanetClick = (id: string | null) => {
+      if (targetingModeRef.current) {
+        const weapon = targetingModeRef.current;
+        const target = id ? engine.bases.get(id) : null;
+        if (target && (weapon === 'omni' ? engine.activateOmniStrike('#3b82f6', target.id) : engine.activatePlanetAbility('#3b82f6', target.id, weapon))) {
+          targetingModeRef.current = null;
+          setTargetingMode(null);
+          updatePlayerStats();
+          selectPlanet(null);
+        } else if (id) {
+          playSound('error', isSoundEnabledRef.current);
+        }
+        return;
+      }
       if (!id || selectedBaseId === id) { selectPlanet(null); return; }
       const source = selectedBaseId && engine.bases.get(selectedBaseId);
       if (source && source.color === '#3b82f6') {
         if (!issueFleetOrder(engine, source.id, id, fleetSizeRef.current)) playSound('error', isSoundEnabledRef.current);
-        selectPlanet(engine.bases.get(id)?.color === '#3b82f6' ? null : id);
+        selectPlanet(null);
       } else {
         const target = engine.bases.get(id);
         if (target) {
@@ -952,7 +959,9 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       if (e.repeat) return;
       const tag = (document.activeElement as HTMLElement | null)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-      if (e.code === 'Escape' && selectedBaseId) {
+      if (e.code === 'Escape' && (selectedBaseId || targetingModeRef.current)) {
+        targetingModeRef.current = null;
+        setTargetingMode(null);
         selectPlanet(null); e.preventDefault(); return;
       }
       if (isIntroPlaying || isPausedRef.current) return;
@@ -1208,7 +1217,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       ctx.scale(cameraZoom, cameraZoom);
 
       // Draw game
-      engine.draw(ctx, selectedBaseId, cameraX, cameraY);
+      engine.draw(ctx, selectedBaseId, cameraX, cameraY, targetingModeRef.current);
       if (!isIntroPlaying && !isGameOver && !isPausedRef.current) {
         updateTutorial({ type: 'selection', playerSelected: selectedBaseId !== null && engine.bases.get(selectedBaseId)?.color === '#3b82f6' });
         if (tutorialRef.current.step !== 'done') {
@@ -1419,59 +1428,78 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         </div>
       )}
 
-      {showUI && commandPlanet && !winner && !isPaused && (() => {
+      {showUI && !winner && !isPaused && (() => {
         const engine = engineRef.current;
-        const planet = engine?.bases.get(commandPlanet);
-        if (!engine || !planet) return null;
-        const owned = planet.color === '#3b82f6';
-        const weapons = (owned ? ['overdrive', 'repulse'] : ['omni']) as SuperweaponId[];
-        const shownWeapons = weapons.filter(weapon => availableWeapons.has(weapon));
+        const planet = commandPlanet ? engine?.bases.get(commandPlanet) : undefined;
+        if (!engine) return null;
+        const enemySelected = !!planet && planet.color !== '#3b82f6';
+        const weapons = ['overdrive', 'omni', 'repulse'] as SuperweaponId[];
+        const labels = { omni: 'Omni Strike', overdrive: 'Production Overdrive', repulse: 'Repulse Shield' };
         const descriptions = { omni: 'Warp 30% of every idle fleet here.', overdrive: '3x production / 15 seconds', repulse: 'Repel and destroy arrivals / 6 seconds' };
-        return <div className={`planet-command-stage${shownWeapons.length ? '' : owned ? ' planet-command-stage-fleet' : ' planet-command-stage-summary'}`}>
-          <div className="planet-command" role="region" aria-label="Planet commands"
+        const renderBar = (state: 'normal' | 'enemy') => {
+          const shownPlanet = planet && (state === 'normal') === (planet.color === '#3b82f6') ? planet : undefined;
+          return <div className={`planet-command planet-command-${state}`} style={{ '--weapon-count': weapons.filter(weapon => availableWeapons.has(weapon)).length } as React.CSSProperties} role="region" aria-label={state === 'normal' ? 'Planet commands and superweapons' : 'Planet information'}
             onPointerDown={event => event.stopPropagation()} onTouchStart={event => event.stopPropagation()}>
-            <div className="planet-command-summary">
-              <div className="planet-command-heading">
-                <span style={{ color: planet.color }}>{owned ? 'YOUR' : factions.find(faction => faction.color === planet.color)?.name ?? 'NEUTRAL'} {planet.isCapital ? 'CAPITAL' : planet.isDysonSphere ? 'DYSON SPHERE' : 'PLANET'}</span>
-                <strong>{planet.pixelCount}</strong>
-              </div>
-              {!!planet.superweaponUnlocks?.length && <p className="planet-command-hint">Unlocks: {planet.superweaponUnlocks.map(weapon => SUPERWEAPON_LABELS[weapon]).join(', ')}</p>}
-            </div>
-            {owned && <div className="planet-fleet-control">
+            <div className="planet-command-content">
+          {state === 'enemy' && shownPlanet && <div className="planet-command-summary">
+            <span className="planet-command-kicker" style={{ color: shownPlanet.color }}>{factions.find(faction => faction.color === shownPlanet.color)?.name ?? 'NEUTRAL'}</span>
+            <strong className="planet-command-count">{shownPlanet.pixelCount}</strong>
+          </div>}
+          {state === 'normal' && <>
+            <div className="planet-fleet-control">
               <span className="planet-control-label">FLEET</span>
               <div className="planet-fleet-sizes" aria-label="Fleet deployment size">
                 {[0.1, 0.5, 1].map(size => {
-                  const guarded = size === 1 && hasIncomingHostile(engine.pixels, planet);
+                  const guarded = size === 1 && !!shownPlanet && hasIncomingHostile(engine.pixels, shownPlanet);
                   return <button key={size} aria-pressed={fleetSize === size} aria-label={guarded ? '100% order: 90% launched, 10% held to defend' : undefined} onClick={() => handleFleetSizeChange(size)}>{size * 100}%{guarded && <Shield aria-hidden="true" size={14} strokeWidth={2.3} style={{ marginLeft: 4, verticalAlign: '-2px' }} />}</button>;
                 })}
               </div>
-              <p className="planet-command-hint">Choose a destination</p>
-            </div>}
-            {shownWeapons.length > 0 && <div className="planet-abilities">
-              {shownWeapons.map(weapon => {
-                const active = weapon === 'omni' ? null : planet[weapon];
+            </div>
+          </>}
+          {state === 'normal' && availableWeapons.size > 0 && <>
+            <div className="planet-abilities">
+              {weapons.filter(weapon => availableWeapons.has(weapon)).map(weapon => {
+                const targets = [...engine.bases.values()].filter(target => weapon === 'omni' ? engine.canOmniStrike('#3b82f6', target.id) : engine.canActivatePlanetAbility('#3b82f6', target.id, weapon));
+                const active = weapon === 'omni' ? [] : [...engine.bases.values()].filter(target => target.color === '#3b82f6' && target[weapon]).map(target => Math.ceil(target[weapon]!.remaining));
                 const charge = chargeState.weapons[weapon];
                 const ready = charge.charge > 0 || chargeState.universalCharge > 0;
                 const canProduce = charge.sources > 0 || chargeState.dysonOwned;
                 const progress = Math.max(charge.sources > 0 ? charge.progress : 0, chargeState.dysonOwned ? chargeState.universalProgress : 0);
-                const status = active ? `Active / ${Math.ceil(active.remaining)}s`
-                  : !ready && canProduce ? `Charging · ${Math.max(1, Math.ceil(charge.secondsRemaining ?? 0))}s`
+                const status = !ready && canProduce ? `Charging · ${Math.max(1, Math.ceil(charge.secondsRemaining ?? 0))}s`
                   : !ready && charge.progress > 0 ? 'Charge paused · recapture a matching site'
                   : !ready ? 'Capture a matching weapon planet or Dyson sphere'
-                  : weapon === 'overdrive' && planet.isDysonSphere ? 'This sphere does not produce ships'
                   : weapon === 'omni' && !engine.hasOmniFleet('#3b82f6') ? 'Need at least 4 idle ships on a world'
-                  : weapon === 'omni' && !engine.canOmniStrike('#3b82f6', planet.id) ? 'Outside your attack range'
-                  : 'Ready';
-                return <button key={weapon} className={`planet-ability ${weapon}`} disabled={status !== 'Ready'} aria-label={`${SUPERWEAPON_LABELS[weapon]}. ${status}`} onClick={() => activateAbility(weapon, planet.id)}>
-                  <span className="planet-ability-title"><span><span aria-hidden="true">{weapon === 'omni' ? '✦' : weapon === 'overdrive' ? 'ϟ' : '⬡'}</span> {SUPERWEAPON_LABELS[weapon]}</span><strong>{ready ? charge.charge > 0 ? '1 CHARGE' : 'DYSON' : `${Math.floor(progress * 100)}%`}</strong></span>
-                  <span className="planet-ability-description">{descriptions[weapon]}</span>
-                  {!ready && canProduce && <span className="planet-ability-track" role="progressbar" aria-label={`${SUPERWEAPON_LABELS[weapon]} charge`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(progress * 100)}><span style={{ width: `${progress * 100}%` }} /></span>}
-                  <small>{status}</small>
+                  : !targets.length ? 'No eligible target' : 'Ready';
+                const canPress = status === 'Ready' || targetingMode === weapon;
+                const visual = SUPERWEAPON_VISUALS[weapon];
+                return <button key={weapon} className={`planet-ability ${weapon}`} style={{ '--weapon-color': visual.color } as React.CSSProperties} disabled={!canPress} aria-label={`${labels[weapon]}. ${status}`} aria-pressed={targetingMode === weapon} onClick={() => activateAbility(weapon)}>
+                  <span className="planet-ability-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      {visual.paths.map(({ d, fill }, index) => <path key={index} d={d} fill={fill ? 'currentColor' : 'none'} stroke={fill ? 'none' : 'currentColor'} />)}
+                    </svg>
+                  </span>
+                  <span className="planet-ability-copy">
+                    <span className="planet-ability-title"><span>{labels[weapon]}</span><strong>{ready ? charge.charge > 0 ? '1 CHARGE' : 'DYSON' : `${Math.floor(progress * 100)}%`}</strong></span>
+                    <span className="planet-ability-description">{descriptions[weapon]}</span>
+                    {!ready && canProduce && <span className="planet-ability-track" role="progressbar" aria-label={`${labels[weapon]} charge`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(progress * 100)}><span style={{ width: `${progress * 100}%` }} /></span>}
+                    <small>{status}{active.length > 0 && ` · Active on ${active.length} ${active.length === 1 ? 'world' : 'worlds'} / ${Math.max(...active)}s`}</small>
+                  </span>
                 </button>;
               })}
-            </div>}
-            <button type="button" className="planet-command-close" aria-label="Close planet commands" onClick={() => clearSelectionRef.current()}>×</button>
-          </div>
+            </div>
+          </>}
+            </div>
+          </div>;
+        };
+        return <div className="planet-command-stage">
+          {targetingMode && <button type="button" className="superweapon-cancel" aria-label={`Cancel ${labels[targetingMode]} targeting`} onClick={() => { targetingModeRef.current = null; setTargetingMode(null); playSound('click', isSoundEnabledRef.current); }}>Cancel</button>}
+          <AnimatePresence mode="wait" initial={false}>
+            {enemySelected ? <motion.div key="enemy" className="planet-command-group" initial={{ y: '110%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '110%', opacity: 0 }} transition={{ duration: 0.22, ease: 'easeInOut' }}>
+              {renderBar('enemy')}
+            </motion.div> : <motion.div key="normal" className="planet-command-group" initial={{ y: '110%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '110%', opacity: 0 }} transition={{ duration: 0.22, ease: 'easeInOut' }}>
+              {renderBar('normal')}
+            </motion.div>}
+          </AnimatePresence>
         </div>;
       })()}
 
