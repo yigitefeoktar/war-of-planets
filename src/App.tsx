@@ -1462,7 +1462,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
               <div className="planet-fleet-sizes" aria-label="Fleet deployment size">
                 {[0.1, 0.5, 1].map(size => {
                   const guarded = size === 1 && !!shownPlanet && hasIncomingHostile(engine.pixels, shownPlanet);
-                  return <button key={size} aria-pressed={fleetSize === size} aria-label={guarded ? '100% order: 90% launched, 10% held to defend' : undefined} onClick={() => handleFleetSizeChange(size)}>{size * 100}%{guarded && <Shield aria-hidden="true" size={14} strokeWidth={2.3} style={{ marginLeft: 4, verticalAlign: '-2px' }} />}</button>;
+                  return <button key={size} aria-pressed={fleetSize === size} aria-label={guarded ? 'Deploy 90% of ships; keep 10% defending' : undefined} style={{ position: 'relative' }} onClick={() => handleFleetSizeChange(size)}>{guarded ? 90 : size * 100}%{guarded && <Shield aria-hidden="true" size={12} strokeWidth={2.3} style={{ position: 'absolute', top: 3, right: 4, pointerEvents: 'none' }} />}</button>;
                 })}
               </div>
             </div>
