@@ -545,6 +545,10 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
           selectPlanet(null);
         } else if (id) {
           playSound('error', isSoundEnabledRef.current);
+        } else {
+          targetingModeRef.current = null;
+          setTargetingMode(null);
+          playSound('click', isSoundEnabledRef.current);
         }
         return;
       }
@@ -657,7 +661,10 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         const worldX = (mouseX / cameraZoom) + cameraX;
         const worldY = (mouseY / cameraZoom) + cameraY;
         // Decorative stars cannot be selected. A configured Dyson sphere can.
-        if (map?.orbit && !map.orbit.dysonSphere && Math.hypot(worldX - map.orbit.x, worldY - map.orbit.y) <= 52) return;
+        if (map?.orbit && !map.orbit.dysonSphere && Math.hypot(worldX - map.orbit.x, worldY - map.orbit.y) <= 52) {
+          if (targetingModeRef.current) handlePlanetClick(null);
+          return;
+        }
 
         let clickedBaseId: string | null = null;
         let minDistance = Infinity;
@@ -866,7 +873,10 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
           const worldX = (touchX / cameraZoom) + cameraX;
           const worldY = (touchY / cameraZoom) + cameraY;
-          if (map?.orbit && !map.orbit.dysonSphere && Math.hypot(worldX - map.orbit.x, worldY - map.orbit.y) <= 52) return;
+          if (map?.orbit && !map.orbit.dysonSphere && Math.hypot(worldX - map.orbit.x, worldY - map.orbit.y) <= 52) {
+            if (targetingModeRef.current) handlePlanetClick(null);
+            return;
+          }
 
           let clickedBaseId: string | null = null;
           let minDistance = Infinity;
