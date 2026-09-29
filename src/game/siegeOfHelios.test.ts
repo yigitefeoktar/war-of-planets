@@ -9,7 +9,9 @@ const distance = (from: string, to: string) => Math.hypot(byId(from).x - byId(to
 test('Siege of Helios has two fixed flanks and a reachable central sphere', () => {
   validateMap(SIEGE_OF_HELIOS);
   assert.deepEqual([SIEGE_OF_HELIOS.width, SIEGE_OF_HELIOS.height, SIEGE_OF_HELIOS.planets.length], [3000, 3000, 31]);
-  assert.deepEqual([PLAYER, '#ef4444', NEUTRAL].map(owner => SIEGE_OF_HELIOS.planets.filter(planet => planet.owner === owner).length), [4, 11, 16]);
+  assert.deepEqual([PLAYER, '#ef4444', NEUTRAL].map(owner => SIEGE_OF_HELIOS.planets.filter(planet => planet.owner === owner).length), [4, 8, 19]);
+  assert.deepEqual([PLAYER, '#ef4444'].map(owner => SIEGE_OF_HELIOS.planets.filter(planet => planet.owner === owner)
+    .reduce((total, planet) => total + planet.ships, 0)), [505, 550]);
   assert.deepEqual(SIEGE_OF_HELIOS.planets.filter(planet => planet.capital).map(planet => planet.id),
     ['siege-home', 'siege-west-capital', 'siege-east-capital']);
   assert.deepEqual(['siege-home', 'siege-south-relay', 'siege-west-harbor', 'siege-east-harbor']
@@ -19,6 +21,9 @@ test('Siege of Helios has two fixed flanks and a reachable central sphere', () =
   assert.equal(SIEGE_OF_HELIOS.orbit?.planetIds.length, 6);
   assert.equal(SIEGE_OF_HELIOS.orbit?.dysonSphere?.chargeIntervalSeconds, 50);
   assert.ok(distance('siege-south-relay', 'siege-orbit-south') <= SIEGE_OF_HELIOS.attackRange);
+  assert.equal(byId('siege-orbit-south').ships, 16);
+  assert.deepEqual(['siege-west-gate', 'siege-east-gate', 'siege-command'].map(id => byId(id).owner),
+    [NEUTRAL, NEUTRAL, NEUTRAL]);
   assert.ok(Math.hypot(byId('siege-orbit-south').x - SIEGE_OF_HELIOS.orbit!.x,
     byId('siege-orbit-south').y - SIEGE_OF_HELIOS.orbit!.y) <= SIEGE_OF_HELIOS.attackRange);
   for (const side of ['west', 'east']) {

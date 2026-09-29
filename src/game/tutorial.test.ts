@@ -106,6 +106,8 @@ test('tutorial first attack leads to a reachable second step toward the enemy ca
   assert.ok(distance(target, 'ai_1') > FIRST_STRIKE.attackRange);
   assert.ok(distance(target, 'central-crossing') <= FIRST_STRIKE.attackRange);
   assert.ok(distance('central-crossing', 'ai_1') <= FIRST_STRIKE.attackRange);
+  assert.equal(planets.get('central-crossing')!.ships, 14);
+  assert.equal(planets.get('ai_1')!.ships, 70);
   assert.ok(FIRST_STRIKE.planets.some(planet => planet.owner === NEUTRAL && distance('player_1', planet.id) <= FIRST_STRIKE.attackRange));
 });
 

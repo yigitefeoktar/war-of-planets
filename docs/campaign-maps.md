@@ -28,7 +28,7 @@ The camera's minimum zoom follows the viewport size relative to the map, so an o
 
 ## First Strike tutorial
 
-First Strike alone opts into an action-driven tutorial via `tutorial.attackTargetId`. It is an authored 1500 × 1500 static map with three blue worlds, four red worlds, and two neutral worlds. Red controls most of the far side, but its outpost directly ahead of the player's capital has only 10 ships and remains the first attack target. The red capital is beyond direct attack range from that outpost, so the player must take another world to reach it. The red central crossing is the shortest route; blue western and eastern harbours offer optional expansion. All nine positions, owners, and starting ship counts are identical on each launch. No orbit, central star, or superweapon is present.
+First Strike alone opts into an action-driven tutorial via `tutorial.attackTargetId`. It is an authored 1500 × 1500 static map with three blue worlds, four red worlds, and two neutral worlds. Red controls most of the far side, but its outpost directly ahead of the player's capital has only 10 ships and remains the first attack target. The red capital is beyond direct attack range from that outpost, so the player must take another world to reach it. The red central crossing has 14 ships and is the shortest route toward the 70-ship red capital; blue western and eastern harbours offer optional expansion. All nine positions, owners, and starting ship counts are identical on each launch. No orbit, central star, or superweapon is present.
 
 Prompts teach selecting blue then attacking red, scrolling down/pinching fingers together to zoom out, and capturing the red capital while protecting the player's own. They also explain that later battles can have several enemy capitals. Tutorial accents use the existing Chapter 1 cyan-blue (`#73dcff`). Click targets have a circle pulsing every 700ms with no arrow. The zoom prompt shows two matching circles at 58% across/down the viewport; they spread apart and snap back side-by-side every 1.6 seconds while also pulsing in scale, brightness, and glow every 700ms. This requested outward visual cue does not change actual pinch controls. Reduced-motion preferences disable the CSS animations. The win lesson highlights the surviving red capital, not ordinary planets.
 
@@ -40,12 +40,12 @@ The simulation runs continuously during every tutorial prompt, including the ini
 
 ## Mission 2: The Breach Line
 
-A 2500 × 2500 static battlefield rotated into a west-to-east confrontation. Blue starts with eight connected worlds on the left, including its capital with 220 ships. Red controls ten of the 23 planets on the right, just under half the map. Seven Overdrive worlds cluster near the center; five start neutral, and red holds the two eastern ring sites.
+A 2500 × 2500 static battlefield rotated into a west-to-east confrontation. Blue starts with ten connected worlds on the left, including its capital with 220 ships. Red controls ten of the 23 planets on the right, just under half the map. Seven Overdrive worlds cluster near the center; blue starts with the two western junction sites, three start neutral, and red holds the two eastern ring sites.
 
 - Central route: move ships through the blue supply world into the western Overdrive site. The exact center planet is also a marked Overdrive world. Another marked site and a red gate lead toward the eastern capital.
 - Upper route: the blue harbour, entry, and relay lead into the central ring or into a red bastion, approach, and outpost.
 - Lower route: a matching blue flank leads into the ring or through a red bastion, approach, and lookout.
-- All seven marked planets sit within 500 units of the map center and produce only Overdrive. One held site generates a charge in 60 seconds, two in 30 seconds, and seven in about 9 seconds. Losing sites pauses future generation; an already earned charge remains available. Overdrive triples production on one owned planet for 15 seconds.
+- All seven marked planets sit within 500 units of the map center and produce only Overdrive. Blue's two starting sites generate a charge in 30 seconds; one held site takes 60 seconds, and seven take about 9 seconds. Losing sites pauses future generation; an already earned charge remains available. Overdrive triples production on one owned planet for 15 seconds.
 
 Winning First Strike starts The Breach Line in the current run. Winning The Breach Line starts The Turning Tide. No tutorial prompts repeat after Mission 1.
 
@@ -63,9 +63,9 @@ The full orbit stays clear of fixed planets. Desktop opens on the complete map; 
 
 ## Mission 4: The Pincer
 
-A 2800 × 2600 static battlefield with 27 planets. Blue holds a compact five-world center with a 300-ship capital and 440 ships total. Red controls four western worlds and yellow controls four eastern worlds, including a capital each and 340 ships per faction. Fourteen neutral worlds separate the fronts. Both enemy capitals must fall while the blue capital survives.
+A 2800 × 2600 static battlefield with 27 planets. Blue holds a compact five-world center with a 300-ship capital and 440 ships total. Red controls four western worlds and yellow controls four eastern worlds, including a capital each and 300 ships per faction. Fourteen neutral worlds separate the fronts. Both enemy capitals must fall while the blue capital survives.
 
-- Defense: all five blue starting worlds generate Repulse Shield charges, giving the player a charge after 12 seconds while all five remain held. Two 18-ship neutral Repulse worlds sit just beyond the blue side relays, close enough for an early capture; holding both brings the charge time to about nine seconds. Red and yellow each start with one Repulse fortress, so each has far fewer sources than blue. The shield destroys incoming fleets for six seconds when activated on an owned planet.
+- Defense: all five blue starting worlds generate Repulse Shield charges, giving the player a charge after 12 seconds while all five remain held. Two 12-ship neutral Repulse worlds sit just beyond the blue side relays, close enough for an early capture; holding both brings the charge time to about nine seconds. Red and yellow each start with one Repulse fortress, so each has far fewer sources than blue. The shield destroys incoming fleets for six seconds when activated on an owned planet.
 - Pressure: enemy fronts can attack blue relays and contest the shield sites, but neither can attack the blue capital directly at the start. Capturing a shield site alone still does not put the capital in attack range.
 - Counterattack: the direct west and east routes lead to the red and yellow capitals. Northern bypasses offer two Production Overdrive worlds; southern bypasses offer two Omni Strike worlds. These optional routes reuse earlier weapons without obscuring the new defensive choice.
 
@@ -73,10 +73,10 @@ Winning The Turning Tide starts The Pincer in the current run. Winning The Pince
 
 ## Mission 5: Siege of Helios
 
-A 3000 × 3000 finale with 31 authored planets and a neutral Dyson Sphere at the center. Blue starts on four connected southern worlds with 505 ships: its capital and relay produce Repulse charges, while its two harbors produce Overdrive charges. Red starts on eleven worlds with 730 ships, including two northern capitals. The two red spearheads contest neutral planets along blue's outer approaches. The player wins by capturing both red capitals while keeping the blue capital alive.
+A 3000 × 3000 finale with 31 authored planets and a neutral Dyson Sphere at the center. Blue starts on four connected southern worlds with 505 ships: its capital and relay produce Repulse charges, while its two harbors produce Overdrive charges. Red starts on eight worlds with 550 ships, including two northern capitals. The two red spearheads contest neutral planets along blue's outer approaches. The player wins by capturing both red capitals while keeping the blue capital alive.
 
-- Central route: blue's southern relay can reach the six-world clockwise orbit. Two red worlds begin on the ring, and either side can attack the sphere from a ring world. Holding the sphere produces one universal charge every 50 seconds; it can power Omni Strike, Production Overdrive, or Repulse Shield. Control of the sphere can change during the battle.
-- Outer routes: mirrored western and eastern paths stay fixed throughout the orbit. Each offers neutral Overdrive, Repulse, and Omni worlds before a red gate, guard, and capital. Both capitals remain reachable along these paths without taking the sphere.
+- Central route: blue's southern relay can reach the six-world clockwise orbit. The nearest Omni world has 16 neutral defenders, and the two southern Overdrive worlds have 22 each. Two red worlds begin on the ring, and either side can attack the sphere from a ring world. Holding the sphere produces one universal charge every 50 seconds; it can power Omni Strike, Production Overdrive, or Repulse Shield. Control of the sphere can change during the battle.
+- Outer routes: mirrored western and eastern paths stay fixed throughout the orbit. Each offers neutral Overdrive, Repulse, Omni, and gate worlds before a red guard and capital. Both capitals remain reachable along these paths without taking the sphere. The northern command world also starts neutral.
 - Ending: defeating both capitals shows “Chapter 1 complete” and “Helios secured,” followed by a short hint about signals beyond the frontier. The result screen offers replay or the main menu; Chapter 2 remains unavailable. The Level 3 testing mode also advances through this finale without changing saved campaign completion.
 
 ## Orbiting system

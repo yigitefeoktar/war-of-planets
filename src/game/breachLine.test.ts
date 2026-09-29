@@ -12,7 +12,7 @@ test('Breach Line runs west to east with connected blue, central, and red routes
   assert.deepEqual(BREACH_LINE.planets.filter(planet => planet.capital).map(planet => planet.id), ['breach-home', 'breach-red-capital']);
   const blue = BREACH_LINE.planets.filter(planet => planet.owner === PLAYER);
   const red = BREACH_LINE.planets.filter(planet => planet.owner === '#ef4444');
-  assert.deepEqual([blue.length, red.length], [8, 10]);
+  assert.deepEqual([blue.length, red.length], [10, 10]);
   assert.ok(blue.every(planet => planet.x < BREACH_LINE.width / 2));
   assert.ok(red.every(planet => planet.x >= BREACH_LINE.width / 2));
   assert.deepEqual([byId('breach-home').y, byId('breach-gate').y, byId('breach-red-capital').y], [1250, 1250, 1250]);
@@ -36,7 +36,7 @@ test('Breach Line runs west to east with connected blue, central, and red routes
   }
 });
 
-test('holding the authored Overdrive site generates a charge that can be used', () => {
+test('starting Overdrive sites generate a charge and a captured site speeds up the next one', () => {
   const engine = createMatch(BREACH_LINE);
   engine.lastAITime = Number.MAX_SAFE_INTEGER;
   engine.lastSpawnTime = Number.MAX_SAFE_INTEGER;
@@ -44,17 +44,19 @@ test('holding the authored Overdrive site generates a charge that can be used', 
   const site = engine.bases.get('breach-overdrive')!;
   assert.deepEqual(site.superweaponUnlocks, ['overdrive']);
   assert.equal(engine.superweaponUnlocksEnabled, true);
-  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'overdrive'), 0);
-  site.color = PLAYER;
-  engine.update(59);
+  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'overdrive'), 2);
+  engine.update(29);
   assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 0);
   engine.update(1);
   assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 1);
   assert.equal(engine.activatePlanetAbility(PLAYER, 'breach-home', 'overdrive'), true);
   assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 0);
-  site.color = '#ef4444';
-  engine.update(60);
+  site.color = PLAYER;
+  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'overdrive'), 3);
+  engine.update(19);
   assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 0);
+  engine.update(1);
+  assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 1);
 });
 
 test('all seven central worlds produce only Overdrive and duplicate sites charge faster', () => {
@@ -65,6 +67,7 @@ test('all seven central worlds produce only Overdrive and duplicate sites charge
   ]);
   assert.ok(sites.every(planet => planet.superweaponUnlocks?.join() === 'overdrive'));
   assert.deepEqual([byId('breach-gate').x, byId('breach-gate').y, byId('breach-gate').owner], [1250, 1250, NEUTRAL]);
+  assert.deepEqual(sites.filter(planet => planet.owner === PLAYER).map(planet => planet.id), ['breach-west-junction', 'breach-east-junction']);
   assert.deepEqual(sites.filter(planet => planet.owner === '#ef4444').map(planet => planet.id), ['breach-northwest-signal', 'breach-northeast-signal']);
   assert.ok(sites.every(planet => Math.hypot(planet.x - BREACH_LINE.width / 2, planet.y - BREACH_LINE.height / 2) <= 500));
 
@@ -75,9 +78,9 @@ test('all seven central worlds produce only Overdrive and duplicate sites charge
   assert.equal(engine.getSuperweaponSourceCount('#ef4444', 'overdrive'), 2);
   engine.bases.get(sites[0].id)!.color = PLAYER;
   engine.bases.get(sites[1].id)!.color = PLAYER;
-  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'overdrive'), 2);
+  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'overdrive'), 4);
   assert.deepEqual([...engine.getOwnedSuperweapons(PLAYER)], ['overdrive']);
-  engine.update(29);
+  engine.update(14);
   assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 0);
   engine.update(1);
   assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 1);

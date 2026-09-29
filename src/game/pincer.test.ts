@@ -16,13 +16,14 @@ test('The Pincer has a safe blue center, contested side shields, and routes to b
     [5, 4, 4, 14]);
   const startingShips = (owner: string) => THE_PINCER.planets.filter(planet => planet.owner === owner)
     .reduce((total, planet) => total + planet.ships, 0);
-  assert.deepEqual([PLAYER, '#ef4444', '#eab308'].map(startingShips), [440, 340, 340]);
+  assert.deepEqual([PLAYER, '#ef4444', '#eab308'].map(startingShips), [440, 300, 300]);
   assert.ok(THE_PINCER.planets.filter(planet => planet.owner === '#ef4444').every(planet => planet.x < byId('pincer-home').x));
   assert.ok(THE_PINCER.planets.filter(planet => planet.owner === '#eab308').every(planet => planet.x > byId('pincer-home').x));
   assert.ok(THE_PINCER.planets.filter(planet => planet.owner !== PLAYER && planet.owner !== NEUTRAL)
     .every(planet => distance('pincer-home', planet.id) > THE_PINCER.attackRange));
   for (const side of ['west', 'east']) {
     assert.equal(byId(`pincer-${side}-shield`).owner, NEUTRAL);
+    assert.equal(byId(`pincer-${side}-shield`).ships, 12);
     assert.deepEqual(byId(`pincer-${side}-shield`).superweaponUnlocks, ['repulse']);
     assert.ok(distance(`pincer-${side}-relay`, `pincer-${side}-shield`) <= THE_PINCER.attackRange);
     assert.ok(distance('pincer-home', `pincer-${side}-shield`) > THE_PINCER.attackRange);
