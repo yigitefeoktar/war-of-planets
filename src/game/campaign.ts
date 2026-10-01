@@ -185,11 +185,11 @@ export const SIEGE_OF_HELIOS: MapDefinition = {
   objective: { type: 'eliminate-capitals', description: 'Defend the blue capital, break the red line, and capture both red capitals.' },
   planets: [
     // Blue holds enough territory to choose a route; only the outer harbors face an opening attack.
-    { id: 'siege-home', x: 1900, y: 3100, owner: PLAYER, ships: 320, capital: true, superweaponUnlocks: ['repulse'] },
+    { id: 'siege-home', x: 1900, y: 2960, owner: PLAYER, ships: 320, capital: true, superweaponUnlocks: ['repulse'] },
     { id: 'siege-west-relay', x: 1550, y: 2800, owner: PLAYER, ships: 70, superweaponUnlocks: ['repulse'] },
     { id: 'siege-east-relay', x: 2250, y: 2800, owner: PLAYER, ships: 70, superweaponUnlocks: ['repulse'] },
-    { id: 'siege-west-harbor', x: 1050, y: 3000, owner: PLAYER, ships: 60, superweaponUnlocks: ['overdrive'] },
-    { id: 'siege-east-harbor', x: 2750, y: 3000, owner: PLAYER, ships: 60, superweaponUnlocks: ['overdrive'] },
+    { id: 'siege-west-harbor', x: 1050, y: 2820, owner: PLAYER, ships: 60, superweaponUnlocks: ['overdrive'] },
+    { id: 'siege-east-harbor', x: 2750, y: 2820, owner: PLAYER, ships: 60, superweaponUnlocks: ['overdrive'] },
     // Red pressure begins at the edges, away from the blue capital.
     { id: 'siege-west-spear', x: 900, y: 2500, owner: '#ef4444', ships: 40 },
     { id: 'siege-east-spear', x: 2900, y: 2500, owner: '#ef4444', ships: 40 },
@@ -199,7 +199,7 @@ export const SIEGE_OF_HELIOS: MapDefinition = {
     { id: 'siege-west-capital', x: 650, y: 350, owner: '#ef4444', ships: 160, capital: true },
     { id: 'siege-east-capital', x: 3150, y: 350, owner: '#ef4444', ships: 160, capital: true },
     // Cheap southern choices let blue expand before committing to a breakthrough.
-    { id: 'siege-center-entry', x: 1900, y: 2450, owner: NEUTRAL, ships: 16, superweaponUnlocks: ['omni'] },
+    { id: 'siege-center-entry', x: 1900, y: 2350, owner: NEUTRAL, ships: 16, superweaponUnlocks: ['omni'] },
     { id: 'siege-west-landing', x: 1350, y: 2480, owner: NEUTRAL, ships: 12 },
     { id: 'siege-east-landing', x: 2450, y: 2480, owner: NEUTRAL, ships: 12 },
     { id: 'siege-southwest-mines', x: 700, y: 2880, owner: NEUTRAL, ships: 12, superweaponUnlocks: ['overdrive'] },

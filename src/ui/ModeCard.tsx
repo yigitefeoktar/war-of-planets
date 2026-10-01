@@ -14,7 +14,9 @@ const mainModes: Mode[] = [
 ];
 const testModes: Mode[] = CHAPTER_ONE_TEST_MODE_IDS.map((id, index) => ({
   id, title: 'Chapter 1 Test', subtitle: `Level ${index + 1}: ${CHAPTERS[id].maps[0].title}`,
-  description: `Start directly at Level ${index + 1}. Wins continue through later Chapter 1 levels without changing campaign progress.`,
+  description: index === CHAPTER_ONE_TEST_MODE_IDS.length - 1
+    ? 'Start directly at the Chapter 1 finale. Test wins do not change campaign progress.'
+    : `Start directly at Level ${index + 1}. Wins continue through later Chapter 1 levels without changing campaign progress.`,
   accent: '#73dcff', rgb: '115, 220, 255', label: 'Testing',
 }));
 const modes = [...mainModes, ...testModes];
