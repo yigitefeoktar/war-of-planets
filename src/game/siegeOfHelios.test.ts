@@ -1,42 +1,58 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DYSON_SPHERE_ID, NEUTRAL, PLAYER, SIEGE_OF_HELIOS, getOutcome, validateMap } from './campaign';
+import { CHAPTERS, DYSON_SPHERE_ID, FACTIONS, NEUTRAL, PLAYER, SIEGE_OF_HELIOS, getOutcome, validateMap } from './campaign';
 import { createMatch } from './mapLoader';
 
 const byId = (id: string) => SIEGE_OF_HELIOS.planets.find(planet => planet.id === id)!;
 const distance = (from: string, to: string) => Math.hypot(byId(from).x - byId(to).x, byId(from).y - byId(to).y);
 
-test('Siege of Helios has two fixed flanks and a reachable central sphere', () => {
+test('Helios Counteroffensive has a larger three-route battlefield with a manageable opening', () => {
   validateMap(SIEGE_OF_HELIOS);
-  assert.deepEqual([SIEGE_OF_HELIOS.width, SIEGE_OF_HELIOS.height, SIEGE_OF_HELIOS.planets.length], [3000, 3000, 31]);
-  assert.deepEqual([PLAYER, '#ef4444', NEUTRAL].map(owner => SIEGE_OF_HELIOS.planets.filter(planet => planet.owner === owner).length), [4, 8, 19]);
+  assert.deepEqual([SIEGE_OF_HELIOS.width, SIEGE_OF_HELIOS.height, SIEGE_OF_HELIOS.planets.length], [3800, 3400, 38]);
+  assert.deepEqual([PLAYER, '#ef4444', NEUTRAL].map(owner => SIEGE_OF_HELIOS.planets.filter(planet => planet.owner === owner).length), [5, 7, 26]);
   assert.deepEqual([PLAYER, '#ef4444'].map(owner => SIEGE_OF_HELIOS.planets.filter(planet => planet.owner === owner)
-    .reduce((total, planet) => total + planet.ships, 0)), [505, 550]);
+    .reduce((total, planet) => total + planet.ships, 0)), [580, 630]);
   assert.deepEqual(SIEGE_OF_HELIOS.planets.filter(planet => planet.capital).map(planet => planet.id),
     ['siege-home', 'siege-west-capital', 'siege-east-capital']);
-  assert.deepEqual(['siege-home', 'siege-south-relay', 'siege-west-harbor', 'siege-east-harbor']
-    .map(id => byId(id).superweaponUnlocks), [['repulse'], ['repulse'], ['overdrive'], ['overdrive']]);
+  assert.deepEqual(['siege-home', 'siege-west-relay', 'siege-east-relay', 'siege-west-harbor', 'siege-east-harbor']
+    .map(id => byId(id).superweaponUnlocks), [['repulse'], ['repulse'], ['repulse'], ['overdrive'], ['overdrive']]);
   assert.ok(SIEGE_OF_HELIOS.planets.filter(planet => planet.owner === '#ef4444')
     .every(planet => distance('siege-home', planet.id) > SIEGE_OF_HELIOS.attackRange));
-  assert.equal(SIEGE_OF_HELIOS.orbit?.planetIds.length, 6);
-  assert.equal(SIEGE_OF_HELIOS.orbit?.dysonSphere?.chargeIntervalSeconds, 50);
-  assert.ok(distance('siege-south-relay', 'siege-orbit-south') <= SIEGE_OF_HELIOS.attackRange);
-  assert.equal(byId('siege-orbit-south').ships, 16);
-  assert.deepEqual(['siege-west-gate', 'siege-east-gate', 'siege-command'].map(id => byId(id).owner),
-    [NEUTRAL, NEUTRAL, NEUTRAL]);
+  for (const side of ['west', 'east']) {
+    assert.ok(distance(`siege-${side}-spear`, `siege-${side}-harbor`) <= SIEGE_OF_HELIOS.attackRange);
+    assert.equal(byId(`siege-${side}-landing`).ships, 12);
+    assert.ok(distance(`siege-${side}-relay`, `siege-${side}-landing`) <= SIEGE_OF_HELIOS.attackRange);
+  }
+  assert.equal(byId('siege-center-entry').ships, 16);
+  assert.deepEqual(byId('siege-center-entry').superweaponUnlocks, ['omni']);
+  assert.ok(distance('siege-west-relay', 'siege-center-entry') <= SIEGE_OF_HELIOS.attackRange);
+  assert.equal(SIEGE_OF_HELIOS.orbit?.planetIds.length, 4);
+  assert.equal(SIEGE_OF_HELIOS.orbit?.dysonSphere?.chargeIntervalSeconds, 30);
+  assert.ok(distance('siege-center-entry', 'siege-orbit-south') <= SIEGE_OF_HELIOS.attackRange);
   assert.ok(Math.hypot(byId('siege-orbit-south').x - SIEGE_OF_HELIOS.orbit!.x,
     byId('siege-orbit-south').y - SIEGE_OF_HELIOS.orbit!.y) <= SIEGE_OF_HELIOS.attackRange);
-  for (const side of ['west', 'east']) {
-    const route = [`siege-${side}-harbor`, `siege-${side}-overdrive`, `siege-${side}-repulse`,
-      `siege-${side}-omni`, `siege-${side}-gate`, `siege-${side}-guard`, `siege-${side}-capital`];
+  for (const route of [
+    ['siege-west-relay', 'siege-west-landing', 'siege-west-crosslink', 'siege-west-shield',
+      'siege-west-outpost', 'siege-west-omni', 'siege-northwest-pass', 'siege-west-capital'],
+    ['siege-east-relay', 'siege-east-landing', 'siege-east-crosslink', 'siege-east-forge',
+      'siege-east-outpost', 'siege-east-shield', 'siege-northeast-pass', 'siege-east-capital'],
+    ['siege-west-relay', 'siege-center-entry', 'siege-orbit-south', 'siege-orbit-west',
+      'siege-orbit-north', 'siege-north-bridge', 'siege-command', 'siege-west-north-bridge',
+      'siege-west-guard', 'siege-west-capital'],
+  ]) {
     for (let index = 1; index < route.length; index++) {
       assert.ok(distance(route[index - 1], route[index]) <= SIEGE_OF_HELIOS.attackRange,
         `${route[index - 1]} cannot reach ${route[index]}`);
     }
-    for (const weapon of ['overdrive', 'repulse', 'omni']) {
-      assert.deepEqual(byId(`siege-${side}-${weapon}`).superweaponUnlocks, [weapon]);
-    }
   }
+  for (const first of SIEGE_OF_HELIOS.planets) for (const second of SIEGE_OF_HELIOS.planets) {
+    if (first.id !== second.id) assert.ok(distance(first.id, second.id) >= 250, `${first.id} overlaps ${second.id}`);
+  }
+});
+
+test('all four faction colors appear during Chapter 1', () => {
+  const owners = new Set(CHAPTERS['chapter-1'].maps.flatMap(map => map.planets.map(planet => planet.owner)));
+  assert.ok(FACTIONS.every(color => owners.has(color)));
 });
 
 test('the short orbit keeps clear of fixed worlds throughout a full revolution', () => {
@@ -64,13 +80,14 @@ test('holding the Dyson Sphere generates a charge usable for any weapon', () => 
   const sphere = engine.bases.get(DYSON_SPHERE_ID)!;
   assert.equal(sphere.color, NEUTRAL);
   assert.equal(sphere.isDysonSphere, true);
-  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'repulse'), 2);
+  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'repulse'), 3);
   assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'overdrive'), 2);
   assert.equal(engine.getSuperweaponSourceCount('#ef4444', 'repulse'), 2);
+  assert.equal(engine.getSuperweaponSourceCount('#ef4444', 'overdrive'), 1);
   assert.equal(engine.getUniversalCharge(PLAYER), 0);
   sphere.color = PLAYER;
   assert.deepEqual([...engine.getOwnedSuperweapons(PLAYER)].sort(), ['omni', 'overdrive', 'repulse']);
-  engine.update(49);
+  engine.update(29);
   assert.equal(engine.getUniversalCharge(PLAYER), 0);
   engine.update(1);
   assert.equal(engine.getUniversalCharge(PLAYER), 1);

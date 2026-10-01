@@ -3,18 +3,24 @@ import { createPortal } from 'react-dom';
 import { Check, ChevronRight, Layers, Skull, Swords, X } from 'lucide-react';
 import { playSound } from '../audio';
 import './ModeCard.css';
-import { progressLabel, type ModeId, type Progress } from '../game/campaign';
+import { CHAPTERS, CHAPTER_ONE_TEST_MODE_IDS, isChapterOneTestMode, progressLabel, type ModeId, type Progress } from '../game/campaign';
 
-const modes = [
+type Mode = { id: ModeId; title: string; subtitle: string; description: string; accent: string; rgb: string; label: string };
+
+const mainModes: Mode[] = [
   { id: 'chapter-1', title: 'Chapter 1', subtitle: 'The Helios Breach', description: 'Lead your fleet through five tactical battles. Capture new worlds and push into enemy territory.', accent: '#73dcff', rgb: '115, 220, 255', label: 'Campaign · 5 battles' },
-  { id: 'chapter-1-test', title: 'Chapter 1 Test', subtitle: 'Start at Level 3', description: 'Jump into The Turning Tide, then continue to later Chapter 1 levels.', accent: '#73dcff', rgb: '115, 220, 255', label: 'Testing' },
   { id: 'quick-match', title: 'Quick Match', subtitle: 'One battle. Total conquest.', description: 'Command your fleet. Defend your capital. Conquer the system.', accent: '#ffc184', rgb: '255, 193, 132', label: 'Instant action' },
   { id: 'hard-mode', title: 'Hard Mode', subtitle: 'A tougher conquest.', description: 'Take on a Quick Match against a more aggressive AI. Defend your capital and conquer the system.', accent: '#f87171', rgb: '248, 113, 113', label: 'Hard AI' },
 ];
-type Mode = typeof modes[number];
+const testModes: Mode[] = CHAPTER_ONE_TEST_MODE_IDS.map((id, index) => ({
+  id, title: 'Chapter 1 Test', subtitle: `Level ${index + 1}: ${CHAPTERS[id].maps[0].title}`,
+  description: `Start directly at Level ${index + 1}. Wins continue through later Chapter 1 levels without changing campaign progress.`,
+  accent: '#73dcff', rgb: '115, 220, 255', label: 'Testing',
+}));
+const modes = [...mainModes, ...testModes];
 
 function Artwork({ mode }: { mode: Mode }) {
-  return <>{mode.id !== 'chapter-1-test' && <img className="mode-art" src={`/images/modes/${mode.id === 'hard-mode' ? 'quick-match' : mode.id}.jpg`} alt="" draggable={false} />}<span className="mode-shade" /></>;
+  return <>{!isChapterOneTestMode(mode.id) && <img className="mode-art" src={`/images/modes/${mode.id === 'hard-mode' ? 'quick-match' : mode.id}.jpg`} alt="" draggable={false} />}<span className="mode-shade" /></>;
 }
 
 function CardContent({ mode, compact = false }: { mode: Mode; compact?: boolean }) {
@@ -71,18 +77,26 @@ export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress 
         <button type="button" aria-label="Close mode selection" onClick={() => dialog.current?.close()} className="mode-close"><X size={22} /></button>
       </header>
       <div className="mode-grid">
-        {modes.filter(mode => mode.id !== 'chapter-1-test').map(mode => (
-          <button key={mode.id} type="button" aria-label={`Select ${mode.title}`} aria-pressed={selected.id === mode.id} onClick={() => { onSelectMode(mode.id as ModeId); playSound('select', isSoundEnabled); dialog.current?.close(); }} className={`mode-card mode-option ${mode.id === 'hard-mode' ? 'mode-hard' : ''} ${selected.id === mode.id ? 'is-selected' : ''}`}>
+        {mainModes.map(mode => (
+          <button key={mode.id} type="button" aria-label={`Select ${mode.title}`} aria-pressed={selected.id === mode.id} onClick={() => { onSelectMode(mode.id); playSound('select', isSoundEnabled); dialog.current?.close(); }} className={`mode-card mode-option ${mode.id === 'hard-mode' ? 'mode-hard' : ''} ${selected.id === mode.id ? 'is-selected' : ''}`}>
             <Artwork mode={mode} />
             <CardContent mode={mode} compact />
-            <div className="mode-footer"><span className="mode-meta">{progressLabel(mode.id as ModeId, progress)}</span><span className="mode-select">{selected.id === mode.id ? <><Check size={15} /> Selected</> : <>Select <ChevronRight size={16} /></>}</span></div>
+            <div className="mode-footer"><span className="mode-meta">{progressLabel(mode.id, progress)}</span><span className="mode-select">{selected.id === mode.id ? <><Check size={15} /> Selected</> : <>Select <ChevronRight size={16} /></>}</span></div>
           </button>
         ))}
       </div>
-      <button type="button" aria-label="Select Chapter 1 Test, start at Level 3" aria-pressed={selected.id === 'chapter-1-test'} onClick={() => { onSelectMode('chapter-1-test'); playSound('select', isSoundEnabled); dialog.current?.close(); }} className={`mode-test-option ${selected.id === 'chapter-1-test' ? 'is-selected' : ''}`}>
-        <span>Chapter 1 Test <small>Start at Level 3, then play later levels</small></span>
-        <span>{selected.id === 'chapter-1-test' ? 'Selected' : 'Select'} <ChevronRight size={16} /></span>
-      </button>
+      <section className="mode-test-section" aria-label="Chapter 1 level tests">
+        <p className="mode-test-heading">Start Chapter 1 at any level</p>
+        <div className="mode-test-grid">
+          {testModes.map((mode, index) => {
+            const mapTitle = CHAPTERS[CHAPTER_ONE_TEST_MODE_IDS[index]].maps[0].title;
+            return <button key={mode.id} type="button" aria-label={`Select Level ${index + 1} test: ${mapTitle}`} aria-pressed={selected.id === mode.id} onClick={() => { onSelectMode(mode.id); playSound('select', isSoundEnabled); dialog.current?.close(); }} className={`mode-test-option ${selected.id === mode.id ? 'is-selected' : ''}`}>
+              <span>Level {index + 1} Test <small>{mapTitle}</small></span>
+              <span>{selected.id === mode.id ? 'Selected' : 'Select'} <ChevronRight size={16} /></span>
+            </button>;
+          })}
+        </div>
+      </section>
       <p className="mode-dialog-hint">Select a mode, then launch from the main menu.</p>
     </dialog>, document.body)}
   </>;

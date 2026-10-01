@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FIRST_STRIKE, BREACH_LINE, TURNING_TIDE, THE_PINCER, SIEGE_OF_HELIOS, CHAPTERS, PLAYER, completeMission, emptyProgress, followingMission, getOutcome, launchMission, nextMission, parseProgress, validateMap, type Chapter } from './campaign';
+import { FIRST_STRIKE, BREACH_LINE, TURNING_TIDE, THE_PINCER, SIEGE_OF_HELIOS, CHAPTERS, CHAPTER_ONE_TEST_MODE_IDS, PLAYER, completeMission, emptyProgress, followingMission, getOutcome, isChapterOneTestMode, launchMission, nextMission, parseProgress, progressLabel, validateMap, type Chapter } from './campaign';
 import { createMatch } from './mapLoader';
 
 test('authored map loads exact planets, ships, factions, dimensions and range', () => {
@@ -37,7 +37,7 @@ test('victory and defeat are resolved with defeat precedence', () => {
   engine.bases.delete('player_1'); assert.equal(getOutcome(engine.bases.values()), 'defeat');
   assert.equal(getOutcome([{ color: PLAYER, isCapital: false }]), 'defeat');
 });
-test('Chapter 1 advances from the tutorial through the siege finale', () => {
+test('Chapter 1 advances from the tutorial through the Helios finale', () => {
   let progress = emptyProgress();
   assert.equal(launchMission(CHAPTERS['chapter-1'], progress.completed)?.id, FIRST_STRIKE.id);
   progress = completeMission(progress, FIRST_STRIKE.id);
@@ -75,7 +75,7 @@ test('Chapter 1 advances from the tutorial through the siege finale', () => {
 });
 test('startup selects Chapter 1 for new and existing saves without deleting completed levels', () => {
   assert.equal(emptyProgress().selectedMode, 'chapter-1');
-  for (const selectedMode of ['chapter-1', 'chapter-1-test', 'chapter-2', 'quick-match']) {
+  for (const selectedMode of ['chapter-1', 'chapter-1-test', ...CHAPTER_ONE_TEST_MODE_IDS, 'chapter-2', 'quick-match']) {
     const completed = [FIRST_STRIKE.id, TURNING_TIDE.id];
     const loaded = parseProgress(JSON.stringify({ version: 1, selectedMode, completed }));
     assert.equal(loaded.selectedMode, 'chapter-1');
@@ -84,15 +84,23 @@ test('startup selects Chapter 1 for new and existing saves without deleting comp
     assert.equal(followingMission(CHAPTERS['chapter-1'], FIRST_STRIKE.id)?.id, BREACH_LINE.id);
   }
 });
-test('testing mode always starts at Level 3 and continues through later Chapter 1 maps', () => {
-  const testChapter = CHAPTERS['chapter-1-test'];
-  assert.deepEqual(testChapter.maps, CHAPTERS['chapter-1'].maps.slice(2));
-  assert.equal(launchMission(testChapter, [])?.id, TURNING_TIDE.id);
-  assert.equal(launchMission(testChapter, [TURNING_TIDE.id, THE_PINCER.id])?.id, TURNING_TIDE.id);
-  assert.equal(followingMission(testChapter, TURNING_TIDE.id)?.id, THE_PINCER.id);
-  assert.equal(followingMission(testChapter, THE_PINCER.id)?.id, SIEGE_OF_HELIOS.id);
-  assert.equal(followingMission(testChapter, SIEGE_OF_HELIOS.id), undefined);
-  assert.equal(testChapter.maps[0].tutorial, undefined);
+test('each Chapter 1 test mode starts at its selected level and advances without using saved wins', () => {
+  const campaignMaps = CHAPTERS['chapter-1'].maps;
+  assert.equal(CHAPTER_ONE_TEST_MODE_IDS.length, campaignMaps.length);
+  assert.equal(isChapterOneTestMode('chapter-1'), false);
+  for (const [index, mode] of CHAPTER_ONE_TEST_MODE_IDS.entries()) {
+    const testChapter = CHAPTERS[mode];
+    assert.equal(isChapterOneTestMode(mode), true);
+    assert.deepEqual(testChapter.maps, campaignMaps.slice(index));
+    assert.equal(testChapter.plannedLevels, campaignMaps.length - index);
+    assert.equal(launchMission(testChapter, [])?.id, campaignMaps[index].id);
+    assert.equal(launchMission(testChapter, campaignMaps.map(map => map.id))?.id, campaignMaps[index].id);
+    assert.equal(progressLabel(mode, emptyProgress()), `Testing · starts at Level ${index + 1}`);
+    assert.equal(testChapter.maps[0].tutorial !== undefined, index === 0);
+    for (let offset = index; offset < campaignMaps.length; offset++) {
+      assert.equal(followingMission(testChapter, campaignMaps[offset].id)?.id, campaignMaps[offset + 1]?.id);
+    }
+  }
 });
 test('corrupt, outdated and malformed saves recover safely', () => {
   for (const raw of [null, '{', '{}', '{"version":2}']) assert.deepEqual(parseProgress(raw), emptyProgress());

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createMatch } from './game/mapLoader';
-import { CHAPTERS, DYSON_SPHERE_ID, SIEGE_OF_HELIOS, completeMission, followingMission, getOutcome, launchMission, loadProgress, nextMission, saveProgress, type MapDefinition, type ModeId, type Progress } from './game/campaign';
+import { CHAPTERS, DYSON_SPHERE_ID, SIEGE_OF_HELIOS, completeMission, followingMission, getOutcome, isChapterOneTestMode, launchMission, loadProgress, nextMission, saveProgress, testLevelForMode, type MapDefinition, type ModeId, type Progress } from './game/campaign';
 import { AnimatePresence, motion } from 'motion/react';
 import { Maximize, Minimize, Volume2, VolumeX, Music, Pause, Play, Flag, Shield } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
@@ -162,7 +162,7 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
           <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <span className="relative z-10 flex items-center gap-3">
-            {selectedMode !== 'quick-match' && selectedMode !== 'hard-mode' && CHAPTERS[selectedMode].maps.length === 0 ? 'Coming soon' : selectedMode === 'hard-mode' ? 'Launch Hard Mode' : selectedMode === 'quick-match' ? 'Initialize Launch' : selectedMode === 'chapter-1' ? 'Start Chapter 1' : selectedMode === 'chapter-1-test' ? 'Start Level 3' : nextMission(CHAPTERS[selectedMode], progress.completed) ? 'Continue Campaign' : 'Replay Mission'}
+            {selectedMode !== 'quick-match' && selectedMode !== 'hard-mode' && CHAPTERS[selectedMode].maps.length === 0 ? 'Coming soon' : selectedMode === 'hard-mode' ? 'Launch Hard Mode' : selectedMode === 'quick-match' ? 'Initialize Launch' : selectedMode === 'chapter-1' ? 'Start Chapter 1' : isChapterOneTestMode(selectedMode) ? `Start Level ${testLevelForMode(selectedMode)}` : nextMission(CHAPTERS[selectedMode], progress.completed) ? 'Continue Campaign' : 'Replay Mission'}
             <svg className="w-5 h-5 group-hover:translate-x-2 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="square" strokeLinejoin="miter" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
             </svg>
@@ -1637,7 +1637,7 @@ export default function App() {
   }, [result, session, followingMap]);
   const onResult = (won: boolean) => {
     setResult(won);
-    if (won && session?.map && session.mode !== 'chapter-1-test') setProgress(previous => completeMission(previous, session.map!.id));
+    if (won && session?.map && !isChapterOneTestMode(session.mode)) setProgress(previous => completeMission(previous, session.map!.id));
   };
   const [isSoundEnabled, setIsSoundEnabled] = useState(true);
   const [isMusicEnabled, setIsMusicEnabled] = useState(true);
