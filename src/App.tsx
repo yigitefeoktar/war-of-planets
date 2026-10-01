@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createMatch } from './game/mapLoader';
-import { CHAPTERS, DYSON_SPHERE_ID, SIEGE_OF_HELIOS, completeMission, followingMission, getOutcome, isChapterOneTestMode, launchMission, loadProgress, nextMission, saveProgress, testLevelForMode, type MapDefinition, type ModeId, type Progress } from './game/campaign';
+import { CHAPTERS, DYSON_SPHERE_ID, SIEGE_OF_HELIOS, completeMission, followingMission, getOutcome, isChapterOneTestMode, launchMission, loadProgress, mapOrbits, nextMission, saveProgress, testLevelForMode, type MapDefinition, type ModeId, type Progress } from './game/campaign';
 import { AnimatePresence, motion } from 'motion/react';
 import { Maximize, Minimize, Volume2, VolumeX, Music, Pause, Play, Flag, Shield } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
@@ -375,11 +375,12 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
     // Initialize Game Engine
     const engine = createMatch(map, { hardMode: isHardMode });
+    const orbits = mapOrbits(map);
     engine.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     engineRef.current = engine;
     // Availability includes weapons that can be produced later in this match.
     setAvailableWeapons(new Set<SuperweaponId>(engine.superweaponUnlocksEnabled
-      ? map?.orbit?.dysonSphere
+      ? orbits.some(orbit => orbit.dysonSphere)
         ? SUPERWEAPON_IDS
         : Array.from(engine.bases.values()).flatMap(base => base.superweaponUnlocks ?? [])
       : []));
@@ -454,7 +455,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     // on the opening fleet, keeping nearby planets large enough to tap.
     const focusCapital = (map?.tutorial || (map?.mobileFocus === 'capital' && width < 700)) && playerBase;
     const targetZoom = clampZoom(map && focusCapital ? width < 700 ? Math.min(0.35, width / (map.attackRange * 2 + 100)) : 0.6
-      : map ? Math.max(width < 700 ? 0.35 : 0.15, Math.min(width / WORLD_WIDTH, height / WORLD_HEIGHT) * 0.9) : 0.6, getZoomLimits());
+      : map ? Math.max(width < 700 ? 0.35 : 0, Math.min(width / WORLD_WIDTH, height / WORLD_HEIGHT) * 0.9) : 0.6, getZoomLimits());
     const targetX = focusCapital ? playerBase.x - (width / 2) / targetZoom : map ? (WORLD_WIDTH - width / targetZoom) / 2 : playerBase ? playerBase.x - (width / 2) / targetZoom : startX;
     const targetY = focusCapital ? playerBase.y - (height * 0.7) / targetZoom : map ? (WORLD_HEIGHT - height / targetZoom) / 2 : playerBase ? playerBase.y - (height / 2) / targetZoom : startY;
 
@@ -661,7 +662,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         const worldX = (mouseX / cameraZoom) + cameraX;
         const worldY = (mouseY / cameraZoom) + cameraY;
         // Decorative stars cannot be selected. A configured Dyson sphere can.
-        if (map?.orbit && !map.orbit.dysonSphere && Math.hypot(worldX - map.orbit.x, worldY - map.orbit.y) <= 52) {
+        if (orbits.some(orbit => !orbit.dysonSphere && Math.hypot(worldX - orbit.x, worldY - orbit.y) <= 52)) {
           if (targetingModeRef.current) handlePlanetClick(null);
           return;
         }
@@ -873,7 +874,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
           const worldX = (touchX / cameraZoom) + cameraX;
           const worldY = (touchY / cameraZoom) + cameraY;
-          if (map?.orbit && !map.orbit.dysonSphere && Math.hypot(worldX - map.orbit.x, worldY - map.orbit.y) <= 52) {
+          if (orbits.some(orbit => !orbit.dysonSphere && Math.hypot(worldX - orbit.x, worldY - orbit.y) <= 52)) {
             if (targetingModeRef.current) handlePlanetClick(null);
             return;
           }

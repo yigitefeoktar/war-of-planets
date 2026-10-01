@@ -50,7 +50,7 @@ test('Chapter 1 advances from the tutorial through the Helios finale', () => {
   assert.equal(CHAPTERS['chapter-1'].maps[1].tutorial, undefined);
   assert.ok(CHAPTERS['chapter-1'].maps[2].orbit);
   assert.equal(CHAPTERS['chapter-1'].maps[3].orbit, undefined);
-  assert.ok(CHAPTERS['chapter-1'].maps[4].orbit?.dysonSphere);
+  assert.equal(CHAPTERS['chapter-1'].maps[4].orbits?.length, 5);
   assert.equal(followingMission(CHAPTERS['chapter-1'], FIRST_STRIKE.id)?.id, BREACH_LINE.id);
   assert.equal(followingMission(CHAPTERS['chapter-1'], BREACH_LINE.id)?.id, TURNING_TIDE.id);
   assert.equal(followingMission(CHAPTERS['chapter-1'], TURNING_TIDE.id)?.id, THE_PINCER.id);

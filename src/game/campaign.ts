@@ -32,10 +32,15 @@ export type MapDefinition = {
   objective: { type: 'eliminate-capitals'; description: string };
   planets: PlanetDefinition[];
   orbit?: OrbitDefinition;
+  orbits?: OrbitDefinition[];
   mobileFocus?: 'capital';
   tutorial?: { attackTargetId: string };
 };
 export type Chapter = { id: ChapterId; plannedLevels: number; maps: MapDefinition[] };
+
+export function mapOrbits(map?: MapDefinition): OrbitDefinition[] {
+  return map?.orbits ?? (map?.orbit ? [map.orbit] : []);
+}
 
 export const FIRST_STRIKE: MapDefinition = {
   id: 'helios-first-strike', title: 'First Strike',
@@ -176,66 +181,83 @@ export const THE_PINCER: MapDefinition = {
   ],
 };
 
-export const SIEGE_OF_HELIOS: MapDefinition = {
-  // Keep the released ID so existing completion records still recognize Level 5.
-  id: 'helios-siege-of-helios', title: 'Helios Counteroffensive',
-  galaxyTheme: 'siege',
-  briefing: 'Hold your southern foothold against the red spearheads, then counterattack through the western flank, the eastern flank, or the Helios core. Capture both red capitals to secure the system.',
-  width: 3800, height: 3400, attackRange: 600, mobileFocus: 'capital',
-  objective: { type: 'eliminate-capitals', description: 'Defend the blue capital, break the red line, and capture both red capitals.' },
-  planets: [
-    // Blue holds enough territory to choose a route; only the outer harbors face an opening attack.
-    { id: 'siege-home', x: 1900, y: 2960, owner: PLAYER, ships: 320, capital: true, superweaponUnlocks: ['repulse'] },
-    { id: 'siege-west-relay', x: 1550, y: 2800, owner: PLAYER, ships: 70, superweaponUnlocks: ['repulse'] },
-    { id: 'siege-east-relay', x: 2250, y: 2800, owner: PLAYER, ships: 70, superweaponUnlocks: ['repulse'] },
-    { id: 'siege-west-harbor', x: 1050, y: 2820, owner: PLAYER, ships: 60, superweaponUnlocks: ['overdrive'] },
-    { id: 'siege-east-harbor', x: 2750, y: 2820, owner: PLAYER, ships: 60, superweaponUnlocks: ['overdrive'] },
-    // Red pressure begins at the edges, away from the blue capital.
-    { id: 'siege-west-spear', x: 900, y: 2500, owner: '#ef4444', ships: 40 },
-    { id: 'siege-east-spear', x: 2900, y: 2500, owner: '#ef4444', ships: 40 },
-    { id: 'siege-west-guard', x: 1050, y: 780, owner: '#ef4444', ships: 70, superweaponUnlocks: ['repulse'] },
-    { id: 'siege-east-guard', x: 2750, y: 780, owner: '#ef4444', ships: 70, superweaponUnlocks: ['repulse'] },
-    { id: 'siege-command', x: 1900, y: 700, owner: '#ef4444', ships: 90, superweaponUnlocks: ['overdrive'] },
-    { id: 'siege-west-capital', x: 650, y: 350, owner: '#ef4444', ships: 160, capital: true },
-    { id: 'siege-east-capital', x: 3150, y: 350, owner: '#ef4444', ships: 160, capital: true },
-    // Cheap southern choices let blue expand before committing to a breakthrough.
-    { id: 'siege-center-entry', x: 1900, y: 2350, owner: NEUTRAL, ships: 16, superweaponUnlocks: ['omni'] },
-    { id: 'siege-west-landing', x: 1350, y: 2480, owner: NEUTRAL, ships: 12 },
-    { id: 'siege-east-landing', x: 2450, y: 2480, owner: NEUTRAL, ships: 12 },
-    { id: 'siege-southwest-mines', x: 700, y: 2880, owner: NEUTRAL, ships: 12, superweaponUnlocks: ['overdrive'] },
-    { id: 'siege-southeast-mines', x: 3100, y: 2880, owner: NEUTRAL, ships: 12, superweaponUnlocks: ['overdrive'] },
-    // Western route offers an early shield, then an Omni shortcut around the guard.
-    { id: 'siege-west-crosslink', x: 1200, y: 2100, owner: NEUTRAL, ships: 22 },
-    { id: 'siege-west-shield', x: 650, y: 2150, owner: NEUTRAL, ships: 24, superweaponUnlocks: ['repulse'] },
-    { id: 'siege-west-junction', x: 1200, y: 1600, owner: NEUTRAL, ships: 26 },
-    { id: 'siege-west-outpost', x: 500, y: 1700, owner: NEUTRAL, ships: 28 },
-    { id: 'siege-west-omni', x: 530, y: 1230, owner: NEUTRAL, ships: 24, superweaponUnlocks: ['omni'] },
-    { id: 'siege-northwest-pass', x: 420, y: 800, owner: NEUTRAL, ships: 28 },
-    // Eastern route offers production sites and a link back toward the core.
-    { id: 'siege-east-crosslink', x: 2600, y: 2100, owner: NEUTRAL, ships: 22 },
-    { id: 'siege-east-forge', x: 3150, y: 2170, owner: NEUTRAL, ships: 24, superweaponUnlocks: ['overdrive'] },
-    { id: 'siege-east-junction', x: 2600, y: 1580, owner: NEUTRAL, ships: 26 },
-    { id: 'siege-east-outpost', x: 3320, y: 1740, owner: NEUTRAL, ships: 28 },
-    { id: 'siege-east-shield', x: 3100, y: 1260, owner: NEUTRAL, ships: 24, superweaponUnlocks: ['repulse'] },
-    { id: 'siege-northeast-pass', x: 3400, y: 820, owner: NEUTRAL, ships: 28 },
-    // Northern cross-links permit a pivot after taking either flank or the sphere.
-    { id: 'siege-west-gate', x: 850, y: 1050, owner: NEUTRAL, ships: 28 },
-    { id: 'siege-east-gate', x: 2950, y: 1050, owner: NEUTRAL, ships: 28 },
-    { id: 'siege-west-north-bridge', x: 1400, y: 1000, owner: NEUTRAL, ships: 30 },
-    { id: 'siege-east-north-bridge', x: 2400, y: 1000, owner: NEUTRAL, ships: 30 },
-    { id: 'siege-north-bridge', x: 1900, y: 1050, owner: NEUTRAL, ships: 32 },
-    // Four satellites keep the Dyson contest readable and leave the fixed lanes unobstructed.
-    { id: 'siege-orbit-south', x: 1900, y: 2030, owner: NEUTRAL, ships: 18, superweaponUnlocks: ['omni'] },
-    { id: 'siege-orbit-west', x: 1570, y: 1700, owner: NEUTRAL, ships: 22, superweaponUnlocks: ['overdrive'] },
-    { id: 'siege-orbit-north', x: 1900, y: 1370, owner: NEUTRAL, ships: 26, superweaponUnlocks: ['repulse'] },
-    { id: 'siege-orbit-east', x: 2230, y: 1700, owner: NEUTRAL, ships: 22, superweaponUnlocks: ['overdrive'] },
-  ],
-  orbit: {
-    x: 1900, y: 1700, periodSeconds: 300,
-    planetIds: ['siege-orbit-south', 'siege-orbit-west', 'siege-orbit-north', 'siege-orbit-east'],
-    dysonSphere: { chargeIntervalSeconds: 30 },
-  },
-};
+// Five authored systems share Level 3's eight outer and four inner worlds.
+// Fixed lanes sit outside every swept orbit, so rotation never closes the map.
+function buildHeliosFinale(): MapDefinition {
+  const planets: PlanetDefinition[] = [];
+  const orbits: OrbitDefinition[] = [];
+  const weapons: SuperweaponId[] = ['omni', 'overdrive', 'repulse'];
+  const systems: { name: string; x: number; y: number; owner: PlanetDefinition['owner']; capitalIndex: number }[] = [
+    { name: 'blue', x: 1200, y: 4400, owner: PLAYER, capitalIndex: 7 },
+    { name: 'red', x: 1200, y: 1200, owner: FACTIONS[1], capitalIndex: 1 },
+    { name: 'green', x: 4400, y: 1200, owner: FACTIONS[2], capitalIndex: 3 },
+    { name: 'yellow', x: 4400, y: 4400, owner: FACTIONS[3], capitalIndex: 5 },
+    { name: 'core', x: 2800, y: 2800, owner: NEUTRAL, capitalIndex: -1 },
+  ];
+  for (const system of systems) {
+    const planetIds: string[] = [];
+    for (let index = 0; index < 12; index++) {
+      const outer = index < 8;
+      const angle = (outer ? index / 8 : (index - 8) / 4) * Math.PI * 2;
+      const radius = outer ? 620 : 300;
+      const capital = index === system.capitalIndex;
+      const id = capital ? `helios-${system.name}-capital` : `helios-${system.name}-${index}`;
+      const besideCapital = outer && ((index + 1) % 8 === system.capitalIndex || (index + 7) % 8 === system.capitalIndex);
+      const core = system.name === 'core';
+      const weapon = core ? weapons[index % 3]
+        : besideCapital ? ((index + 1) % 8 === system.capitalIndex ? 'omni' : 'repulse')
+          : index === 8 || index === 10 ? 'overdrive' : undefined;
+      planets.push({
+        id, x: system.x + Math.cos(angle) * radius, y: system.y + Math.sin(angle) * radius,
+        owner: capital ? system.owner : NEUTRAL,
+        ships: capital ? (system.owner === PLAYER ? 300 : 240) : core ? (outer ? 32 : 44) : besideCapital ? 12 : outer ? 18 : 16,
+        ...(capital ? { capital: true } : {}),
+        ...(weapon ? { superweaponUnlocks: [weapon] } : {}),
+      });
+      planetIds.push(id);
+    }
+    orbits.push({ x: system.x, y: system.y, periodSeconds: system.name === 'core' ? 180 : 240, planetIds });
+  }
+  const addLink = (id: string, x: number, y: number, ships = 22, weapon?: SuperweaponId) => {
+    planets.push({ id: `helios-${id}`, x, y, owner: NEUTRAL, ships,
+      ...(weapon ? { superweaponUnlocks: [weapon] } : {}) });
+  };
+  // An unbroken fixed necklace feeds the central rings from every direction.
+  for (let index = 0; index < 16; index++) {
+    const angle = index * Math.PI / 8;
+    addLink(`core-link-${index}`, 2800 + Math.cos(angle) * 950, 2800 + Math.sin(angle) * 950,
+      index % 2 === 0 ? 28 : 22, index % 2 === 0 ? weapons[(index / 2) % 3] : undefined);
+  }
+  // Four perimeter lanes bypass the core and join neighboring factions.
+  for (let index = 0; index < 4; index++) {
+    const position = [2100, 2570, 3030, 3500][index];
+    addLink(`north-${index}`, position, 1200);
+    addLink(`south-${index}`, position, 4400);
+    addLink(`west-${index}`, 1200, position);
+    addLink(`east-${index}`, 4400, position);
+  }
+  for (const [name, x, y] of [
+    ['north-crossing', 2800, 1450], ['south-crossing', 2800, 4150],
+    ['west-crossing', 1450, 2800], ['east-crossing', 4150, 2800],
+  ] as const) addLink(name, x, y, 24);
+  // Diagonal approaches and their two branches join the perimeter to the core.
+  for (const system of systems.slice(0, 4)) {
+    const dx = Math.sign(2800 - system.x), dy = Math.sign(2800 - system.y);
+    addLink(`${system.name}-approach`, system.x + dx * 920 / Math.sqrt(2), system.y + dy * 920 / Math.sqrt(2), 16);
+    addLink(`${system.name}-horizontal-branch`, system.x + dx * 880, system.y + dy * 430, 18);
+    addLink(`${system.name}-vertical-branch`, system.x + dx * 430, system.y + dy * 880, 18);
+  }
+  return {
+    // Preserve the released ID for saves, campaign progression, and test modes.
+    id: 'helios-siege-of-helios', title: 'The Battle for Helios', galaxyTheme: 'siege',
+    briefing: 'Four factions rise from orbiting capitals across five stars. Expand through your home ring, choose the outer lanes or race for the weapon-rich Helios core. Capture all three rival capitals while protecting your own.',
+    width: 5600, height: 5600, attackRange: 600, mobileFocus: 'capital',
+    objective: { type: 'eliminate-capitals', description: 'Capture the red, green, and yellow capitals. Keep the blue capital alive.' },
+    planets, orbits,
+  };
+}
+
+export const SIEGE_OF_HELIOS = buildHeliosFinale();
 
 const CHAPTER_ONE_MAPS = [FIRST_STRIKE, BREACH_LINE, TURNING_TIDE, THE_PINCER, SIEGE_OF_HELIOS];
 
@@ -307,10 +329,18 @@ export function validateMap(map: MapDefinition): void {
     if (p.capital && p.owner === NEUTRAL) throw new Error('Neutral capital is not supported');
   }
   if (map.planets.filter(p => p.capital && p.owner === PLAYER).length !== 1 || !map.planets.some(p => p.capital && p.owner !== PLAYER)) throw new Error('Map requires one player capital and an enemy capital');
-  if (map.orbit) {
-    const orbit = map.orbit;
+  if (map.orbit && map.orbits) throw new Error('Use orbit or orbits, not both');
+  if (map.orbits && !map.orbits.length) throw new Error('Orbit systems must not be empty');
+  const orbitMembers = new Set<string>();
+  const orbits = mapOrbits(map);
+  if (orbits.filter(orbit => orbit.dysonSphere).length > 1) throw new Error('Only one Dyson sphere is supported');
+  for (const orbit of orbits) {
     if (![orbit.x, orbit.y, orbit.periodSeconds].every(Number.isFinite) || orbit.periodSeconds <= 0 || orbit.x < 0 || orbit.x > map.width || orbit.y < 0 || orbit.y > map.height) throw new Error('Invalid orbit centre or period');
     if (!orbit.planetIds.length || new Set(orbit.planetIds).size !== orbit.planetIds.length || orbit.planetIds.some(id => !ids.has(id))) throw new Error('Invalid orbit planet IDs');
+    for (const id of orbit.planetIds) {
+      if (orbitMembers.has(id)) throw new Error('A planet cannot belong to multiple orbit systems');
+      orbitMembers.add(id);
+    }
     if (orbit.dysonSphere) {
       if (ids.has(DYSON_SPHERE_ID)) throw new Error('Dyson sphere ID is reserved');
       if (!Number.isFinite(orbit.dysonSphere.chargeIntervalSeconds) || orbit.dysonSphere.chargeIntervalSeconds <= 0) throw new Error('Invalid Dyson sphere settings');

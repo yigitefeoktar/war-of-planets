@@ -4,27 +4,35 @@ import type { SuperweaponTargetMode } from './superweapons';
 import type { Base } from './types';
 import type { GalaxyTheme } from './galaxy';
 
-// A rigid rotating system, not a gravity simulation. The center is either a
+// Rigid rotating systems, not a gravity simulation. Each center is either a
 // decorative star or an optional capturable Dyson sphere defined by the map.
 export class OrbitingGameEngine extends GameEngine {
-  private readonly orbitIds: Set<string>;
+  private readonly orbits: OrbitDefinition[];
+  private readonly orbitByPlanet = new Map<string, OrbitDefinition>();
 
-  constructor(width: number, height: number, private readonly orbit: OrbitDefinition, hasWeaponPlanets = false, galaxyTheme?: GalaxyTheme) {
+  constructor(width: number, height: number, orbit: OrbitDefinition | OrbitDefinition[], hasWeaponPlanets = false, galaxyTheme?: GalaxyTheme) {
+    const orbits = Array.isArray(orbit) ? orbit : [orbit];
+    const dyson = orbits.find(system => system.dysonSphere)?.dysonSphere;
     super(width, height, {
-      superweaponUnlocksEnabled: Boolean(orbit.dysonSphere) || hasWeaponPlanets,
-      dysonChargeIntervalSeconds: orbit.dysonSphere?.chargeIntervalSeconds,
+      superweaponUnlocksEnabled: Boolean(dyson) || hasWeaponPlanets,
+      dysonChargeIntervalSeconds: dyson?.chargeIntervalSeconds,
       galaxyTheme,
     });
-    this.orbitIds = new Set(orbit.planetIds);
+    this.orbits = orbits;
+    for (const system of orbits) for (const id of system.planetIds) this.orbitByPlanet.set(id, system);
   }
 
   override update(dt: number) {
     if (!Number.isFinite(dt) || dt <= 0) return;
-    const angle = (Math.PI * 2 * dt) / this.orbit.periodSeconds;
-    const cos = Math.cos(angle), sin = Math.sin(angle);
-    const { x: cx, y: cy } = this.orbit;
+    const rotations = new Map(this.orbits.map(orbit => {
+      const angle = (Math.PI * 2 * dt) / orbit.periodSeconds;
+      return [orbit, { angle, cos: Math.cos(angle), sin: Math.sin(angle) }];
+    }));
     for (const base of this.bases.values()) {
-      if (!this.orbitIds.has(base.id)) continue;
+      const orbit = this.orbitByPlanet.get(base.id);
+      if (!orbit) continue;
+      const { x: cx, y: cy } = orbit;
+      const { cos, sin } = rotations.get(orbit)!;
       const x = base.x - cx, y = base.y - cy;
       base.x = cx + x * cos - y * sin;
       base.y = cy + x * sin + y * cos;
@@ -33,7 +41,11 @@ export class OrbitingGameEngine extends GameEngine {
     // Launched fleets stay in world space; the shared combat engine homes in
     // on targetBaseId's current position every frame, including Omni-Strike.
     for (const ship of this.pixels) {
-      if (ship.dead || ship.state !== 'idle' || !this.orbitIds.has(ship.baseId)) continue;
+      if (ship.dead || ship.state !== 'idle') continue;
+      const orbit = this.orbitByPlanet.get(ship.baseId);
+      if (!orbit) continue;
+      const { x: cx, y: cy } = orbit;
+      const { angle, cos, sin } = rotations.get(orbit)!;
       const x = ship.x - cx, y = ship.y - cy;
       const tx = ship.targetX - cx, ty = ship.targetY - cy;
       ship.x = cx + x * cos - y * sin;
@@ -47,11 +59,13 @@ export class OrbitingGameEngine extends GameEngine {
 
   override draw(ctx: CanvasRenderingContext2D, selectedBaseId: string | null, cameraX: number, cameraY: number, targetingMode: SuperweaponTargetMode = null) {
     super.draw(ctx, selectedBaseId, cameraX, cameraY, targetingMode);
-    if (this.orbit.dysonSphere) return;
-    ctx.save();
-    ctx.translate(this.orbit.x, this.orbit.y);
-    this.drawStar(ctx);
-    ctx.restore();
+    for (const orbit of this.orbits) {
+      if (orbit.dysonSphere) continue;
+      ctx.save();
+      ctx.translate(orbit.x, orbit.y);
+      this.drawStar(ctx);
+      ctx.restore();
+    }
   }
 
   private drawStar(ctx: CanvasRenderingContext2D) {
