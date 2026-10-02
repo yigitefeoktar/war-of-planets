@@ -40,12 +40,12 @@ The simulation runs continuously during every tutorial prompt, including the ini
 
 ## Mission 2: The Breach Line
 
-A 2500 × 2500 static battlefield rotated into a west-to-east confrontation. Blue starts with ten connected worlds on the left, including its capital with 220 ships. Red controls ten of the 23 planets on the right, just under half the map. Seven Overdrive worlds cluster near the center; blue starts with the two western junction sites, three start neutral, and red holds the two eastern ring sites.
+A 2500 × 2500 static battlefield rotated into a west-to-east confrontation. Blue starts with only its capital and 220 ships. Red starts with four eastern worlds: its 125-ship capital, the 48-ship gate, and the upper and lower 35-ship outposts. The other 18 planets are neutral, including all seven central Overdrive worlds. Planet positions, starting ship counts, and attack range are unchanged.
 
-- Central route: move ships through the blue supply world into the western Overdrive site. The exact center planet is also a marked Overdrive world. Another marked site and a red gate lead toward the eastern capital.
-- Upper route: the blue harbour, entry, and relay lead into the central ring or into a red bastion, approach, and outpost.
-- Lower route: a matching blue flank leads into the ring or through a red bastion, approach, and lookout.
-- All seven marked planets sit within 500 units of the map center and produce only Overdrive. Blue's two starting sites generate a charge in 30 seconds; one held site takes 60 seconds, and seven take about 9 seconds. Losing sites pauses future generation; an already earned charge remains available. Overdrive triples production on one owned planet for 15 seconds.
+- Central route: capture the cheap neutral supply world to reach the western Overdrive site. The exact center planet is also a marked Overdrive world. Another marked site and a red gate lead toward the eastern capital.
+- Upper route: neutral harbour, entry, and relay worlds lead into the central ring or through the neutral bastion and approach toward the red outpost.
+- Lower route: a matching neutral flank leads into the ring or toward the red lookout.
+- All seven marked planets sit within 500 units of the map center and produce only Overdrive. Neither faction starts with a weapon source. One captured site generates a charge in 60 seconds, two take 30 seconds, and seven take about 9 seconds. Losing all sites pauses future generation; an already earned charge remains available. Overdrive triples production on one owned planet for 15 seconds.
 
 Winning First Strike starts The Breach Line in the current run. Winning The Breach Line starts The Turning Tide. No tutorial prompts repeat after Mission 1.
 
