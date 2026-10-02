@@ -32,22 +32,28 @@ function quietEngine() {
   return engine;
 }
 
-test('The Pincer opens with one central blue capital and three isolated enemy capitals', () => {
+test('The Pincer opens with one blue capital and three enemies holding a capital and rear row', () => {
   validateMap(map);
-  assert.deepEqual([map.width, map.height, map.planets.length, map.attackRange], [5200, 5200, 49, 600]);
+  assert.deepEqual([map.width, map.height, map.planets.length, map.attackRange], [6000, 6000, 58, 600]);
   assert.equal(map.orbit, undefined);
   assert.equal(map.orbits, undefined);
   assert.equal(CHAPTERS['chapter-1-test-4'].maps[0], map);
   assert.deepEqual([byId('pincer-home').x, byId('pincer-home').y], [map.width / 2, map.height / 2]);
   for (const [index, owner] of FACTIONS.entries()) {
     const owned = map.planets.filter(planet => planet.owner === owner);
-    assert.equal(owned.length, 1);
-    assert.equal(owned[0].capital, true);
-    assert.equal(owned[0].ships, index === 0 ? 360 : 220);
-    const neighbors = map.planets.filter(planet => planet.id !== owned[0].id && distance(owned[0], planet) <= map.attackRange);
-    assert.ok(neighbors.every(planet => planet.owner === NEUTRAL));
-    assert.equal(neighbors.length, index === 0 ? 6 : 3);
-    if (index > 0) assert.ok(neighbors.every(planet => planet.ships <= 16));
+    assert.equal(owned.length, index === 0 ? 1 : 4);
+    const capital = owned.find(planet => planet.capital)!;
+    assert.equal(capital.ships, index === 0 ? 360 : 220);
+    const neighbors = map.planets.filter(planet => planet.id !== capital.id && distance(capital, planet) <= map.attackRange);
+    const neutralNeighbors = neighbors.filter(planet => planet.owner === NEUTRAL);
+    assert.equal(neighbors.length, index === 0 ? 6 : 4);
+    assert.equal(neutralNeighbors.length, index === 0 ? 6 : 3);
+    if (index > 0) {
+      const name = enemyBranches[index - 1];
+      assert.deepEqual(owned.map(planet => planet.id), ['capital', 'left-back', 'back', 'right-back'].map(suffix => `pincer-${name}-${suffix}`));
+      assert.ok(neutralNeighbors.every(planet => planet.ships <= 16));
+      assert.ok(owned.filter(planet => !planet.capital).every(planet => planet.ships <= 16));
+    }
   }
   assert.equal(map.planets.filter(planet => planet.owner === NEUTRAL).length, 45);
   const home = byId('pincer-home');
@@ -78,6 +84,10 @@ test('every in-range pair is an intended hub, entrance, or neighboring branch li
       [rear, 'left-rear'], [rear, 'right-rear'],
       ['left-front', 'left-rear'], ['right-front', 'right-rear'],
     ]) link(prefix + a, prefix + b);
+    if (enemyBranches.includes(name)) for (const [a, b] of [
+      ['left-rear', 'left-back'], ['capital', 'back'], ['right-rear', 'right-back'],
+      ['left-back', 'back'], ['back', 'right-back'],
+    ]) link(prefix + a, prefix + b);
   }
   const actual = new Set<string>();
   for (let index = 0; index < map.planets.length; index++) for (const second of map.planets.slice(index + 1)) {
@@ -90,7 +100,7 @@ test('every in-range pair is an intended hub, entrance, or neighboring branch li
   assert.equal(reachable(map.planets, 'pincer-home').size, map.planets.length);
 });
 
-test('removing the hub leaves exactly six separate seven-world groups', () => {
+test('removing the hub leaves six isolated branches with ten enemy worlds or seven weapon worlds', () => {
   const outer = map.planets.filter(planet => !hubIds.includes(planet.id));
   const unseen = new Set(outer.map(planet => planet.id));
   const components: Set<string>[] = [];
@@ -102,10 +112,36 @@ test('removing the hub leaves exactly six separate seven-world groups', () => {
   assert.equal(components.length, 6);
   for (const name of branches) {
     const group = branchWorlds(name);
-    assert.equal(group.length, 7);
-    assert.ok(components.some(component => component.size === 7 && group.every(planet => component.has(planet.id))));
+    const size = enemyBranches.includes(name) ? 10 : 7;
+    assert.equal(group.length, size);
+    assert.ok(components.some(component => component.size === size && group.every(planet => component.has(planet.id))));
     for (const other of branches.filter(other => other !== name)) for (const a of group) for (const b of branchWorlds(other)) {
       assert.ok(distance(a, b) > map.attackRange);
+    }
+  }
+});
+
+test('each enemy has a square three-by-three block extending behind its unchanged capital row', () => {
+  const home = byId('pincer-home');
+  for (const name of enemyBranches) {
+    const capital = byId(`pincer-${name}-capital`);
+    const dx = (capital.x - home.x) / 2200, dy = (capital.y - home.y) / 2200;
+    const rows = [
+      ['left-front', 'gate', 'right-front'],
+      ['left-rear', 'capital', 'right-rear'],
+      ['left-back', 'back', 'right-back'],
+    ];
+    for (const [row, suffixes] of rows.entries()) for (const [column, suffix] of suffixes.entries()) {
+      const planet = byId(`pincer-${name}-${suffix}`);
+      const outward = (planet.x - home.x) * dx + (planet.y - home.y) * dy;
+      const sideways = -(planet.x - home.x) * dy + (planet.y - home.y) * dx;
+      assert.ok(Math.abs(outward - (1640 + row * 560)) < 1e-6);
+      assert.ok(Math.abs(sideways - (column - 1) * 520) < 1e-6);
+      if (row === 2) {
+        assert.equal(planet.owner, capital.owner);
+        assert.equal(planet.capital, undefined);
+        assert.equal(planet.superweaponUnlocks, undefined);
+      }
     }
   }
 });
@@ -176,9 +212,13 @@ test('blue can capture its first neutral shield and each enemy has a legal openi
   });
   for (const [index, name] of enemyBranches.entries()) {
     const orders = plans.get(FACTIONS[index + 1])!.orders;
-    assert.equal(orders.length, 1);
-    assert.equal(orders[0].from, `pincer-${name}-capital`);
-    assert.ok(branchWorlds(name).some(planet => planet.id === orders[0].to && planet.owner === NEUTRAL));
+    assert.ok(orders.length > 0);
+    assert.ok(orders.some(order => order.from === `pincer-${name}-capital`));
+    for (const order of orders) {
+      assert.equal(byId(order.from).owner, FACTIONS[index + 1]);
+      assert.ok(branchWorlds(name).some(planet => planet.id === order.to));
+      assert.ok(canIssueFleetOrder(engine.bases.values(), order.from, order.to, engine.MAX_ATTACK_RANGE));
+    }
   }
   assert.equal(issueFleetOrder(engine, 'pincer-home', 'pincer-hub-red', 0.5), true);
   for (let step = 0; step < 2400 && engine.bases.get('pincer-hub-red')!.color !== PLAYER; step++) engine.update(1 / 60);

@@ -145,7 +145,8 @@ export const TURNING_TIDE: MapDefinition = {
 // Six independent branches meet only at the Repulse hub. The 520 to 560-unit
 // links fit the 600-unit attack range; diagonal and skipped-row distances do not.
 function buildPincer(): MapDefinition {
-  const center = 2600;
+  // Add equal border space on every side without changing any existing relative position.
+  const center = 3000;
   const planets: PlanetDefinition[] = [
     { id: 'pincer-home', x: center, y: center, owner: PLAYER, ships: 360, capital: true, superweaponUnlocks: ['repulse'] },
   ];
@@ -175,11 +176,17 @@ function buildPincer(): MapDefinition {
       { suffix: 'left-rear', radius: 2200, side: -520, ships: branch.owner ? 12 : 28 },
       { suffix: 'right-rear', radius: 2200, side: 520, ships: branch.owner ? 12 : 28 },
     ];
+    // Extend enemy territory outward into a third row; keep the gate and capital rows intact.
+    if (branch.owner) sites.push(
+      { suffix: 'left-back', radius: 2760, side: -520, ships: 12 },
+      { suffix: 'back', radius: 2760, side: 0, ships: 16 },
+      { suffix: 'right-back', radius: 2760, side: 520, ships: 12 },
+    );
     for (const site of sites) {
       const capital = site.suffix === 'capital';
       planets.push({
         id: `pincer-${branch.name}-${site.suffix}`, ...position(site.radius, site.side),
-        owner: capital ? branch.owner! : NEUTRAL, ships: site.ships,
+        owner: capital || site.radius === 2760 ? branch.owner! : NEUTRAL, ships: site.ships,
         ...(capital ? { capital: true } : {}),
         ...(branch.weapon ? { superweaponUnlocks: [branch.weapon] } : {}),
       });
@@ -188,8 +195,8 @@ function buildPincer(): MapDefinition {
   return {
     // Preserve campaign saves and the existing Level 4 test option.
     id: 'helios-the-pincer', title: 'The Pincer', galaxyTheme: 'pincer',
-    briefing: 'Red, green, and yellow expand toward your central capital from three directions. Capture nearby Repulse Shield worlds to hold the hub. Push through enemy gates or secure the three rich weapon branches; every route passes through the center.',
-    width: 5200, height: 5200, attackRange: 600, mobileFocus: 'capital', overviewScale: 0.68, capitalFocusY: 0.5,
+    briefing: 'Red, green, and yellow each hold a capital and three rear worlds, expanding toward your central capital from three directions. Capture nearby Repulse Shield worlds to hold the hub. Push through enemy gates or secure the three rich weapon branches; every route passes through the center.',
+    width: 6000, height: 6000, attackRange: 600, mobileFocus: 'capital', overviewScale: 0.68, capitalFocusY: 0.5,
     objective: { type: 'eliminate-capitals', description: 'Capture all three enemy capitals. Hold the Repulse hub and protect the blue capital.' },
     planets,
   };
