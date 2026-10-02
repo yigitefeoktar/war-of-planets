@@ -113,10 +113,14 @@
 }
 
 /* Keep fleet and weapon controls in one panel, capped by the viewport. */
-.planet-command-normal { width: calc(394px + var(--weapon-count, 0) * 240px); }
+.planet-command-normal { width: calc(252px + var(--selection-space, 142px) + var(--weapon-count, 0) * 240px); }
 .planet-command-normal .planet-command-content { width: 100%; grid-template-columns: 128px minmax(160px, 236px) minmax(0, 1fr); }
 .planet-command-normal:not(:has(.planet-abilities)) .planet-command-content { grid-template-columns: 128px minmax(0, 1fr); }
 .planet-command-enemy .planet-command-content { grid-template-columns: 128px minmax(0, 1fr); }
+.planet-command-without-selection { --selection-space: 0px; }
+.planet-command-normal.planet-command-without-selection .planet-command-content { grid-template-columns: minmax(160px, 236px) minmax(0, 1fr); }
+.planet-command-normal.planet-command-without-selection:not(:has(.planet-abilities)) .planet-command-content,
+.planet-command-enemy.planet-command-without-selection .planet-command-content { grid-template-columns: minmax(0, 1fr); }
 .planet-multi-select { width: 100%; padding: 0 8px; white-space: nowrap; cursor: pointer; }
 .planet-multi-select:disabled { opacity: .45; cursor: not-allowed; }
 .planet-multi-select-hint { width: fit-content; max-width: 100%; margin: 0 auto 8px; padding: 6px 10px; border: 1px solid #73e9f680; border-radius: 8px; background: #071320ee; color: #c4ebf5; text-align: center; font: 12px monospace; }
@@ -131,6 +135,7 @@
 @media (max-width: 760px) {
   .planet-command-normal { width: min(100%, 480px); }
   .planet-command-normal .planet-command-content, .planet-command-enemy .planet-command-content { grid-template-columns: 120px minmax(0, 1fr); }
+  .planet-command-normal.planet-command-without-selection .planet-command-content { grid-template-columns: minmax(0, 1fr); }
   .planet-command-normal .planet-abilities { grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); }
 }
 @media (max-width: 480px) {

@@ -1,7 +1,7 @@
 import { GameEngine } from './engine';
 import { DYSON_SPHERE_ID, type OrbitDefinition } from './campaign';
-import { SUPERWEAPON_IDS, type SuperweaponTargetMode } from './superweapons';
-import type { Base, SuperweaponId } from './types';
+import type { SuperweaponTargetMode } from './superweapons';
+import type { Base } from './types';
 import type { GalaxyTheme } from './galaxy';
 
 // Rigid rotating systems, not a gravity simulation. Each center is either a
@@ -10,12 +10,12 @@ export class OrbitingGameEngine extends GameEngine {
   private readonly orbits: OrbitDefinition[];
   private readonly orbitByPlanet = new Map<string, OrbitDefinition>();
 
-  constructor(width: number, height: number, orbit: OrbitDefinition | OrbitDefinition[], hasWeaponPlanets = false, galaxyTheme?: GalaxyTheme, enabledSuperweapons: readonly SuperweaponId[] = SUPERWEAPON_IDS) {
+  constructor(width: number, height: number, orbit: OrbitDefinition | OrbitDefinition[], hasWeaponPlanets = false, galaxyTheme?: GalaxyTheme, multiSelectEnabled = true) {
     const orbits = Array.isArray(orbit) ? orbit : [orbit];
     const dyson = orbits.find(system => system.dysonSphere)?.dysonSphere;
     super(width, height, {
       superweaponUnlocksEnabled: Boolean(dyson) || hasWeaponPlanets,
-      enabledSuperweapons,
+      multiSelectEnabled,
       dysonChargeIntervalSeconds: dyson?.chargeIntervalSeconds,
       galaxyTheme,
     });

@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { MIN_MULTI_SELECT_PLANETS, canUseMultiSelect, countOwnedPlanets, friendlyPlanetsInRectangle } from './selection';
 import { issueFriendlyGroupOrder } from './logistics';
 import { GameEngine } from './engine';
+import { CHAPTERS, PLAYER as CAMPAIGN_PLAYER } from './campaign';
+import { createMatch } from './mapLoader';
 import type { Base } from './types';
 
 const PLAYER = '#3b82f6', ENEMY = '#ef4444';
@@ -49,6 +51,24 @@ test('Select mode unlocks at exactly 30 currently owned planets and locks again 
   assert.equal(canUseMultiSelect(bases, PLAYER), true);
   bases[0].color = ENEMY;
   assert.equal(canUseMultiSelect(bases, PLAYER), false);
+});
+
+test('Maps 1–4 block Select Mode and group transfers even with 30 owned planets; eligible modes allow them', () => {
+  const campaign = CHAPTERS['chapter-1'].maps.map(map => createMatch(map));
+  const matches = [...campaign, createMatch(), createMatch(undefined, { hardMode: true })];
+  for (const [index, engine] of matches.entries()) {
+    const enabled = index >= 4;
+    assert.equal(engine.multiSelectEnabled, enabled);
+    for (const base of engine.bases.values()) base.color = CAMPAIGN_PLAYER;
+    while (countOwnedPlanets(engine.bases.values(), PLAYER) < MIN_MULTI_SELECT_PLANETS) {
+      const id = `reserve-${engine.bases.size}`;
+      engine.bases.set(id, planet(id, 100, 100));
+    }
+    engine.MAX_ATTACK_RANGE = 10000;
+    const [source, target] = [...engine.bases.values()].filter(base => !base.isDysonSphere);
+    assert.equal(canUseMultiSelect(engine.bases.values(), PLAYER, engine.multiSelectEnabled), enabled);
+    assert.equal(issueFriendlyGroupOrder(engine, [source.id], target.id, 1, PLAYER), enabled ? 1 : 0);
+  }
 });
 
 test('group transfers enforce the same 30-planet requirement at launch time', () => {

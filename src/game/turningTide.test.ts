@@ -57,7 +57,7 @@ test('red and green each have three affordable opening choices from one capital'
       && Math.hypot(planet.x - capital.x, planet.y - capital.y) <= TURNING_TIDE.attackRange);
     assert.deepEqual(new Set(reachable.map(planet => planet.id)), new Set([outpostId, orbitId, 'northern-divide']));
     assert.ok(reachable.every(planet => planet.owner === NEUTRAL && planet.ships <= 35));
-    assert.equal(TURNING_TIDE.planets.find(planet => planet.id === orbitId)?.superweaponUnlocks, undefined);
+    assert.deepEqual(TURNING_TIDE.planets.find(planet => planet.id === orbitId)?.superweaponUnlocks, ['overdrive']);
   }
 });
 
@@ -82,27 +82,27 @@ test('full rotation preserves clear spacing, fixed fortresses, and map connectiv
   }
 });
 
-test('outer and inner rotating worlds alternate Omni Strike sites and ordinary planets', () => {
+test('outer and inner rotating worlds alternate Omni Strike and Production Overdrive', () => {
   const orbitIds = TURNING_TIDE.orbit!.planetIds;
   for (const ring of [orbitIds.slice(0, 8), orbitIds.slice(8)]) {
     assert.deepEqual(ring.map(id => TURNING_TIDE.planets.find(planet => planet.id === id)!.superweaponUnlocks),
-      ring.map((_, index) => index % 2 === 0 ? ['omni'] : undefined));
+      ring.map((_, index) => [index % 2 === 0 ? 'omni' : 'overdrive']));
   }
   assert.ok(TURNING_TIDE.planets.filter(planet => !orbitIds.includes(planet.id)).every(planet => !planet.superweaponUnlocks?.length));
 
   const engine = quietMap();
   engine.bases.get('tide-boarding')!.color = PLAYER;
   engine.bases.get('tide-southwest')!.color = PLAYER;
-  assert.deepEqual([...engine.getOwnedSuperweapons(PLAYER)], ['omni']);
+  assert.deepEqual([...engine.getOwnedSuperweapons(PLAYER)], ['omni', 'overdrive']);
   assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'omni'), 1);
-  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'overdrive'), 0);
+  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'overdrive'), 1);
   assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'repulse'), 0);
   engine.update(59);
   assert.equal(engine.getSuperweaponCharge(PLAYER, 'omni'), 0);
   assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 0);
   engine.update(1);
   assert.equal(engine.getSuperweaponCharge(PLAYER, 'omni'), 1);
-  assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 0);
+  assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 1);
   assert.equal(engine.getUniversalCharge(PLAYER), 0);
 });
 

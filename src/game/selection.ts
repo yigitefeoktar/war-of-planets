@@ -9,8 +9,8 @@ export function countOwnedPlanets(bases: Iterable<Base>, playerColor: string): n
   return count;
 }
 
-export function canUseMultiSelect(bases: Iterable<Base>, playerColor: string): boolean {
-  return countOwnedPlanets(bases, playerColor) >= MIN_MULTI_SELECT_PLANETS;
+export function canUseMultiSelect(bases: Iterable<Base>, playerColor: string, enabled = true): boolean {
+  return enabled && countOwnedPlanets(bases, playerColor) >= MIN_MULTI_SELECT_PLANETS;
 }
 
 /** Include friendly planet centers, including those exactly on the box boundary. */

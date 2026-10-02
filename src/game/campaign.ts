@@ -68,16 +68,16 @@ export const FIRST_STRIKE: MapDefinition = {
 export const BREACH_LINE: MapDefinition = {
   id: 'helios-breach-line', title: 'The Breach Line',
   galaxyTheme: 'breach',
-  briefing: 'Expand from your capital into nearby neutral worlds. Red holds four eastern planets. Secure the seven central worlds, then break through to the red capital.',
+  briefing: 'Expand from your capital into nearby neutral worlds. Red holds four eastern planets. Capture the seven central Overdrive worlds to charge production bursts, then break through to the red capital.',
   width: 2500, height: 2500, attackRange: 600, mobileFocus: 'capital',
-  objective: { type: 'eliminate-capitals', description: 'Capture the red capital. Secure the central worlds to reinforce your advance.' },
+  objective: { type: 'eliminate-capitals', description: 'Capture the red capital. Hold Overdrive worlds to charge production bursts faster.' },
   planets: [
     // Blue starts with one capital; red holds its capital and three nearby worlds.
     { id: 'breach-home', x: 220, y: 1250, owner: PLAYER, ships: 220, capital: true },
     { id: 'breach-supply', x: 510, y: 1250, owner: NEUTRAL, ships: 14 },
-    { id: 'breach-overdrive', x: 840, y: 1250, owner: NEUTRAL, ships: 30 },
-    { id: 'breach-gate', x: 1250, y: 1250, owner: NEUTRAL, ships: 50 },
-    { id: 'breach-overdrive-north', x: 1740, y: 1250, owner: NEUTRAL, ships: 42 },
+    { id: 'breach-overdrive', x: 840, y: 1250, owner: NEUTRAL, ships: 30, superweaponUnlocks: ['overdrive'] },
+    { id: 'breach-gate', x: 1250, y: 1250, owner: NEUTRAL, ships: 50, superweaponUnlocks: ['overdrive'] },
+    { id: 'breach-overdrive-north', x: 1740, y: 1250, owner: NEUTRAL, ships: 42, superweaponUnlocks: ['overdrive'] },
     { id: 'breach-north-gate', x: 2050, y: 1250, owner: '#ef4444', ships: 48 },
     { id: 'breach-red-capital', x: 2350, y: 1250, owner: '#ef4444', ships: 125, capital: true },
     // The upper flank keeps its established planet IDs after rotation.
@@ -85,18 +85,18 @@ export const BREACH_LINE: MapDefinition = {
     { id: 'breach-west-entry', x: 760, y: 680, owner: NEUTRAL, ships: 16 },
     { id: 'breach-west-relay', x: 790, y: 350, owner: NEUTRAL, ships: 20 },
     { id: 'breach-west-bastion', x: 1250, y: 500, owner: NEUTRAL, ships: 36 },
-    { id: 'breach-west-junction', x: 1065, y: 860, owner: NEUTRAL, ships: 32 },
+    { id: 'breach-west-junction', x: 1065, y: 860, owner: NEUTRAL, ships: 32, superweaponUnlocks: ['overdrive'] },
     { id: 'breach-west-approach', x: 1740, y: 500, owner: NEUTRAL, ships: 30 },
-    { id: 'breach-northwest-signal', x: 1515, y: 860, owner: NEUTRAL, ships: 38 },
+    { id: 'breach-northwest-signal', x: 1515, y: 860, owner: NEUTRAL, ships: 38, superweaponUnlocks: ['overdrive'] },
     { id: 'breach-west-outpost', x: 2160, y: 720, owner: '#ef4444', ships: 35 },
     // The lower flank mirrors the upper route into the central sites.
     { id: 'breach-east-harbour', x: 400, y: 1800, owner: NEUTRAL, ships: 12 },
     { id: 'breach-east-entry', x: 760, y: 1820, owner: NEUTRAL, ships: 16 },
     { id: 'breach-east-relay', x: 790, y: 2150, owner: NEUTRAL, ships: 20 },
     { id: 'breach-east-bastion', x: 1250, y: 2000, owner: NEUTRAL, ships: 36 },
-    { id: 'breach-east-junction', x: 1065, y: 1640, owner: NEUTRAL, ships: 32 },
+    { id: 'breach-east-junction', x: 1065, y: 1640, owner: NEUTRAL, ships: 32, superweaponUnlocks: ['overdrive'] },
     { id: 'breach-east-approach', x: 1740, y: 2000, owner: NEUTRAL, ships: 30 },
-    { id: 'breach-northeast-signal', x: 1515, y: 1640, owner: NEUTRAL, ships: 38 },
+    { id: 'breach-northeast-signal', x: 1515, y: 1640, owner: NEUTRAL, ships: 38, superweaponUnlocks: ['overdrive'] },
     { id: 'breach-east-lookout', x: 2160, y: 1780, owner: '#ef4444', ships: 35 },
   ],
 };
@@ -104,7 +104,7 @@ export const BREACH_LINE: MapDefinition = {
 export const TURNING_TIDE: MapDefinition = {
   id: 'helios-turning-tide', title: 'The Turning Tide',
   galaxyTheme: 'orbit',
-  briefing: 'Blue, red, and green each begin with one capital. Capture the cheap worlds beside yours or board the rotating ring while your rivals expand. Omni Strike sites alternate with ordinary worlds around the star. Leave a defence at home.',
+  briefing: 'Blue, red, and green each begin with one capital. Capture the cheap worlds beside yours or board the rotating ring while your rivals expand. Omni Strike and Production Overdrive worlds alternate around the star. Leave a defence at home.',
   width: 2600, height: 2600, attackRange: 600, mobileFocus: 'capital',
   objective: { type: 'eliminate-capitals', description: 'Destroy both enemy capitals. Use rotating worlds to open new attack routes.' },
   planets: [
@@ -121,20 +121,20 @@ export const TURNING_TIDE: MapDefinition = {
     { id: 'east-bastion', x: 2360, y: 1300, owner: NEUTRAL, ships: 40 },
     { id: 'east-approach', x: 2218, y: 1830, owner: NEUTRAL, ships: 28 },
     { id: 'southeast-harbour', x: 1830, y: 2218, owner: NEUTRAL, ships: 12 },
-    // Both rotating rings alternate Omni Strike sites and ordinary worlds.
+    // Both rotating rings alternate Omni Strike and Production Overdrive sites.
     { id: 'tide-boarding', x: 1300, y: 1920, owner: NEUTRAL, ships: 12, superweaponUnlocks: ['omni'] },
-    { id: 'tide-southwest', x: 862, y: 1738, owner: NEUTRAL, ships: 20 },
+    { id: 'tide-southwest', x: 862, y: 1738, owner: NEUTRAL, ships: 20, superweaponUnlocks: ['overdrive'] },
     { id: 'tide-west', x: 680, y: 1300, owner: NEUTRAL, ships: 30, superweaponUnlocks: ['omni'] },
-    { id: 'tide-red', x: 862, y: 862, owner: NEUTRAL, ships: 24 },
+    { id: 'tide-red', x: 862, y: 862, owner: NEUTRAL, ships: 24, superweaponUnlocks: ['overdrive'] },
     { id: 'tide-north', x: 1300, y: 680, owner: NEUTRAL, ships: 38, superweaponUnlocks: ['omni'] },
-    { id: 'tide-green', x: 1738, y: 862, owner: NEUTRAL, ships: 24 },
+    { id: 'tide-green', x: 1738, y: 862, owner: NEUTRAL, ships: 24, superweaponUnlocks: ['overdrive'] },
     { id: 'tide-east', x: 1920, y: 1300, owner: NEUTRAL, ships: 30, superweaponUnlocks: ['omni'] },
-    { id: 'tide-southeast', x: 1738, y: 1738, owner: NEUTRAL, ships: 20 },
+    { id: 'tide-southeast', x: 1738, y: 1738, owner: NEUTRAL, ships: 20, superweaponUnlocks: ['overdrive'] },
     // Inner shortcuts offer the same alternating rewards closer to the star.
     { id: 'inner-south', x: 1300, y: 1600, owner: NEUTRAL, ships: 18, superweaponUnlocks: ['omni'] },
-    { id: 'inner-west', x: 1000, y: 1300, owner: NEUTRAL, ships: 24 },
+    { id: 'inner-west', x: 1000, y: 1300, owner: NEUTRAL, ships: 24, superweaponUnlocks: ['overdrive'] },
     { id: 'inner-north', x: 1300, y: 1000, owner: NEUTRAL, ships: 35, superweaponUnlocks: ['omni'] },
-    { id: 'inner-east', x: 1600, y: 1300, owner: NEUTRAL, ships: 24 },
+    { id: 'inner-east', x: 1600, y: 1300, owner: NEUTRAL, ships: 24, superweaponUnlocks: ['overdrive'] },
   ],
   orbit: {
     x: 1300, y: 1300, periodSeconds: 180,
@@ -152,7 +152,7 @@ function buildPincer(): MapDefinition {
   ];
   const branches: { name: string; owner?: PlanetDefinition['owner']; weapon?: SuperweaponId }[] = [
     { name: 'red', owner: FACTIONS[1] },
-    { name: 'overdrive' },
+    { name: 'overdrive', weapon: 'overdrive' },
     { name: 'green', owner: FACTIONS[2] },
     { name: 'omni', weapon: 'omni' },
     { name: 'yellow', owner: FACTIONS[3] },
@@ -195,7 +195,7 @@ function buildPincer(): MapDefinition {
   return {
     // Preserve campaign saves and the existing Level 4 test option.
     id: 'helios-the-pincer', title: 'The Pincer', galaxyTheme: 'pincer',
-    briefing: 'Red, green, and yellow each hold a capital and three rear worlds, expanding toward your central capital from three directions. Capture nearby Repulse Shield worlds to hold the hub. Push through enemy gates or secure the three neutral outer branches; every route passes through the center.',
+    briefing: 'Red, green, and yellow each hold a capital and three rear worlds, expanding toward your central capital from three directions. Capture nearby Repulse Shield worlds to hold the hub. Push through enemy gates or secure the three rich weapon branches; every route passes through the center.',
     width: 6000, height: 6000, attackRange: 600, mobileFocus: 'capital', overviewScale: 0.68, capitalFocusY: 0.5,
     objective: { type: 'eliminate-capitals', description: 'Capture all three enemy capitals. Hold the Repulse hub and protect the blue capital.' },
     planets,

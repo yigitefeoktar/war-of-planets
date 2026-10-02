@@ -97,7 +97,7 @@ type GameEngineOptions = {
   rng?: () => number;
   now?: () => number;
   superweaponUnlocksEnabled?: boolean;
-  enabledSuperweapons?: readonly SuperweaponId[];
+  multiSelectEnabled?: boolean;
   dysonChargeIntervalSeconds?: number;
   galaxyTheme?: GalaxyTheme;
 };
@@ -115,7 +115,7 @@ export class GameEngine {
   factionUniversalCharges: Map<string, number> = new Map();
   factionUniversalProgress: Map<string, number> = new Map();
   readonly superweaponUnlocksEnabled: boolean;
-  readonly enabledSuperweapons: ReadonlySet<SuperweaponId>;
+  readonly multiSelectEnabled: boolean;
   readonly dysonChargeIntervalSeconds?: number;
   readonly backgroundColor: string;
   private readonly galaxyStyle: ReturnType<typeof galaxyAppearance>;
@@ -158,7 +158,7 @@ export class GameEngine {
     this.rng = options.rng ?? Math.random;
     this.nowProvider = options.now ?? Date.now;
     this.superweaponUnlocksEnabled = options.superweaponUnlocksEnabled ?? true;
-    this.enabledSuperweapons = new Set(this.superweaponUnlocksEnabled ? options.enabledSuperweapons ?? SUPERWEAPON_IDS : []);
+    this.multiSelectEnabled = options.multiSelectEnabled ?? true;
     this.dysonChargeIntervalSeconds = options.dysonChargeIntervalSeconds;
     this.galaxyStyle = galaxyAppearance(width, height, options.galaxyTheme);
     this.backgroundColor = this.galaxyStyle.backgroundColor;
@@ -342,7 +342,6 @@ export class GameEngine {
   }
 
   getSuperweaponSourceCount(color: string, weapon: SuperweaponId) {
-    if (!this.enabledSuperweapons.has(weapon)) return 0;
     return Array.from(this.bases.values()).filter(base => base.color === color && base.superweaponUnlocks?.includes(weapon)).length;
   }
 
@@ -353,18 +352,17 @@ export class GameEngine {
   getOwnedSuperweapons(color: string) {
     const owned = new Set<SuperweaponId>();
     for (const base of this.bases.values()) if (base.color === color) {
-      for (const weapon of base.superweaponUnlocks ?? []) if (this.enabledSuperweapons.has(weapon)) owned.add(weapon);
-      if (base.isDysonSphere) for (const weapon of this.enabledSuperweapons) owned.add(weapon);
+      for (const weapon of base.superweaponUnlocks ?? []) owned.add(weapon);
+      if (base.isDysonSphere) for (const weapon of SUPERWEAPON_IDS) owned.add(weapon);
     }
     return owned;
   }
 
   hasSuperweaponCharge(color: string, weapon: SuperweaponId) {
-    return this.enabledSuperweapons.has(weapon) && (this.getSuperweaponCharge(color, weapon) > 0 || this.getUniversalCharge(color) > 0);
+    return this.getSuperweaponCharge(color, weapon) > 0 || this.getUniversalCharge(color) > 0;
   }
 
   getSuperweaponSecondsRemaining(color: string, weapon: SuperweaponId) {
-    if (!this.enabledSuperweapons.has(weapon)) return null;
     if (this.hasSuperweaponCharge(color, weapon)) return 0;
     const multiplier = superweaponChargeMultiplier(color);
     const sourceCount = this.getSuperweaponSourceCount(color, weapon);
@@ -385,7 +383,7 @@ export class GameEngine {
     const captured = this.bases.get(baseId);
     if (captured) { captured.overdrive = undefined; captured.repulse = undefined; }
     if (!this.superweaponUnlocksEnabled) return [];
-    return (this.bases.get(baseId)?.superweaponUnlocks ?? []).filter(weapon => this.enabledSuperweapons.has(weapon));
+    return this.bases.get(baseId)?.superweaponUnlocks ?? [];
   }
 
   private spendSuperweaponCharge(color: string, weapon: SuperweaponId) {
@@ -409,7 +407,6 @@ export class GameEngine {
       if (base.isCapital) capitalOwners.add(base.color);
       if (base.isDysonSphere) dysonOwners.add(base.color);
       for (const weapon of base.superweaponUnlocks ?? []) {
-        if (!this.enabledSuperweapons.has(weapon)) continue;
         let counts = sourceCounts.get(base.color);
         if (!counts) {
           counts = new Map<SuperweaponId, number>();

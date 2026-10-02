@@ -5,6 +5,7 @@ type FleetNetwork = {
   bases: Map<string, Base>;
   pixels: Pixel[];
   MAX_ATTACK_RANGE: number;
+  readonly multiSelectEnabled?: boolean;
   sendUnits: (fromId: string, toId: string, percentage?: number) => void;
 };
 
@@ -58,7 +59,7 @@ export function issueFleetOrder(engine: FleetNetwork, fromId: string, toId: stri
 
 /** Group orders can only reinforce worlds still owned by the player at launch time. */
 export function issueFriendlyGroupOrder(engine: FleetNetwork, sourceIds: Iterable<string>, toId: string, percentage: number, playerColor: string): number {
-  if (!canUseMultiSelect(engine.bases.values(), playerColor)) return 0;
+  if (!canUseMultiSelect(engine.bases.values(), playerColor, engine.multiSelectEnabled)) return 0;
   if (engine.bases.get(toId)?.color !== playerColor) return 0;
   let launched = 0;
   for (const fromId of new Set(sourceIds)) {

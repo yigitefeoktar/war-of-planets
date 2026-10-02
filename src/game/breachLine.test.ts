@@ -38,22 +38,69 @@ test('Breach Line runs west to east with connected blue, central, and red routes
   }
 });
 
-test('central worlds remain ordinary planets and cannot generate or activate Overdrive', () => {
-  const centralIds = ['breach-overdrive', 'breach-gate', 'breach-overdrive-north', 'breach-west-junction',
-    'breach-northwest-signal', 'breach-east-junction', 'breach-northeast-signal'];
-  assert.ok(centralIds.every(id => byId(id).owner === NEUTRAL && !byId(id).superweaponUnlocks?.length));
-  assert.deepEqual([byId('breach-gate').x, byId('breach-gate').y], [1250, 1250]);
+test('Overdrive requires capturing a neutral site and additional sites speed up charging', () => {
   const engine = createMatch(BREACH_LINE);
-  engine.lastAITime = engine.lastSpawnTime = Number.MAX_SAFE_INTEGER;
+  engine.lastAITime = Number.MAX_SAFE_INTEGER;
+  engine.lastSpawnTime = Number.MAX_SAFE_INTEGER;
   engine.pixels = [];
-  for (const id of centralIds) engine.bases.get(id)!.color = PLAYER;
-  engine.update(60);
+  const site = engine.bases.get('breach-overdrive')!;
+  assert.deepEqual(site.superweaponUnlocks, ['overdrive']);
+  assert.equal(engine.superweaponUnlocksEnabled, true);
   assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'overdrive'), 0);
+  assert.equal(engine.getSuperweaponSourceCount('#ef4444', 'overdrive'), 0);
+  engine.update(60);
   assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 0);
-  assert.equal(engine.getOwnedSuperweapons(PLAYER).size, 0);
-  engine.setSuperweaponCharge(PLAYER, 'overdrive', 1);
   assert.equal(engine.activatePlanetAbility(PLAYER, 'breach-home', 'overdrive'), false);
+  site.color = PLAYER;
+  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'overdrive'), 1);
+  engine.update(59);
+  assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 0);
+  engine.update(1);
+  assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 1);
+  assert.equal(engine.activatePlanetAbility(PLAYER, 'breach-home', 'overdrive'), true);
+  assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 0);
+  engine.bases.get('breach-west-junction')!.color = PLAYER;
+  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'overdrive'), 2);
+  engine.update(29);
+  assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 0);
+  engine.update(1);
+  assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 1);
 });
+
+test('all seven central worlds produce only Overdrive and duplicate sites charge faster', () => {
+  const sites = BREACH_LINE.planets.filter(planet => planet.superweaponUnlocks?.length);
+  assert.deepEqual(sites.map(planet => planet.id), [
+    'breach-overdrive', 'breach-gate', 'breach-overdrive-north', 'breach-west-junction',
+    'breach-northwest-signal', 'breach-east-junction', 'breach-northeast-signal',
+  ]);
+  assert.ok(sites.every(planet => planet.superweaponUnlocks?.join() === 'overdrive'));
+  assert.deepEqual([byId('breach-gate').x, byId('breach-gate').y, byId('breach-gate').owner], [1250, 1250, NEUTRAL]);
+  assert.ok(sites.every(planet => planet.owner === NEUTRAL));
+  assert.ok(sites.every(planet => Math.hypot(planet.x - BREACH_LINE.width / 2, planet.y - BREACH_LINE.height / 2) <= 500));
+
+  const engine = createMatch(BREACH_LINE);
+  engine.lastAITime = Number.MAX_SAFE_INTEGER;
+  engine.lastSpawnTime = Number.MAX_SAFE_INTEGER;
+  engine.pixels = [];
+  assert.equal(engine.getSuperweaponSourceCount('#ef4444', 'overdrive'), 0);
+  engine.bases.get(sites[0].id)!.color = PLAYER;
+  engine.bases.get(sites[1].id)!.color = PLAYER;
+  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'overdrive'), 2);
+  assert.deepEqual([...engine.getOwnedSuperweapons(PLAYER)], ['overdrive']);
+  engine.update(29);
+  assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 0);
+  engine.update(1);
+  assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 1);
+  assert.equal(engine.activatePlanetAbility(PLAYER, 'breach-home', 'overdrive'), true);
+
+  for (const site of sites.slice(2)) engine.bases.get(site.id)!.color = PLAYER;
+  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'overdrive'), 7);
+  engine.update(8);
+  assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 0);
+  engine.update(1);
+  assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 1);
+});
+
 test('authored weapon lists reject duplicates and unknown abilities', () => {
   for (const superweaponUnlocks of [['overdrive', 'overdrive'], ['unknown']]) {
     const planets = BREACH_LINE.planets.map(planet => planet.id === 'breach-overdrive'

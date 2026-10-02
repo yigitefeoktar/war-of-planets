@@ -178,14 +178,13 @@ test('fleet orders and Omni Strike cannot skip the hub shield, branch entrance, 
   }
 });
 
-test('the shield hub and two weapon branches charge normally while the northeast branch has no Overdrive', () => {
+test('the central shield hub and three rich weapon groups generate charges under normal ownership rules', () => {
   assert.ok(hubIds.every(id => byId(id).superweaponUnlocks?.includes('repulse')));
-  for (const name of ['omni', 'repulse'] as const) {
+  for (const name of ['overdrive', 'omni', 'repulse'] as const) {
     const group = branchWorlds(name);
     assert.ok(group.every(planet => planet.owner === NEUTRAL && !planet.capital));
     assert.ok(group.every(planet => planet.superweaponUnlocks?.length === 1 && planet.superweaponUnlocks[0] === name));
   }
-  assert.ok(branchWorlds('overdrive').every(planet => !planet.superweaponUnlocks?.length));
   const engine = quietEngine();
   engine.pixels = [];
   assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'repulse'), 1);
@@ -201,8 +200,7 @@ test('the shield hub and two weapon branches charge normally while the northeast
   assert.equal(engine.getSuperweaponCharge(PLAYER, 'repulse'), 1);
   for (const name of ['overdrive', 'omni'] as const) for (const planet of branchWorlds(name)) engine.bases.get(planet.id)!.color = PLAYER;
   engine.update(9);
-  assert.equal(engine.getSuperweaponCharge(PLAYER, 'omni'), 1);
-  assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 0);
+  for (const name of ['overdrive', 'omni'] as const) assert.equal(engine.getSuperweaponCharge(PLAYER, name), 1);
 });
 
 test('blue can capture its first neutral shield and each enemy has a legal opening expansion', () => {

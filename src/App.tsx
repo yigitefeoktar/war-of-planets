@@ -308,7 +308,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
   const toggleMultiSelect = () => {
     const engine = engineRef.current;
-    if (!multiSelectModeRef.current && (!engine || !canUseMultiSelect(engine.bases.values(), '#3b82f6'))) return;
+    if (!multiSelectModeRef.current && (!engine || !canUseMultiSelect(engine.bases.values(), '#3b82f6', engine.multiSelectEnabled))) return;
     resetMultiSelectionRef.current();
     multiSelectModeRef.current = !multiSelectModeRef.current;
     setMultiSelectMode(multiSelectModeRef.current);
@@ -400,11 +400,11 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     engine.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     engineRef.current = engine;
     // Availability includes weapons that can be produced later in this match.
-    setAvailableWeapons(new Set<SuperweaponId>((engine.superweaponUnlocksEnabled
+    setAvailableWeapons(new Set<SuperweaponId>(engine.superweaponUnlocksEnabled
       ? orbits.some(orbit => orbit.dysonSphere)
         ? SUPERWEAPON_IDS
         : Array.from(engine.bases.values()).flatMap(base => base.superweaponUnlocks ?? [])
-      : []).filter(weapon => engine.enabledSuperweapons.has(weapon))));
+      : []));
     let tutorialTime = 0; // Active play time; pauses do not consume lesson delays.
     engine.isHardMode = isHardMode;
     const activeFactionColors = new Set(Array.from(engine.bases.values()).filter(b => b.isCapital).map(b => b.color));
@@ -596,7 +596,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         return;
       }
       if (selectedGroup.size > 0 || multiSelectModeRef.current) {
-        if (!canUseMultiSelect(engine.bases.values(), '#3b82f6')) {
+        if (!canUseMultiSelect(engine.bases.values(), '#3b82f6', engine.multiSelectEnabled)) {
           resetMultiSelectionRef.current();
           multiSelectModeRef.current = false;
           setMultiSelectMode(false);
@@ -1057,7 +1057,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       if (selectionDrag) { event.preventDefault(); return; }
       if (!event.isPrimary || isIntroPlaying || isGameOver || isPausedRef.current) return;
       if (event.button !== 2 && !(event.button === 0 && multiSelectModeRef.current)) return;
-      if (!canUseMultiSelect(engine.bases.values(), '#3b82f6')) return;
+      if (!canUseMultiSelect(engine.bases.values(), '#3b82f6', engine.multiSelectEnabled)) return;
       event.preventDefault();
       resumeAudioContext();
       targetingModeRef.current = null;
@@ -1081,7 +1081,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     };
     const handleSelectionEnd = (event: PointerEvent) => {
       if (!selectionDrag || selectionDrag.pointerId !== event.pointerId) return;
-      if (isPausedRef.current || isGameOver || !canUseMultiSelect(engine.bases.values(), '#3b82f6')) { cancelSelectionDrag(); return; }
+      if (isPausedRef.current || isGameOver || !canUseMultiSelect(engine.bases.values(), '#3b82f6', engine.multiSelectEnabled)) { cancelSelectionDrag(); return; }
       handleSelectionMove(event);
       const drag = selectionDrag;
       selectionDrag = null;
@@ -1388,7 +1388,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
       // Draw game
       if (isGameOver) cancelSelectionDrag();
-      if ((selectionDrag || selectedGroup.size > 0 || multiSelectModeRef.current) && !canUseMultiSelect(engine.bases.values(), '#3b82f6')) {
+      if ((selectionDrag || selectedGroup.size > 0 || multiSelectModeRef.current) && !canUseMultiSelect(engine.bases.values(), '#3b82f6', engine.multiSelectEnabled)) {
         resetMultiSelectionRef.current();
         multiSelectModeRef.current = false;
         setMultiSelectMode(false);
@@ -1647,11 +1647,12 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         const labels = { omni: 'Omni Strike', overdrive: 'Production Overdrive', repulse: 'Repulse Shield' };
         const descriptions = { omni: 'Warp 30% of every idle fleet here.', overdrive: '7x production / 7.5 seconds', repulse: 'Repel and destroy arrivals / 6 seconds' };
         const renderBar = (state: 'normal' | 'enemy') => {
+          const showSelectMode = state === 'normal' && engine.multiSelectEnabled;
           const shownPlanet = planet && (state === 'normal') === (planet.color === '#3b82f6') ? planet : undefined;
-          return <div className={`planet-command planet-command-${state}`} style={{ '--weapon-count': weapons.filter(weapon => availableWeapons.has(weapon)).length } as React.CSSProperties} role="region" aria-label={state === 'normal' ? 'Planet commands and superweapons' : 'Planet information'}
+          return <div className={`planet-command planet-command-${state}${showSelectMode ? '' : ' planet-command-without-selection'}`} style={{ '--weapon-count': weapons.filter(weapon => availableWeapons.has(weapon)).length } as React.CSSProperties} role="region" aria-label={state === 'normal' ? 'Planet commands and superweapons' : 'Planet information'}
             onPointerDown={event => event.stopPropagation()} onTouchStart={event => event.stopPropagation()}>
             <div className="planet-command-content">
-          <div className="planet-selection-control">
+          {showSelectMode && <div className="planet-selection-control">
           <span id="select-mode-requirement" className="planet-control-label">{Math.min(ownedPlanetCount, MIN_MULTI_SELECT_PLANETS)} / {MIN_MULTI_SELECT_PLANETS} OWNED</span>
           <button className="planet-multi-select" aria-label="Select mode: select friendly planets" aria-pressed={multiSelectMode}
             aria-describedby="select-mode-requirement" disabled={ownedPlanetCount < MIN_MULTI_SELECT_PLANETS}
@@ -1659,7 +1660,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
             onClick={toggleMultiSelect}>
             Select mode
           </button>
-          </div>
+          </div>}
           {state === 'enemy' && shownPlanet && <div className="planet-command-summary">
             <span className="planet-command-kicker" style={{ color: shownPlanet.color }}>{factions.find(faction => faction.color === shownPlanet.color)?.name ?? 'NEUTRAL'}</span>
             <strong className="planet-command-count">{shownPlanet.pixelCount}</strong>
