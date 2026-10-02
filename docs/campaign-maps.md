@@ -45,7 +45,7 @@ A 2500 × 2500 static battlefield rotated into a west-to-east confrontation. Blu
 - Central route: capture the cheap neutral supply world to reach the western Overdrive site. The exact center planet is also a marked Overdrive world. Another marked site and a red gate lead toward the eastern capital.
 - Upper route: neutral harbour, entry, and relay worlds lead into the central ring or through the neutral bastion and approach toward the red outpost.
 - Lower route: a matching neutral flank leads into the ring or toward the red lookout.
-- All seven marked planets sit within 500 units of the map center and produce only Overdrive. Neither faction starts with a weapon source. One captured site generates a charge in 60 seconds, two take 30 seconds, and seven take about 9 seconds. Losing all sites pauses future generation; an already earned charge remains available. Overdrive triples production on one owned planet for 15 seconds.
+- All seven marked planets sit within 500 units of the map center and produce only Overdrive. Neither faction starts with a weapon source. One captured site generates a charge in 60 seconds, two take 30 seconds, and seven take about 9 seconds. Losing all sites pauses future generation; an already earned charge remains available. Overdrive multiplies production on one owned planet by seven for 7.5 seconds, yielding 50% more extra ships than the former triple-production burst lasting 15 seconds.
 
 Winning First Strike starts The Breach Line in the current run. Winning The Breach Line starts The Turning Tide. No tutorial prompts repeat after Mission 1.
 

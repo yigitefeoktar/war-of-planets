@@ -14,8 +14,9 @@ const QUICK_MATCH_UNLOCK_GROUPS: SuperweaponId[][] = [
   ['overdrive', 'repulse', 'omni'],
 ];
 
-export const OVERDRIVE_DURATION = 15;
-export const OVERDRIVE_MULTIPLIER = 3;
+export const OVERDRIVE_DURATION = 7.5;
+// The former 3x total rate added 2x production; tripling that bonus gives 7x total.
+export const OVERDRIVE_MULTIPLIER = 7;
 export const REPULSE_DURATION = 6;
 
 /** Spread three specialist sites and one rare combined arsenal across Quick Match. */

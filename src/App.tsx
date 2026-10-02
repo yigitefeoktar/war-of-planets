@@ -1457,7 +1457,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         const enemySelected = !!planet && planet.color !== '#3b82f6';
         const weapons = ['overdrive', 'omni', 'repulse'] as SuperweaponId[];
         const labels = { omni: 'Omni Strike', overdrive: 'Production Overdrive', repulse: 'Repulse Shield' };
-        const descriptions = { omni: 'Warp 30% of every idle fleet here.', overdrive: '3x production / 15 seconds', repulse: 'Repel and destroy arrivals / 6 seconds' };
+        const descriptions = { omni: 'Warp 30% of every idle fleet here.', overdrive: '7x production / 7.5 seconds', repulse: 'Repel and destroy arrivals / 6 seconds' };
         const renderBar = (state: 'normal' | 'enemy') => {
           const shownPlanet = planet && (state === 'normal') === (planet.color === '#3b82f6') ? planet : undefined;
           return <div className={`planet-command planet-command-${state}`} style={{ '--weapon-count': weapons.filter(weapon => availableWeapons.has(weapon)).length } as React.CSSProperties} role="region" aria-label={state === 'normal' ? 'Planet commands and superweapons' : 'Planet information'}

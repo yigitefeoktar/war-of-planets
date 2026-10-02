@@ -7,8 +7,8 @@ import type { Base } from './types';
 const BLUE = '#3b82f6';
 const RED = '#ef4444';
 
-function fixture() {
-  const engine = new GameEngine(2000, 1200, { rng: () => 0.5, now: () => 0 });
+function fixture(now = () => 0) {
+  const engine = new GameEngine(2000, 1200, { rng: () => 0.5, now });
   engine.bases.clear();
   engine.pixels = [];
   engine.nextPixelId = 0;
@@ -127,21 +127,50 @@ test('planet abilities reject uncharged, hostile, missing and repeated casts wit
   }
 });
 
-test('Overdrive triples local production in bursts, leaves other worlds alone and expires', () => {
+test('Overdrive produces sevenfold local bursts for 7.5 seconds and leaves other worlds alone', () => {
   const engine = fixture();
   engine.setSuperweaponCharge(BLUE, 'overdrive', 1);
   engine.addBase('other', 100, 500, BLUE, 10);
   assert.equal(engine.activatePlanetAbility(BLUE, 'capital', 'overdrive'), true);
+  assert.equal(engine.bases.get('capital')!.overdrive!.remaining, 7.5);
   engine.lastSpawnTime = -251;
   engine.update(0.25);
-  assert.equal(engine.bases.get('capital')!.pixelCount, 13);
+  assert.equal(engine.bases.get('capital')!.pixelCount, 17);
   assert.equal(engine.bases.get('other')!.pixelCount, 11);
   assert.equal(engine.bases.get('capital')!.overdrive!.pulse, 1);
-  engine.update(15);
+  engine.update(7.25);
   assert.equal(engine.bases.get('capital')!.overdrive, undefined);
   engine.lastSpawnTime = -251;
   engine.update(0.25);
-  assert.equal(engine.bases.get('capital')!.pixelCount, 14);
+  assert.equal(engine.bases.get('capital')!.pixelCount, 18);
+});
+
+test('a full Overdrive burst yields 50% more extra ships than the former 15-second burst', () => {
+  let now = 0;
+  const boosted = fixture(() => now);
+  const normal = fixture(() => now);
+  for (const engine of [boosted, normal]) {
+    // Offset the production clock so both durations contain whole production cycles.
+    engine.lastSpawnTime = -126;
+    engine.lastAITime = Infinity;
+  }
+  boosted.setSuperweaponCharge(BLUE, 'overdrive', 1);
+  assert.equal(boosted.activatePlanetAbility(BLUE, 'capital', 'overdrive'), true);
+  for (let step = 1; step <= 120; step++) {
+    now = step * 125;
+    boosted.update(0.125);
+    normal.update(0.125);
+    if (step === 59) assert.ok(boosted.bases.get('capital')!.overdrive);
+    if (step === 60) {
+      assert.equal(boosted.bases.get('capital')!.overdrive, undefined);
+      assert.equal(boosted.bases.get('capital')!.pixelCount - normal.bases.get('capital')!.pixelCount, 120);
+    }
+  }
+  const normalProduction = normal.bases.get('capital')!.pixelCount - 10;
+  assert.equal(normalProduction, 40);
+  const formerExtraShips = normalProduction * (3 - 1);
+  const extraShips = boosted.bases.get('capital')!.pixelCount - normal.bases.get('capital')!.pixelCount;
+  assert.equal(extraShips, formerExtraShips * 1.5);
 });
 
 test('Overdrive cannot create production on a Dyson sphere', () => {
