@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { friendlyPlanetsInRectangle } from './selection';
+import { MIN_MULTI_SELECT_PLANETS, canUseMultiSelect, countOwnedPlanets, friendlyPlanetsInRectangle } from './selection';
 import { issueFriendlyGroupOrder } from './logistics';
 import { GameEngine } from './engine';
 import type { Base } from './types';
@@ -34,8 +34,32 @@ function match() {
   engine.addBase('target', 1100, 400, PLAYER, 20);
   engine.addBase('disconnected', 1900, 400, PLAYER, 20);
   engine.addBase('enemy', 300, 400, ENEMY, 20);
+  // Keep the group feature unlocked without bridging the tested fleet network.
+  for (let index = 0; index < 27; index++) engine.bases.set(`reserve-${index}`, planet(`reserve-${index}`, 5000 + index * 1000, 0));
   return engine;
 }
+
+test('Select mode unlocks at exactly 30 currently owned planets and locks again after a loss', () => {
+  const bases = Array.from({ length: MIN_MULTI_SELECT_PLANETS - 1 }, (_, index) => planet(`owned-${index}`, index, 0));
+  bases.push(planet('enemy', 0, 0, ENEMY), planet('neutral', 0, 0, '#6b7280'));
+  bases.push({ ...planet('sphere', 0, 0), isDysonSphere: true });
+  assert.equal(countOwnedPlanets(bases, PLAYER), 29);
+  assert.equal(canUseMultiSelect(bases, PLAYER), false);
+  bases.push(planet('thirtieth', 0, 0));
+  assert.equal(canUseMultiSelect(bases, PLAYER), true);
+  bases[0].color = ENEMY;
+  assert.equal(canUseMultiSelect(bases, PLAYER), false);
+});
+
+test('group transfers enforce the same 30-planet requirement at launch time', () => {
+  const engine = match();
+  engine.bases.delete('reserve-0'); engine.bases.delete('reserve-1');
+  assert.equal(countOwnedPlanets(engine.bases.values(), PLAYER), 29);
+  assert.equal(issueFriendlyGroupOrder(engine, ['a', 'b'], 'target', 1, PLAYER), 0);
+  assert.equal(engine.pixels.filter(ship => ship.state === 'moving').length, 0);
+  engine.bases.set('reserve-0', planet('reserve-0', 5000, 0));
+  assert.equal(issueFriendlyGroupOrder(engine, ['a', 'b'], 'target', 1, PLAYER), 2);
+});
 
 test('group transfer launches each connected source once and excludes the target and unreachable sources', () => {
   const engine = match();

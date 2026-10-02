@@ -8,7 +8,7 @@ import { ModeCard } from './ui/ModeCard';
 import { advanceTutorial, drawTutorialHighlights, tutorialTargets, type TutorialState, type TutorialEvent } from './game/tutorial';
 import './ui/Tutorial.css';
 import { hasIncomingHostile, issueFleetOrder, issueFriendlyGroupOrder } from './game/logistics';
-import { friendlyPlanetsInRectangle, type SelectionPoint } from './game/selection';
+import { MIN_MULTI_SELECT_PLANETS, canUseMultiSelect, countOwnedPlanets, friendlyPlanetsInRectangle, type SelectionPoint } from './game/selection';
 import { GameEngine } from './game/engine';
 import { SUPERWEAPON_IDS, type SuperweaponId } from './game/superweapons';
 import { SUPERWEAPON_VISUALS } from './game/superweaponVisuals';
@@ -263,6 +263,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const multiSelectModeRef = useRef(false);
   const [selectedPlanetCount, setSelectedPlanetCount] = useState(0);
+  const [ownedPlanetCount, setOwnedPlanetCount] = useState(0);
   const resetMultiSelectionRef = useRef<() => void>(() => {});
   const [targetingMode, setTargetingMode] = useState<SuperweaponId | null>(null);
   const targetingModeRef = useRef<SuperweaponId | null>(null);
@@ -306,6 +307,8 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   };
 
   const toggleMultiSelect = () => {
+    const engine = engineRef.current;
+    if (!multiSelectModeRef.current && (!engine || !canUseMultiSelect(engine.bases.values(), '#3b82f6'))) return;
     resetMultiSelectionRef.current();
     multiSelectModeRef.current = !multiSelectModeRef.current;
     setMultiSelectMode(multiSelectModeRef.current);
@@ -397,17 +400,18 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     engine.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     engineRef.current = engine;
     // Availability includes weapons that can be produced later in this match.
-    setAvailableWeapons(new Set<SuperweaponId>(engine.superweaponUnlocksEnabled
+    setAvailableWeapons(new Set<SuperweaponId>((engine.superweaponUnlocksEnabled
       ? orbits.some(orbit => orbit.dysonSphere)
         ? SUPERWEAPON_IDS
         : Array.from(engine.bases.values()).flatMap(base => base.superweaponUnlocks ?? [])
-      : []));
+      : []).filter(weapon => engine.enabledSuperweapons.has(weapon))));
     let tutorialTime = 0; // Active play time; pauses do not consume lesson delays.
     engine.isHardMode = isHardMode;
     const activeFactionColors = new Set(Array.from(engine.bases.values()).filter(b => b.isCapital).map(b => b.color));
 
     const updatePlayerStats = () => {
       const color = '#3b82f6';
+      setOwnedPlanetCount(countOwnedPlanets(engine.bases.values(), color));
       setChargeState({
         weapons: Object.fromEntries(SUPERWEAPON_IDS.map(weapon => [weapon, {
           charge: engine.getSuperweaponCharge(color, weapon),
@@ -592,6 +596,12 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         return;
       }
       if (selectedGroup.size > 0 || multiSelectModeRef.current) {
+        if (!canUseMultiSelect(engine.bases.values(), '#3b82f6')) {
+          resetMultiSelectionRef.current();
+          multiSelectModeRef.current = false;
+          setMultiSelectMode(false);
+          return;
+        }
         const target = id ? engine.bases.get(id) : null;
         if (!target) { setSelectedGroup(new Set()); return; }
         if (target.color !== '#3b82f6') {
@@ -1047,6 +1057,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       if (selectionDrag) { event.preventDefault(); return; }
       if (!event.isPrimary || isIntroPlaying || isGameOver || isPausedRef.current) return;
       if (event.button !== 2 && !(event.button === 0 && multiSelectModeRef.current)) return;
+      if (!canUseMultiSelect(engine.bases.values(), '#3b82f6')) return;
       event.preventDefault();
       resumeAudioContext();
       targetingModeRef.current = null;
@@ -1070,7 +1081,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     };
     const handleSelectionEnd = (event: PointerEvent) => {
       if (!selectionDrag || selectionDrag.pointerId !== event.pointerId) return;
-      if (isPausedRef.current || isGameOver) { cancelSelectionDrag(); return; }
+      if (isPausedRef.current || isGameOver || !canUseMultiSelect(engine.bases.values(), '#3b82f6')) { cancelSelectionDrag(); return; }
       handleSelectionMove(event);
       const drag = selectionDrag;
       selectionDrag = null;
@@ -1377,6 +1388,11 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
       // Draw game
       if (isGameOver) cancelSelectionDrag();
+      if ((selectionDrag || selectedGroup.size > 0 || multiSelectModeRef.current) && !canUseMultiSelect(engine.bases.values(), '#3b82f6')) {
+        resetMultiSelectionRef.current();
+        multiSelectModeRef.current = false;
+        setMultiSelectMode(false);
+      }
       updateBoxSelection();
       // Captured or removed sources must stop looking selected immediately.
       for (const id of selectedGroup) {
@@ -1636,9 +1652,10 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
             onPointerDown={event => event.stopPropagation()} onTouchStart={event => event.stopPropagation()}>
             <div className="planet-command-content">
           <div className="planet-selection-control">
-          <span className="planet-control-label" aria-hidden="true">&nbsp;</span>
+          <span id="select-mode-requirement" className="planet-control-label">{Math.min(ownedPlanetCount, MIN_MULTI_SELECT_PLANETS)} / {MIN_MULTI_SELECT_PLANETS} OWNED</span>
           <button className="planet-multi-select" aria-label="Select mode: select friendly planets" aria-pressed={multiSelectMode}
-            title="Drag to select friendly planets, then choose a friendly target. PC: right-click drag. Escape: cancel."
+            aria-describedby="select-mode-requirement" disabled={ownedPlanetCount < MIN_MULTI_SELECT_PLANETS}
+            title={ownedPlanetCount < MIN_MULTI_SELECT_PLANETS ? `Requires ${MIN_MULTI_SELECT_PLANETS} owned planets. Currently ${ownedPlanetCount}.` : 'Drag to select friendly planets, then choose a friendly target. PC: right-click drag. Escape: cancel.'}
             onClick={toggleMultiSelect}>
             Select mode
           </button>

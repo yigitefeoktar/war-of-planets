@@ -1,4 +1,5 @@
 import type { Base, Pixel } from './types';
+import { canUseMultiSelect } from './selection';
 
 type FleetNetwork = {
   bases: Map<string, Base>;
@@ -57,6 +58,7 @@ export function issueFleetOrder(engine: FleetNetwork, fromId: string, toId: stri
 
 /** Group orders can only reinforce worlds still owned by the player at launch time. */
 export function issueFriendlyGroupOrder(engine: FleetNetwork, sourceIds: Iterable<string>, toId: string, percentage: number, playerColor: string): number {
+  if (!canUseMultiSelect(engine.bases.values(), playerColor)) return 0;
   if (engine.bases.get(toId)?.color !== playerColor) return 0;
   let launched = 0;
   for (const fromId of new Set(sourceIds)) {

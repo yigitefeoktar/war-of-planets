@@ -30,6 +30,45 @@ test('Quick Match keeps random map and four capitals', () => {
   assert.ok(a.bases.size > FIRST_STRIKE.planets.length);
   assert.notDeepEqual([...a.bases.values()], [...b.bases.values()]);
 });
+
+test('Maps 1-4 disable Overdrive for every faction, including specialist and universal charge bypasses', () => {
+  for (const map of CHAPTERS['chapter-1'].maps.slice(0, 4)) {
+    assert.ok(map.planets.every(planet => !planet.superweaponUnlocks?.includes('overdrive')));
+    const engine = createMatch(map);
+    engine.lastAITime = engine.lastSpawnTime = Number.MAX_SAFE_INTEGER;
+    engine.pixels = [];
+    assert.equal(engine.enabledSuperweapons.has('overdrive'), false, map.title);
+    assert.ok([...engine.bases.values()].every(base => !base.superweaponUnlocks?.includes('overdrive')));
+    // Even accidentally reintroducing a source cannot bypass the map's policy.
+    const capitals = [...engine.bases.values()].filter(base => base.isCapital);
+    for (const capital of capitals) capital.superweaponUnlocks = ['overdrive'];
+    engine.update(60);
+    for (const capital of capitals) {
+      const color = capital.color;
+      assert.equal(engine.getSuperweaponSourceCount(color, 'overdrive'), 0);
+      assert.equal(engine.getSuperweaponCharge(color, 'overdrive'), 0);
+      assert.equal(engine.getOwnedSuperweapons(color).has('overdrive'), false);
+      engine.setSuperweaponCharge(color, 'overdrive', 1);
+      engine.setUniversalCharge(color, 1);
+      assert.equal(engine.hasSuperweaponCharge(color, 'overdrive'), false);
+      assert.equal(engine.canActivatePlanetAbility(color, capital.id, 'overdrive'), false);
+      assert.equal(engine.activatePlanetAbility(color, capital.id, 'overdrive'), false);
+      assert.equal(engine.getUniversalCharge(color), 1);
+      assert.equal(capital.overdrive, undefined);
+    }
+  }
+});
+
+test('Map 5, Quick Match, and Hard Mode retain Overdrive sources and activation', () => {
+  for (const engine of [createMatch(SIEGE_OF_HELIOS), createMatch(), createMatch(undefined, { hardMode: true })]) {
+    assert.equal(engine.enabledSuperweapons.has('overdrive'), true);
+    assert.ok([...engine.bases.values()].some(base => base.superweaponUnlocks?.includes('overdrive')));
+    const capital = [...engine.bases.values()].find(base => base.color === PLAYER && base.isCapital)!;
+    engine.setSuperweaponCharge(PLAYER, 'overdrive', 1);
+    assert.equal(engine.activatePlanetAbility(PLAYER, capital.id, 'overdrive'), true);
+    assert.equal(capital.overdrive?.remaining, 7.5);
+  }
+});
 test('victory and defeat are resolved with defeat precedence', () => {
   const engine = createMatch(FIRST_STRIKE);
   for (const base of engine.bases.values()) if (base.isCapital && base.color !== PLAYER) engine.bases.delete(base.id);

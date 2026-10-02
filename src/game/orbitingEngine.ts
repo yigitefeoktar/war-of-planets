@@ -1,7 +1,7 @@
 import { GameEngine } from './engine';
 import { DYSON_SPHERE_ID, type OrbitDefinition } from './campaign';
-import type { SuperweaponTargetMode } from './superweapons';
-import type { Base } from './types';
+import { SUPERWEAPON_IDS, type SuperweaponTargetMode } from './superweapons';
+import type { Base, SuperweaponId } from './types';
 import type { GalaxyTheme } from './galaxy';
 
 // Rigid rotating systems, not a gravity simulation. Each center is either a
@@ -10,11 +10,12 @@ export class OrbitingGameEngine extends GameEngine {
   private readonly orbits: OrbitDefinition[];
   private readonly orbitByPlanet = new Map<string, OrbitDefinition>();
 
-  constructor(width: number, height: number, orbit: OrbitDefinition | OrbitDefinition[], hasWeaponPlanets = false, galaxyTheme?: GalaxyTheme) {
+  constructor(width: number, height: number, orbit: OrbitDefinition | OrbitDefinition[], hasWeaponPlanets = false, galaxyTheme?: GalaxyTheme, enabledSuperweapons: readonly SuperweaponId[] = SUPERWEAPON_IDS) {
     const orbits = Array.isArray(orbit) ? orbit : [orbit];
     const dyson = orbits.find(system => system.dysonSphere)?.dysonSphere;
     super(width, height, {
       superweaponUnlocksEnabled: Boolean(dyson) || hasWeaponPlanets,
+      enabledSuperweapons,
       dysonChargeIntervalSeconds: dyson?.chargeIntervalSeconds,
       galaxyTheme,
     });
@@ -57,8 +58,8 @@ export class OrbitingGameEngine extends GameEngine {
     super.update(dt);
   }
 
-  override draw(ctx: CanvasRenderingContext2D, selectedBaseId: string | null, cameraX: number, cameraY: number, targetingMode: SuperweaponTargetMode = null) {
-    super.draw(ctx, selectedBaseId, cameraX, cameraY, targetingMode);
+  override draw(ctx: CanvasRenderingContext2D, selectedBaseId: string | null, cameraX: number, cameraY: number, targetingMode: SuperweaponTargetMode = null, selectedGroup?: ReadonlySet<string>) {
+    super.draw(ctx, selectedBaseId, cameraX, cameraY, targetingMode, selectedGroup);
     for (const orbit of this.orbits) {
       if (orbit.dysonSphere) continue;
       ctx.save();

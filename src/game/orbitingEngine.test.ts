@@ -51,14 +51,14 @@ test('all orbiting planets rotate at the same rate and preserve every pair dista
 
 test('an authored orbit can charge a marked weapon world without a Dyson sphere', () => {
   const map: MapDefinition = { ...ORBIT_FIXTURE, planets: ORBIT_FIXTURE.planets.map(planet => planet.id === 'midway'
-    ? { ...planet, owner: PLAYER, superweaponUnlocks: ['overdrive'] }
+    ? { ...planet, owner: PLAYER, superweaponUnlocks: ['repulse'] }
     : planet) };
   const engine = quietEngine(map);
   engine.pixels = [];
   assert.equal(engine.superweaponUnlocksEnabled, true);
-  assert.deepEqual(engine.bases.get('midway')?.superweaponUnlocks, ['overdrive']);
+  assert.deepEqual(engine.bases.get('midway')?.superweaponUnlocks, ['repulse']);
   engine.update(60);
-  assert.equal(engine.getSuperweaponCharge(PLAYER, 'overdrive'), 1);
+  assert.equal(engine.getSuperweaponCharge(PLAYER, 'repulse'), 1);
 });
 
 test('rotation is frame-rate independent, returns after a full turn, and retry resets it', () => {
