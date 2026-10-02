@@ -1265,10 +1265,12 @@ export class GameEngine {
         ctx.restore();
       }
 
-      // Draw valid target highlight
+      const isSelected = selectedBaseId === base.id || (base.color === '#3b82f6' && selectedGroup?.has(base.id));
+
+      // Selected sources always keep their selection visual, even if another source is active.
       let isOutOfRange = false;
       
-      if (targetingMode) {
+      if (!isSelected && targetingMode) {
         const valid = targetingMode === 'omni'
           ? this.canOmniStrike('#3b82f6', base.id)
           : this.canActivatePlanetAbility('#3b82f6', base.id, targetingMode);
@@ -1292,7 +1294,7 @@ export class GameEngine {
         } else {
           isOutOfRange = true;
         }
-      } else if (selectedBaseId && selectedBaseId !== base.id) {
+      } else if (!isSelected && selectedBaseId) {
         const selectedBase = this.bases.get(selectedBaseId);
         if (selectedBase?.color === '#3b82f6') {
           if (canIssueFleetOrder(this.bases.values(), selectedBase.id, base.id, this.MAX_ATTACK_RANGE)) {
@@ -1311,42 +1313,6 @@ export class GameEngine {
             isOutOfRange = true;
           }
         }
-      }
-
-      // Draw selection ring (Orbit)
-      if (selectedBaseId === base.id || (base.color === '#3b82f6' && selectedGroup?.has(base.id))) {
-        const planetRadius = base.isDysonSphere ? 62 : base.isCapital ? 40 : 20;
-        const fleetRadius = planetRadius + 25 + Math.sqrt(base.pixelCount) * 5;
-        
-        ctx.save();
-        ctx.translate(drawX, drawY);
-        
-        // Outer dashed ring
-        ctx.beginPath();
-        ctx.arc(0, 0, fleetRadius + 8, 0, Math.PI * 2);
-        ctx.strokeStyle = '#ffffff'; // Bright white
-        ctx.lineWidth = 3;
-        ctx.setLineDash([15, 15]);
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = '#ffffff';
-        ctx.stroke();
-        
-        // Inner dashed ring
-        ctx.beginPath();
-        ctx.arc(0, 0, fleetRadius, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([8, 8]);
-        ctx.stroke();
-        
-        ctx.restore();
-        
-        // Pulsing center highlight
-        const pulse = (Math.sin(this.now() / 150) + 1) / 2;
-        ctx.beginPath();
-        ctx.arc(drawX, drawY, 20 + pulse * 5, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 255, 255, ${0.15 + pulse * 0.15})`;
-        ctx.fill();
       }
 
       // Draw the base (Planet or Capital)
@@ -1389,6 +1355,36 @@ export class GameEngine {
         const startX = -((base.superweaponUnlocks.length - 1) * gap) / 2;
         base.superweaponUnlocks.forEach((weapon, index) => drawSuperweaponIcon(ctx, weapon, drawX + startX + index * gap, drawY + iconY, scale));
       }
+    }
+
+    // Draw all selections last so neighboring planets and their effects cannot cover them.
+    for (const base of this.bases.values()) {
+      if (selectedBaseId !== base.id && !(base.color === '#3b82f6' && selectedGroup?.has(base.id))) continue;
+      const planetRadius = base.isDysonSphere ? 62 : base.isCapital ? 40 : 20;
+      const fleetRadius = planetRadius + 25 + Math.sqrt(base.pixelCount) * 5;
+      ctx.save();
+      ctx.translate(base.x, base.y);
+      ctx.beginPath();
+      ctx.arc(0, 0, fleetRadius + 8, 0, Math.PI * 2);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([15, 15]);
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = '#ffffff';
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(0, 0, fleetRadius, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 8]);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      const pulse = (Math.sin(now / 150) + 1) / 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 20 + pulse * 5, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255, 255, 255, ${0.15 + pulse * 0.15})`;
+      ctx.fill();
+      ctx.restore();
     }
 
     ctx.restore(); // Restore from screen shake
