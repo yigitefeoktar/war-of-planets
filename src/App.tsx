@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createMatch } from './game/mapLoader';
 import { CHAPTERS, DYSON_SPHERE_ID, SIEGE_OF_HELIOS, completeMission, followingMission, getOutcome, isChapterOneTestMode, launchMission, loadProgress, mapOrbits, nextMission, saveProgress, testLevelForMode, type MapDefinition, type ModeId, type Progress } from './game/campaign';
 import { AnimatePresence, motion } from 'motion/react';
-import { Maximize, Minimize, Volume2, VolumeX, Music, Pause, Play, Flag, Shield, Scan } from 'lucide-react';
+import { Maximize, Minimize, Volume2, VolumeX, Music, Pause, Play, Flag, Shield } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
 import { ModeCard } from './ui/ModeCard';
 import { advanceTutorial, drawTutorialHighlights, tutorialTargets, type TutorialState, type TutorialEvent } from './game/tutorial';
@@ -1635,13 +1635,14 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
           return <div className={`planet-command planet-command-${state}`} style={{ '--weapon-count': weapons.filter(weapon => availableWeapons.has(weapon)).length } as React.CSSProperties} role="region" aria-label={state === 'normal' ? 'Planet commands and superweapons' : 'Planet information'}
             onPointerDown={event => event.stopPropagation()} onTouchStart={event => event.stopPropagation()}>
             <div className="planet-command-content">
-          <button className="planet-multi-select" aria-label="Multi-select friendly planets" aria-pressed={multiSelectMode}
+          <div className="planet-selection-control">
+          <span className="planet-control-label" aria-hidden="true">&nbsp;</span>
+          <button className="planet-multi-select" aria-label="Select mode: select friendly planets" aria-pressed={multiSelectMode}
             title="Drag to select friendly planets, then choose a friendly target. PC: right-click drag. Escape: cancel."
             onClick={toggleMultiSelect}>
-            <Scan size={22} aria-hidden="true" />
-            <span>MULTI</span>
-            <small>{selectedPlanetCount ? `${selectedPlanetCount} selected` : multiSelectMode ? 'ON' : 'OFF'}</small>
+            Select mode
           </button>
+          </div>
           {state === 'enemy' && shownPlanet && <div className="planet-command-summary">
             <span className="planet-command-kicker" style={{ color: shownPlanet.color }}>{factions.find(faction => faction.color === shownPlanet.color)?.name ?? 'NEUTRAL'}</span>
             <strong className="planet-command-count">{shownPlanet.pixelCount}</strong>

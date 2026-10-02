@@ -44,12 +44,13 @@
 .planet-command-kicker { font-size: 11px; font-weight: 700; letter-spacing: .045em; text-shadow: 0 0 16px currentColor; }
 .planet-command-count { margin-top: 4px; color: #f2fbff; font-size: 30px; line-height: 1; letter-spacing: -.035em; text-shadow: 0 0 22px rgba(151, 225, 255, .25); }
 .planet-ability-title { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.planet-fleet-control { position: relative; display: flex; min-width: 0; flex-direction: column; justify-content: center; }
+.planet-fleet-control, .planet-selection-control { position: relative; display: flex; min-width: 0; flex-direction: column; justify-content: center; }
 .planet-control-label { display: block; margin-bottom: 5px; color: #80bee0; font-size: 11px; font-weight: 700; letter-spacing: .035em; }
 .planet-fleet-sizes { display: flex; gap: 5px; }
-.planet-fleet-sizes button { flex: 1; min-height: 42px; border: 1px solid rgba(47, 105, 135, .38); border-radius: 9px; background: linear-gradient(180deg, rgba(19, 51, 75, .88), rgba(9, 31, 50, .92)); color: #acd8ed; font-size: 15px; font-weight: 700; box-shadow: inset 0 1px rgba(255, 255, 255, .025); transition: border-color .15s, filter .15s, transform .15s; }
-.planet-fleet-sizes button[aria-pressed="true"] { background: linear-gradient(180deg, #73e9f6, #4dcde2); border-color: #a5f3fc; color: #061a25; box-shadow: 0 0 20px rgba(65, 218, 238, .22), inset 0 1px rgba(255, 255, 255, .45); }
-.planet-fleet-sizes button:not([aria-pressed="true"]):hover { border-color: rgba(88, 177, 215, .7); transform: translateY(-1px); }
+.planet-fleet-sizes button { flex: 1; }
+.planet-fleet-sizes button, .planet-multi-select { min-height: 42px; border: 1px solid rgba(47, 105, 135, .38); border-radius: 9px; background: linear-gradient(180deg, rgba(19, 51, 75, .88), rgba(9, 31, 50, .92)); color: #acd8ed; font-size: 15px; font-weight: 700; box-shadow: inset 0 1px rgba(255, 255, 255, .025); transition: border-color .15s, filter .15s, transform .15s; }
+.planet-fleet-sizes button[aria-pressed="true"], .planet-multi-select[aria-pressed="true"] { background: linear-gradient(180deg, #73e9f6, #4dcde2); border-color: #a5f3fc; color: #061a25; box-shadow: 0 0 20px rgba(65, 218, 238, .22), inset 0 1px rgba(255, 255, 255, .45); }
+.planet-fleet-sizes button:not([aria-pressed="true"]):hover, .planet-multi-select:not([aria-pressed="true"]):hover { border-color: rgba(88, 177, 215, .7); transform: translateY(-1px); }
 .planet-command-hint { color: #69899d; font-size: 9px; line-height: 1.25; margin: 5px 0 0; }
 .planet-abilities { position: relative; display: flex; gap: 8px; min-width: 0; }
 .planet-ability { display: flex; flex: 1; align-items: center; justify-content: flex-start; gap: 8px; min-width: 0; padding: 10px; text-align: left; border: 1px solid color-mix(in srgb, var(--weapon-color) 35%, transparent); border-radius: 10px; background: linear-gradient(145deg, color-mix(in srgb, var(--weapon-color) 14%, #081b2b), #071725); color: var(--weapon-color); box-shadow: inset 0 1px rgba(255, 255, 255, .025); transition: border-color .15s, filter .15s, transform .15s; }
@@ -91,7 +92,7 @@
   .planet-command-summary { min-width: 0; border-right: 0; padding-right: 0; }
   .planet-command-kicker { font-size: 10px; }
   .planet-command-count { margin-top: 5px; font-size: 27px; }
-  .planet-fleet-sizes button { min-height: 36px; }
+  .planet-fleet-sizes button, .planet-multi-select { min-height: 36px; }
   .planet-control-label { margin-bottom: 5px; font-size: 10px; }
   .planet-command-hint { margin-top: 5px; font-size: 9px; }
   .planet-abilities { grid-column: 1 / -1; gap: 8px; }
@@ -112,14 +113,11 @@
 }
 
 /* Keep fleet and weapon controls in one panel, capped by the viewport. */
-.planet-command-normal { width: calc(330px + var(--weapon-count, 0) * 240px); }
-.planet-command-normal .planet-command-content { width: 100%; grid-template-columns: 64px minmax(160px, 236px) minmax(0, 1fr); }
-.planet-command-normal:not(:has(.planet-abilities)) .planet-command-content { grid-template-columns: 64px minmax(0, 1fr); }
-.planet-command-enemy .planet-command-content { grid-template-columns: 64px minmax(0, 1fr); }
-.planet-multi-select { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 64px; padding: 6px 3px; border: 1px solid #2f6987; border-radius: 9px; background: #0b2337; color: #acd8ed; cursor: pointer; font-size: 11px; font-weight: 700; }
-.planet-multi-select small { font-size: 9px; white-space: nowrap; }
-.planet-multi-select[aria-pressed="true"] { color: #061a25; background: #73e9f6; border-color: #a5f3fc; box-shadow: 0 0 20px #41daee38; }
-.planet-multi-select:hover { border-color: #a5f3fc; }
+.planet-command-normal { width: calc(394px + var(--weapon-count, 0) * 240px); }
+.planet-command-normal .planet-command-content { width: 100%; grid-template-columns: 128px minmax(160px, 236px) minmax(0, 1fr); }
+.planet-command-normal:not(:has(.planet-abilities)) .planet-command-content { grid-template-columns: 128px minmax(0, 1fr); }
+.planet-command-enemy .planet-command-content { grid-template-columns: 128px minmax(0, 1fr); }
+.planet-multi-select { width: 100%; padding: 0 8px; white-space: nowrap; cursor: pointer; }
 .planet-multi-select-hint { width: fit-content; max-width: 100%; margin: 0 auto 8px; padding: 6px 10px; border: 1px solid #73e9f680; border-radius: 8px; background: #071320ee; color: #c4ebf5; text-align: center; font: 12px monospace; }
 .planet-command-enemy .planet-command-summary { border-right: 0; padding-right: 0; }
 .planet-command-normal .planet-abilities {
@@ -131,7 +129,7 @@
 .planet-ability.targeting { border-color: currentColor; }
 @media (max-width: 760px) {
   .planet-command-normal { width: min(100%, 480px); }
-  .planet-command-normal .planet-command-content { grid-template-columns: 64px minmax(0, 1fr); }
+  .planet-command-normal .planet-command-content, .planet-command-enemy .planet-command-content { grid-template-columns: 120px minmax(0, 1fr); }
   .planet-command-normal .planet-abilities { grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); }
 }
 @media (max-width: 480px) {
