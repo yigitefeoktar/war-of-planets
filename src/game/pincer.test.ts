@@ -1,82 +1,199 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { getOutcome, NEUTRAL, PLAYER, THE_PINCER, validateMap } from './campaign';
+import { CHAPTERS, FACTIONS, getOutcome, NEUTRAL, PLAYER, THE_PINCER, validateMap, type PlanetDefinition } from './campaign';
 import { createMatch } from './mapLoader';
+import { canIssueFleetOrder, issueFleetOrder } from './logistics';
+import { TacticalAI } from './ai';
 
-const byId = (id: string) => THE_PINCER.planets.find(planet => planet.id === id)!;
-const distance = (from: string, to: string) => Math.hypot(byId(from).x - byId(to).x, byId(from).y - byId(to).y);
+const map = THE_PINCER;
+const branches = ['red', 'overdrive', 'green', 'omni', 'yellow', 'repulse'];
+const enemyBranches = ['red', 'green', 'yellow'];
+const hubIds = ['pincer-home', ...branches.map(name => `pincer-hub-${name}`)];
+const branchWorlds = (name: string) => map.planets.filter(planet => planet.id.startsWith(`pincer-${name}-`));
+const byId = (id: string) => map.planets.find(planet => planet.id === id)!;
+const distance = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
+const edgeKey = (a: string, b: string) => [a, b].sort().join('|');
 
-test('The Pincer has a safe blue center, contested side shields, and routes to both capitals', () => {
-  validateMap(THE_PINCER);
-  assert.deepEqual([THE_PINCER.width, THE_PINCER.height, THE_PINCER.planets.length], [2800, 2600, 27]);
-  assert.equal(THE_PINCER.orbit, undefined);
-  assert.deepEqual(THE_PINCER.planets.filter(planet => planet.capital).map(planet => planet.id),
-    ['pincer-home', 'pincer-red-capital', 'pincer-yellow-capital']);
-  assert.deepEqual([PLAYER, '#ef4444', '#eab308', NEUTRAL].map(owner => THE_PINCER.planets.filter(planet => planet.owner === owner).length),
-    [5, 4, 4, 14]);
-  const startingShips = (owner: string) => THE_PINCER.planets.filter(planet => planet.owner === owner)
-    .reduce((total, planet) => total + planet.ships, 0);
-  assert.deepEqual([PLAYER, '#ef4444', '#eab308'].map(startingShips), [440, 300, 300]);
-  assert.ok(THE_PINCER.planets.filter(planet => planet.owner === '#ef4444').every(planet => planet.x < byId('pincer-home').x));
-  assert.ok(THE_PINCER.planets.filter(planet => planet.owner === '#eab308').every(planet => planet.x > byId('pincer-home').x));
-  assert.ok(THE_PINCER.planets.filter(planet => planet.owner !== PLAYER && planet.owner !== NEUTRAL)
-    .every(planet => distance('pincer-home', planet.id) > THE_PINCER.attackRange));
-  for (const side of ['west', 'east']) {
-    assert.equal(byId(`pincer-${side}-shield`).owner, NEUTRAL);
-    assert.equal(byId(`pincer-${side}-shield`).ships, 12);
-    assert.deepEqual(byId(`pincer-${side}-shield`).superweaponUnlocks, ['repulse']);
-    assert.ok(distance(`pincer-${side}-relay`, `pincer-${side}-shield`) <= THE_PINCER.attackRange);
-    assert.ok(distance('pincer-home', `pincer-${side}-shield`) > THE_PINCER.attackRange);
+function reachable(planets: PlanetDefinition[], sourceId: string) {
+  const reached = new Set([sourceId]);
+  const queue = [planets.find(planet => planet.id === sourceId)!];
+  for (let index = 0; index < queue.length; index++) for (const planet of planets) {
+    if (!reached.has(planet.id) && distance(queue[index], planet) <= map.attackRange) {
+      reached.add(planet.id); queue.push(planet);
+    }
   }
-  for (const route of [
-    ['pincer-home', 'pincer-west-relay', 'pincer-west-shield', 'pincer-red-front', 'pincer-red-capital'],
-    ['pincer-home', 'pincer-east-relay', 'pincer-east-shield', 'pincer-yellow-front', 'pincer-yellow-capital'],
-    ['pincer-home', 'pincer-north-reserve', 'pincer-northwest-overdrive', 'pincer-red-north-wing', 'pincer-red-front', 'pincer-red-capital'],
-    ['pincer-home', 'pincer-south-reserve', 'pincer-southeast-omni', 'pincer-yellow-south-wing', 'pincer-yellow-front', 'pincer-yellow-capital'],
-  ]) for (let index = 1; index < route.length; index++) {
-    assert.ok(distance(route[index - 1], route[index]) <= THE_PINCER.attackRange,
-      `${route[index - 1]} cannot reach ${route[index]}`);
+  return reached;
+}
+
+function quietEngine() {
+  const engine = createMatch(map);
+  engine.lastAITime = Number.MAX_SAFE_INTEGER;
+  engine.lastSpawnTime = Number.MAX_SAFE_INTEGER;
+  return engine;
+}
+
+test('The Pincer opens with one central blue capital and three isolated enemy capitals', () => {
+  validateMap(map);
+  assert.deepEqual([map.width, map.height, map.planets.length, map.attackRange], [5200, 5200, 49, 600]);
+  assert.equal(map.orbit, undefined);
+  assert.equal(map.orbits, undefined);
+  assert.equal(CHAPTERS['chapter-1-test-4'].maps[0], map);
+  assert.deepEqual([byId('pincer-home').x, byId('pincer-home').y], [map.width / 2, map.height / 2]);
+  for (const [index, owner] of FACTIONS.entries()) {
+    const owned = map.planets.filter(planet => planet.owner === owner);
+    assert.equal(owned.length, 1);
+    assert.equal(owned[0].capital, true);
+    assert.equal(owned[0].ships, index === 0 ? 360 : 220);
+    const neighbors = map.planets.filter(planet => planet.id !== owned[0].id && distance(owned[0], planet) <= map.attackRange);
+    assert.ok(neighbors.every(planet => planet.owner === NEUTRAL));
+    assert.equal(neighbors.length, index === 0 ? 6 : 3);
+    if (index > 0) assert.ok(neighbors.every(planet => planet.ships <= 16));
   }
-  for (const first of THE_PINCER.planets) for (const second of THE_PINCER.planets) {
-    if (first.id !== second.id) assert.ok(distance(first.id, second.id) >= 250, `${first.id} overlaps ${second.id}`);
+  assert.equal(map.planets.filter(planet => planet.owner === NEUTRAL).length, 45);
+  const home = byId('pincer-home');
+  const directions = enemyBranches.map(name => {
+    const capital = byId(`pincer-${name}-capital`);
+    return { x: capital.x - home.x, y: capital.y - home.y };
+  });
+  for (let index = 0; index < 3; index++) {
+    const a = directions[index], b = directions[(index + 1) % 3];
+    assert.ok(Math.abs((a.x * b.x + a.y * b.y) / (Math.hypot(a.x, a.y) * Math.hypot(b.x, b.y)) + 0.5) < 1e-6);
   }
 });
 
-test('blue starts with five Repulse sources against one per enemy while outer routes retain earlier weapons', () => {
-  const sites = THE_PINCER.planets.filter(planet => planet.superweaponUnlocks?.length);
-  assert.deepEqual(['repulse', 'overdrive', 'omni'].map(weapon =>
-    sites.filter(planet => planet.superweaponUnlocks?.includes(weapon as 'repulse' | 'overdrive' | 'omni')).length), [9, 2, 2]);
-  assert.deepEqual(sites.filter(planet => planet.superweaponUnlocks?.includes('repulse')).map(planet => planet.id),
-    ['pincer-home', 'pincer-north-reserve', 'pincer-south-reserve', 'pincer-west-relay', 'pincer-east-relay',
-      'pincer-west-shield', 'pincer-east-shield', 'pincer-red-front', 'pincer-yellow-front']);
-  const engine = createMatch(THE_PINCER);
-  engine.lastAITime = Number.MAX_SAFE_INTEGER;
-  engine.lastSpawnTime = Number.MAX_SAFE_INTEGER;
+test('every in-range pair is an intended hub, entrance, or neighboring branch link', () => {
+  // Independent topology specification: exhaustive equality catches any shortcut,
+  // including across branches, past a gate, or diagonally past a frontline.
+  const expected = new Set<string>();
+  const link = (a: string, b: string) => expected.add(edgeKey(a, b));
+  for (const [index, name] of branches.entries()) {
+    const hub = `pincer-hub-${name}`, prefix = `pincer-${name}-`;
+    const rear = enemyBranches.includes(name) ? 'capital' : 'vault';
+    link('pincer-home', hub);
+    link(hub, `pincer-hub-${branches[(index + 1) % 6]}`);
+    link(hub, `${prefix}entry`);
+    for (const [a, b] of [
+      ['entry', 'gate'], ['gate', rear],
+      ['gate', 'left-front'], ['gate', 'right-front'],
+      [rear, 'left-rear'], [rear, 'right-rear'],
+      ['left-front', 'left-rear'], ['right-front', 'right-rear'],
+    ]) link(prefix + a, prefix + b);
+  }
+  const actual = new Set<string>();
+  for (let index = 0; index < map.planets.length; index++) for (const second of map.planets.slice(index + 1)) {
+    const first = map.planets[index], key = edgeKey(first.id, second.id);
+    if (distance(first, second) <= map.attackRange) actual.add(key);
+    // Leave a mechanical and visual margin on both sides of the range boundary.
+    assert.ok(expected.has(key) ? distance(first, second) <= 560.001 : distance(first, second) >= 700, key);
+  }
+  assert.deepEqual([...actual].sort(), [...expected].sort());
+  assert.equal(reachable(map.planets, 'pincer-home').size, map.planets.length);
+});
+
+test('removing the hub leaves exactly six separate seven-world groups', () => {
+  const outer = map.planets.filter(planet => !hubIds.includes(planet.id));
+  const unseen = new Set(outer.map(planet => planet.id));
+  const components: Set<string>[] = [];
+  while (unseen.size) {
+    const component = reachable(outer, unseen.values().next().value!);
+    components.push(component);
+    for (const id of component) unseen.delete(id);
+  }
+  assert.equal(components.length, 6);
+  for (const name of branches) {
+    const group = branchWorlds(name);
+    assert.equal(group.length, 7);
+    assert.ok(components.some(component => component.size === 7 && group.every(planet => component.has(planet.id))));
+    for (const other of branches.filter(other => other !== name)) for (const a of group) for (const b of branchWorlds(other)) {
+      assert.ok(distance(a, b) > map.attackRange);
+    }
+  }
+});
+
+test('each entrance and gate must be crossed before reaching the outer territory', () => {
+  for (const name of branches) {
+    const entryId = `pincer-${name}-entry`, gateId = `pincer-${name}-gate`;
+    const afterEntryRemoved = reachable(map.planets.filter(planet => planet.id !== entryId), 'pincer-home');
+    assert.ok(branchWorlds(name).filter(planet => planet.id !== entryId).every(planet => !afterEntryRemoved.has(planet.id)));
+    const afterGateRemoved = reachable(map.planets.filter(planet => planet.id !== gateId), 'pincer-home');
+    assert.ok(afterGateRemoved.has(entryId));
+    assert.ok(branchWorlds(name).filter(planet => planet.id !== entryId && planet.id !== gateId).every(planet => !afterGateRemoved.has(planet.id)));
+  }
+});
+
+test('fleet orders and Omni Strike cannot skip the hub shield, branch entrance, or enemy gate', () => {
+  for (const name of enemyBranches) {
+    const engine = quietEngine();
+    const hub = `pincer-hub-${name}`, entry = `pincer-${name}-entry`, gate = `pincer-${name}-gate`, capital = `pincer-${name}-capital`;
+    assert.equal(canIssueFleetOrder(engine.bases.values(), 'pincer-home', hub, engine.MAX_ATTACK_RANGE), true);
+    assert.equal(issueFleetOrder(engine, 'pincer-home', entry, 0.5), false);
+    assert.equal(engine.canOmniStrike(PLAYER, entry), false);
+    engine.bases.get(hub)!.color = PLAYER;
+    assert.equal(engine.canOmniStrike(PLAYER, entry), true);
+    assert.equal(engine.canOmniStrike(PLAYER, gate), false);
+    assert.equal(canIssueFleetOrder(engine.bases.values(), hub, gate, engine.MAX_ATTACK_RANGE), false);
+    engine.bases.get(entry)!.color = PLAYER;
+    assert.equal(engine.canOmniStrike(PLAYER, gate), true);
+    assert.equal(engine.canOmniStrike(PLAYER, capital), false);
+    assert.equal(canIssueFleetOrder(engine.bases.values(), entry, capital, engine.MAX_ATTACK_RANGE), false);
+    engine.bases.get(gate)!.color = PLAYER;
+    assert.equal(engine.canOmniStrike(PLAYER, capital), true);
+    assert.equal(canIssueFleetOrder(engine.bases.values(), gate, capital, engine.MAX_ATTACK_RANGE), true);
+  }
+});
+
+test('the central shield hub and three rich weapon groups generate charges under normal ownership rules', () => {
+  assert.ok(hubIds.every(id => byId(id).superweaponUnlocks?.includes('repulse')));
+  for (const name of ['overdrive', 'omni', 'repulse'] as const) {
+    const group = branchWorlds(name);
+    assert.ok(group.every(planet => planet.owner === NEUTRAL && !planet.capital));
+    assert.ok(group.every(planet => planet.superweaponUnlocks?.length === 1 && planet.superweaponUnlocks[0] === name));
+  }
+  const engine = quietEngine();
   engine.pixels = [];
-  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'repulse'), 5);
-  assert.equal(engine.getSuperweaponSourceCount('#ef4444', 'repulse'), 1);
-  assert.equal(engine.getSuperweaponSourceCount('#eab308', 'repulse'), 1);
-  engine.update(11);
-  assert.equal(engine.getSuperweaponCharge(PLAYER, 'repulse'), 0);
-  engine.update(1);
+  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'repulse'), 1);
+  for (const color of FACTIONS.slice(1)) assert.equal(engine.getOwnedSuperweapons(color).size, 0);
+  engine.update(60);
   assert.equal(engine.getSuperweaponCharge(PLAYER, 'repulse'), 1);
   assert.equal(engine.activatePlanetAbility(PLAYER, 'pincer-home', 'repulse'), true);
-  engine.bases.get('pincer-west-shield')!.color = PLAYER;
-  engine.bases.get('pincer-east-shield')!.color = PLAYER;
+  for (const id of hubIds) engine.bases.get(id)!.color = PLAYER;
   assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'repulse'), 7);
   engine.update(8);
   assert.equal(engine.getSuperweaponCharge(PLAYER, 'repulse'), 0);
   engine.update(1);
   assert.equal(engine.getSuperweaponCharge(PLAYER, 'repulse'), 1);
+  for (const name of ['overdrive', 'omni'] as const) for (const planet of branchWorlds(name)) engine.bases.get(planet.id)!.color = PLAYER;
+  engine.update(9);
+  for (const name of ['overdrive', 'omni'] as const) assert.equal(engine.getSuperweaponCharge(PLAYER, name), 1);
 });
 
-test('both enemy capitals must fall and the blue capital must survive', () => {
-  const engine = createMatch(THE_PINCER);
+test('blue can capture its first neutral shield and each enemy has a legal opening expansion', () => {
+  const engine = quietEngine();
+  const ai = new TacticalAI();
+  const plans = ai.plan({
+    bases: [...engine.bases.values()], pixels: engine.pixels, range: engine.MAX_ATTACK_RANGE,
+    seconds: 0, hard: false, canOmni: () => false, canAbility: () => false, random: () => 0.5,
+  });
+  for (const [index, name] of enemyBranches.entries()) {
+    const orders = plans.get(FACTIONS[index + 1])!.orders;
+    assert.equal(orders.length, 1);
+    assert.equal(orders[0].from, `pincer-${name}-capital`);
+    assert.ok(branchWorlds(name).some(planet => planet.id === orders[0].to && planet.owner === NEUTRAL));
+  }
+  assert.equal(issueFleetOrder(engine, 'pincer-home', 'pincer-hub-red', 0.5), true);
+  for (let step = 0; step < 2400 && engine.bases.get('pincer-hub-red')!.color !== PLAYER; step++) engine.update(1 / 60);
+  assert.equal(engine.bases.get('pincer-hub-red')!.color, PLAYER);
+  assert.equal(engine.getSuperweaponSourceCount(PLAYER, 'repulse'), 2);
+  assert.equal(engine.bases.get('pincer-home')!.isCapital, true);
+});
+
+test('all three enemy capitals must fall while blue survives', () => {
+  const engine = quietEngine();
   assert.equal(getOutcome(engine.bases.values()), null);
-  engine.bases.get('pincer-red-capital')!.isCapital = false;
-  assert.equal(getOutcome(engine.bases.values()), null);
-  engine.bases.get('pincer-yellow-capital')!.isCapital = false;
-  assert.equal(getOutcome(engine.bases.values()), 'victory');
+  for (const [index, name] of enemyBranches.entries()) {
+    engine.bases.get(`pincer-${name}-capital`)!.isCapital = false;
+    assert.equal(getOutcome(engine.bases.values()), index < 2 ? null : 'victory');
+  }
   engine.bases.get('pincer-home')!.isCapital = false;
   assert.equal(getOutcome(engine.bases.values()), 'defeat');
 });

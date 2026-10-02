@@ -15,7 +15,7 @@ test('galaxy backgrounds grow with map size and hard mode uses a warmer red pale
   assert.ok(tutorial.nebulae.length < breach.nebulae.length);
   assert.ok(breach.nebulae.length < orbit.nebulae.length);
   assert.ok(orbit.nebulae.length < pincer.nebulae.length);
-  assert.ok(pincer.nebulae.length < quick.nebulae.length);
+  assert.ok(quick.nebulae.length < pincer.nebulae.length);
   assert.ok(quick.nebulae.length < hard.nebulae.length);
   assert.ok(tutorial.nebulae.every(cloud => cloud.alpha < 0.05));
   assert.ok(tutorial.stars.length < breach.stars.length && breach.stars.length < quick.stars.length);

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { clampZoom, zoomLimits } from './camera';
-import { BREACH_LINE, FIRST_STRIKE, SIEGE_OF_HELIOS, TURNING_TIDE } from './campaign';
+import { BREACH_LINE, FIRST_STRIKE, SIEGE_OF_HELIOS, THE_PINCER, TURNING_TIDE } from './campaign';
 
 test('zoom range follows map size while retaining a usable overview', () => {
   for (const [viewWidth, viewHeight] of [[1920, 1080], [390, 844]]) {
@@ -16,6 +16,7 @@ test('zoom range follows map size while retaining a usable overview', () => {
       [BREACH_LINE.width, BREACH_LINE.height, breach],
       [TURNING_TIDE.width, TURNING_TIDE.height, orbit],
       [3000, 3000, quick],
+      [THE_PINCER.width, THE_PINCER.height, zoomLimits(viewWidth, viewHeight, THE_PINCER.width, THE_PINCER.height)],
       [SIEGE_OF_HELIOS.width, SIEGE_OF_HELIOS.height, zoomLimits(viewWidth, viewHeight, SIEGE_OF_HELIOS.width, SIEGE_OF_HELIOS.height)],
     ] as const) {
       const overview = Math.min(viewWidth / worldWidth, viewHeight / worldHeight) * 0.9;

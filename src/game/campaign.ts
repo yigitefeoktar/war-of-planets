@@ -140,46 +140,60 @@ export const TURNING_TIDE: MapDefinition = {
   },
 };
 
-export const THE_PINCER: MapDefinition = {
-  id: 'helios-the-pincer', title: 'The Pincer',
-  galaxyTheme: 'pincer',
-  briefing: 'Your five blue worlds all generate Repulse Shields. Red and yellow press from opposite sides. Shield threatened worlds, capture the lightly defended Repulse sites to recharge faster, then take both enemy capitals.',
-  width: 2800, height: 2600, attackRange: 600, mobileFocus: 'capital',
-  objective: { type: 'eliminate-capitals', description: 'Capture both enemy capitals. Use Repulse Shields to hold the center while you advance.' },
-  planets: [
-    // Every world in the compact blue core generates Repulse charges and can reinforce either threatened relay.
-    { id: 'pincer-home', x: 1400, y: 1300, owner: PLAYER, ships: 300, capital: true, superweaponUnlocks: ['repulse'] },
-    { id: 'pincer-north-reserve', x: 1400, y: 950, owner: PLAYER, ships: 35, superweaponUnlocks: ['repulse'] },
-    { id: 'pincer-south-reserve', x: 1400, y: 1650, owner: PLAYER, ships: 35, superweaponUnlocks: ['repulse'] },
-    { id: 'pincer-west-relay', x: 1050, y: 1300, owner: PLAYER, ships: 35, superweaponUnlocks: ['repulse'] },
-    { id: 'pincer-east-relay', x: 1750, y: 1300, owner: PLAYER, ships: 35, superweaponUnlocks: ['repulse'] },
-    // Both side approaches contest a neutral shield before reaching the capital.
-    { id: 'pincer-west-shield', x: 790, y: 1300, owner: NEUTRAL, ships: 12, superweaponUnlocks: ['repulse'] },
-    { id: 'pincer-east-shield', x: 2010, y: 1300, owner: NEUTRAL, ships: 12, superweaponUnlocks: ['repulse'] },
-    { id: 'pincer-red-front', x: 450, y: 1300, owner: '#ef4444', ships: 70, superweaponUnlocks: ['repulse'] },
-    { id: 'pincer-red-capital', x: 150, y: 1300, owner: '#ef4444', ships: 150, capital: true },
-    { id: 'pincer-yellow-front', x: 2350, y: 1300, owner: '#eab308', ships: 70, superweaponUnlocks: ['repulse'] },
-    { id: 'pincer-yellow-capital', x: 2650, y: 1300, owner: '#eab308', ships: 150, capital: true },
-    // Upper and lower wings can bypass a fortified center.
-    { id: 'pincer-red-north-wing', x: 450, y: 760, owner: '#ef4444', ships: 40 },
-    { id: 'pincer-red-south-wing', x: 450, y: 1840, owner: '#ef4444', ships: 40 },
-    { id: 'pincer-yellow-north-wing', x: 2350, y: 760, owner: '#eab308', ships: 40 },
-    { id: 'pincer-yellow-south-wing', x: 2350, y: 1840, owner: '#eab308', ships: 40 },
-    { id: 'pincer-northwest-gate', x: 850, y: 930, owner: NEUTRAL, ships: 22 },
-    { id: 'pincer-southwest-gate', x: 850, y: 1670, owner: NEUTRAL, ships: 22 },
-    { id: 'pincer-northeast-gate', x: 1950, y: 930, owner: NEUTRAL, ships: 22 },
-    { id: 'pincer-southeast-gate', x: 1950, y: 1670, owner: NEUTRAL, ships: 22 },
-    // Optional outer routes reward the weapons learned in Missions 2 and 3.
-    { id: 'pincer-northwest-overdrive', x: 950, y: 560, owner: NEUTRAL, ships: 28, superweaponUnlocks: ['overdrive'] },
-    { id: 'pincer-northeast-overdrive', x: 1850, y: 560, owner: NEUTRAL, ships: 28, superweaponUnlocks: ['overdrive'] },
-    { id: 'pincer-southwest-omni', x: 950, y: 2040, owner: NEUTRAL, ships: 28, superweaponUnlocks: ['omni'] },
-    { id: 'pincer-southeast-omni', x: 1850, y: 2040, owner: NEUTRAL, ships: 28, superweaponUnlocks: ['omni'] },
-    { id: 'pincer-north-crossing', x: 1400, y: 450, owner: NEUTRAL, ships: 36 },
-    { id: 'pincer-south-crossing', x: 1400, y: 2150, owner: NEUTRAL, ships: 36 },
-    { id: 'pincer-northwest-outpost', x: 250, y: 320, owner: NEUTRAL, ships: 24 },
-    { id: 'pincer-southeast-outpost', x: 2550, y: 2280, owner: NEUTRAL, ships: 24 },
-  ],
-};
+// Six independent branches meet only at the Repulse hub. The 520 to 560-unit
+// links fit the 600-unit attack range; diagonal and skipped-row distances do not.
+function buildPincer(): MapDefinition {
+  const center = 2600;
+  const planets: PlanetDefinition[] = [
+    { id: 'pincer-home', x: center, y: center, owner: PLAYER, ships: 360, capital: true, superweaponUnlocks: ['repulse'] },
+  ];
+  const branches: { name: string; owner?: PlanetDefinition['owner']; weapon?: SuperweaponId }[] = [
+    { name: 'red', owner: FACTIONS[1] },
+    { name: 'overdrive', weapon: 'overdrive' },
+    { name: 'green', owner: FACTIONS[2] },
+    { name: 'omni', weapon: 'omni' },
+    { name: 'yellow', owner: FACTIONS[3] },
+    { name: 'repulse', weapon: 'repulse' },
+  ];
+  for (const [index, branch] of branches.entries()) {
+    const angle = -Math.PI / 2 + index * Math.PI / 3;
+    const cos = Math.cos(angle), sin = Math.sin(angle);
+    const position = (radius: number, side = 0) => ({
+      x: center + radius * cos - side * sin,
+      y: center + radius * sin + side * cos,
+    });
+    // The player must take this neutral hub shield to reach its branch entrance.
+    planets.push({ id: `pincer-hub-${branch.name}`, ...position(540), owner: NEUTRAL, ships: 12, superweaponUnlocks: ['repulse'] });
+    const sites = [
+      { suffix: 'entry', radius: 1080, side: 0, ships: branch.owner ? 24 : 18 },
+      { suffix: 'gate', radius: 1640, side: 0, ships: branch.owner ? 16 : 24 },
+      { suffix: branch.owner ? 'capital' : 'vault', radius: 2200, side: 0, ships: branch.owner ? 220 : 32 },
+      { suffix: 'left-front', radius: 1640, side: -520, ships: branch.owner ? 18 : 22 },
+      { suffix: 'right-front', radius: 1640, side: 520, ships: branch.owner ? 18 : 22 },
+      { suffix: 'left-rear', radius: 2200, side: -520, ships: branch.owner ? 12 : 28 },
+      { suffix: 'right-rear', radius: 2200, side: 520, ships: branch.owner ? 12 : 28 },
+    ];
+    for (const site of sites) {
+      const capital = site.suffix === 'capital';
+      planets.push({
+        id: `pincer-${branch.name}-${site.suffix}`, ...position(site.radius, site.side),
+        owner: capital ? branch.owner! : NEUTRAL, ships: site.ships,
+        ...(capital ? { capital: true } : {}),
+        ...(branch.weapon ? { superweaponUnlocks: [branch.weapon] } : {}),
+      });
+    }
+  }
+  return {
+    // Preserve campaign saves and the existing Level 4 test option.
+    id: 'helios-the-pincer', title: 'The Pincer', galaxyTheme: 'pincer',
+    briefing: 'Red, green, and yellow expand toward your central capital from three directions. Capture nearby Repulse Shield worlds to hold the hub. Push through enemy gates or secure the three rich weapon branches; every route passes through the center.',
+    width: 5200, height: 5200, attackRange: 600, mobileFocus: 'capital',
+    objective: { type: 'eliminate-capitals', description: 'Capture all three enemy capitals. Hold the Repulse hub and protect the blue capital.' },
+    planets,
+  };
+}
+
+export const THE_PINCER = buildPincer();
 
 // Five authored systems share Level 3's eight outer and four inner worlds.
 // Fixed lanes sit outside every swept orbit, so rotation never closes the map.
