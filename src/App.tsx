@@ -230,7 +230,7 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
   );
 }
 
-function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRetry, onMenu, resultDetail, victoryTitle, actionLabel }: { isSoundEnabled: boolean, isMusicEnabled: boolean, isHardMode: boolean, map?: MapDefinition, onResult: (won: boolean) => void, onRetry: () => void, onMenu: () => void, resultDetail: string, victoryTitle?: string, actionLabel: string }) {
+function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRetry, onMenu, resultDetail, victoryTitle, actionLabel, isChapterComplete }: { isSoundEnabled: boolean, isMusicEnabled: boolean, isHardMode: boolean, map?: MapDefinition, onResult: (won: boolean) => void, onRetry: () => void, onMenu: () => void, resultDetail: string, victoryTitle?: string, actionLabel: string, isChapterComplete: boolean }) {
   const onResultRef = useRef(onResult);
   onResultRef.current = onResult;
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1772,19 +1772,20 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
               onMouseEnter={() => playSound('hover', isSoundEnabled)}
               onClick={() => {
                 playSound('select', isSoundEnabled);
-                onRetry();
+                if (isChapterComplete) onMenu();
+                else onRetry();
               }}
               className="classic-result-action group relative flex min-h-14 w-full max-w-sm cursor-pointer items-center justify-center overflow-hidden rounded-sm border border-cyan-400 bg-cyan-950/60 px-7 py-4 font-bold uppercase tracking-[0.22em] text-cyan-200 shadow-[0_0_20px_rgba(6,182,212,0.2)] transition-all hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300 max-[500px]:min-h-11 max-[500px]:py-3 max-[500px]:text-xs"
             >
               <span className="relative z-10 flex items-center gap-3">
                 {actionLabel}
-                <svg className="h-5 w-5 transition-transform duration-500 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="square" strokeLinejoin="miter" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                <svg className={`h-5 w-5 transition-transform duration-500 ${isChapterComplete ? 'group-hover:-translate-x-1' : 'group-hover:rotate-180'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="square" strokeLinejoin="miter" strokeWidth={2} d={isChapterComplete ? 'M19 12H5m7-7-7 7 7 7' : 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'} />
                 </svg>
               </span>
             </motion.button>
 
-            <button
+            {!isChapterComplete && <button
               type="button"
               onMouseEnter={() => playSound('hover', isSoundEnabled)}
               onClick={() => {
@@ -1794,7 +1795,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
               className="classic-result-menu mt-3 min-h-11 rounded-sm px-6 py-3 text-sm text-cyan-200/80 underline decoration-cyan-500/50 underline-offset-4 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-cyan-300 max-[500px]:mt-1 max-[500px]:py-2"
             >
               Main menu
-            </button>
+            </button>}
           </motion.div>
         </motion.div>
       )}
@@ -1894,6 +1895,7 @@ export default function App() {
 
 
   const chapter = session.mode === 'quick-match' || session.mode === 'hard-mode' ? undefined : CHAPTERS[session.mode];
+  const isChapterComplete = Boolean(chapter && session.map && result === true && !followingMap);
   const isChapterFinale = session.map?.id === SIEGE_OF_HELIOS.id;
   const resultDetail = followingMap ? 'Next mission starts automatically in a moment.'
     : isChapterFinale ? 'The Helios Breach is yours. Unidentified signals wait beyond the frontier.'
@@ -1902,7 +1904,8 @@ export default function App() {
   return <React.Fragment key={session.attempt}><Game map={session.map}
     isSoundEnabled={isSoundEnabled} isMusicEnabled={isMusicEnabled} isHardMode={session.mode === 'hard-mode'}
     onResult={onResult} resultDetail={resultDetail} victoryTitle={isChapterFinale ? 'HELIOS SECURED' : undefined}
-    actionLabel={result && followingMap ? 'Next Mission' : session.map ? result ? 'Replay Mission' : 'Retry Mission' : session.mode === 'hard-mode' ? 'New Hard Match' : 'New Quick Match'}
+    isChapterComplete={isChapterComplete}
+    actionLabel={isChapterComplete ? 'Back to Main Menu' : result && followingMap ? 'Next Mission' : session.map ? result ? 'Replay Mission' : 'Retry Mission' : session.mode === 'hard-mode' ? 'New Hard Match' : 'New Quick Match'}
     onRetry={() => begin(session.mode, result && followingMap ? followingMap : session.map)}
     onMenu={() => { setSession(null); setResult(null); setMusicEnabled(isMusicEnabled); }} /></React.Fragment>;
 }
