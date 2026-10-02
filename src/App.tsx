@@ -230,7 +230,7 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
   );
 }
 
-function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRetry, onMenu, resultDetail, victoryTitle, actionLabel, isChapterComplete }: { isSoundEnabled: boolean, isMusicEnabled: boolean, isHardMode: boolean, map?: MapDefinition, onResult: (won: boolean) => void, onRetry: () => void, onMenu: () => void, resultDetail: string, victoryTitle?: string, actionLabel: string, isChapterComplete: boolean }) {
+function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRetry, onMenu, resultDetail, victoryTitle, actionLabel, isChapterComplete, isLastChapterLevel }: { isSoundEnabled: boolean, isMusicEnabled: boolean, isHardMode: boolean, map?: MapDefinition, onResult: (won: boolean) => void, onRetry: () => void, onMenu: () => void, resultDetail: string, victoryTitle?: string, actionLabel: string, isChapterComplete: boolean, isLastChapterLevel: boolean }) {
   const onResultRef = useRef(onResult);
   onResultRef.current = onResult;
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1785,14 +1785,14 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
               </span>
             </motion.button>
 
-            {!isChapterComplete && <button
+            {!isLastChapterLevel && <button
               type="button"
               onMouseEnter={() => playSound('hover', isSoundEnabled)}
               onClick={() => {
                 playSound('select', isSoundEnabled);
                 onMenu();
               }}
-              className="classic-result-menu mt-3 min-h-11 rounded-sm px-6 py-3 text-sm text-cyan-200/80 underline decoration-cyan-500/50 underline-offset-4 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-cyan-300 max-[500px]:mt-1 max-[500px]:py-2"
+              className="classic-result-menu mt-3 min-h-11 rounded-sm px-6 py-3 text-sm text-cyan-200/80 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-cyan-300 max-[500px]:mt-1 max-[500px]:py-2"
             >
               Main menu
             </button>}
@@ -1895,7 +1895,8 @@ export default function App() {
 
 
   const chapter = session.mode === 'quick-match' || session.mode === 'hard-mode' ? undefined : CHAPTERS[session.mode];
-  const isChapterComplete = Boolean(chapter && session.map && result === true && !followingMap);
+  const isLastChapterLevel = Boolean(chapter && session.map && chapter.maps.at(-1)?.id === session.map.id);
+  const isChapterComplete = isLastChapterLevel && result === true;
   const isChapterFinale = session.map?.id === SIEGE_OF_HELIOS.id;
   const resultDetail = followingMap ? 'Next mission starts automatically in a moment.'
     : isChapterFinale ? 'The Helios Breach is yours. Unidentified signals wait beyond the frontier.'
@@ -1905,6 +1906,7 @@ export default function App() {
     isSoundEnabled={isSoundEnabled} isMusicEnabled={isMusicEnabled} isHardMode={session.mode === 'hard-mode'}
     onResult={onResult} resultDetail={resultDetail} victoryTitle={isChapterFinale ? 'HELIOS SECURED' : undefined}
     isChapterComplete={isChapterComplete}
+    isLastChapterLevel={isLastChapterLevel}
     actionLabel={isChapterComplete ? 'Back to Main Menu' : result && followingMap ? 'Next Mission' : session.map ? result ? 'Replay Mission' : 'Retry Mission' : session.mode === 'hard-mode' ? 'New Hard Match' : 'New Quick Match'}
     onRetry={() => begin(session.mode, result && followingMap ? followingMap : session.map)}
     onMenu={() => { setSession(null); setResult(null); setMusicEnabled(isMusicEnabled); }} /></React.Fragment>;
