@@ -22,7 +22,7 @@ const testModes: Mode[] = CHAPTER_ONE_TEST_MODE_IDS.map((id, index) => ({
 const modes = [...mainModes, ...testModes];
 
 function Artwork({ mode }: { mode: Mode }) {
-  return <>{!isChapterOneTestMode(mode.id) && <img className="mode-art" src={`/images/modes/${mode.id === 'hard-mode' ? 'quick-match' : mode.id}.jpg`} alt="" draggable={false} />}<span className="mode-shade" /></>;
+  return <>{!isChapterOneTestMode(mode.id) && <img className="mode-art" src={`/images/modes/${mode.id}.jpg`} alt="" draggable={false} />}<span className="mode-shade" /></>;
 }
 
 function CardContent({ mode, compact = false }: { mode: Mode; compact?: boolean }) {
