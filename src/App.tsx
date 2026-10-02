@@ -605,6 +605,8 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         } else {
           selectPlanet(null);
           setSelectedGroup(new Set([target.id]));
+          multiSelectModeRef.current = false;
+          setMultiSelectMode(false);
           playSound('select', isSoundEnabledRef.current);
         }
         return;
@@ -1074,7 +1076,11 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       selectionDrag = null;
       if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
       if (drag.moved) {
-        if (selectedGroup.size > 0) playSound('select', isSoundEnabledRef.current);
+        if (selectedGroup.size > 0) {
+          multiSelectModeRef.current = false;
+          setMultiSelectMode(false);
+          playSound('select', isSoundEnabledRef.current);
+        }
       } else if (drag.button === 0) {
         handlePlanetClick(planetAtClientPoint(event.clientX, event.clientY, event.pointerType === 'touch' ? 50 : 25));
       }
