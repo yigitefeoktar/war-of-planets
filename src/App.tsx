@@ -1591,8 +1591,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
           <div className="flex flex-col items-center gap-5 text-cyan-200" onClick={event => event.stopPropagation()}>
             <h2 className="font-mono text-3xl font-bold uppercase tracking-widest">Paused</h2>
             <button type="button" onClick={togglePause} className="border border-cyan-300 bg-cyan-950 px-8 py-3">Resume</button>
-            <button type="button" onClick={onMenu} className="px-6 py-3 underline">Main menu</button>
-            {map && <p className="text-xs text-cyan-100/60">Completed missions are saved. This battle will restart.</p>}
           </div>
         </div>
       )}
