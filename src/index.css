@@ -113,9 +113,14 @@
 
 /* Keep fleet and weapon controls in one panel, capped by the viewport. */
 .planet-command-normal { width: calc(330px + var(--weapon-count, 0) * 240px); }
-.planet-command-normal .planet-command-content { width: 100%; grid-template-columns: minmax(240px, 300px) minmax(0, 1fr); }
-.planet-command-normal:not(:has(.planet-abilities)) .planet-command-content { grid-template-columns: minmax(0, 1fr); }
-.planet-command-enemy .planet-command-content { grid-template-columns: minmax(0, 1fr); }
+.planet-command-normal .planet-command-content { width: 100%; grid-template-columns: 64px minmax(160px, 236px) minmax(0, 1fr); }
+.planet-command-normal:not(:has(.planet-abilities)) .planet-command-content { grid-template-columns: 64px minmax(0, 1fr); }
+.planet-command-enemy .planet-command-content { grid-template-columns: 64px minmax(0, 1fr); }
+.planet-multi-select { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 64px; padding: 6px 3px; border: 1px solid #2f6987; border-radius: 9px; background: #0b2337; color: #acd8ed; cursor: pointer; font-size: 11px; font-weight: 700; }
+.planet-multi-select small { font-size: 9px; white-space: nowrap; }
+.planet-multi-select[aria-pressed="true"] { color: #061a25; background: #73e9f6; border-color: #a5f3fc; box-shadow: 0 0 20px #41daee38; }
+.planet-multi-select:hover { border-color: #a5f3fc; }
+.planet-multi-select-hint { width: fit-content; max-width: 100%; margin: 0 auto 8px; padding: 6px 10px; border: 1px solid #73e9f680; border-radius: 8px; background: #071320ee; color: #c4ebf5; text-align: center; font: 12px monospace; }
 .planet-command-enemy .planet-command-summary { border-right: 0; padding-right: 0; }
 .planet-command-normal .planet-abilities {
   grid-column: auto; display: grid;
@@ -126,7 +131,7 @@
 .planet-ability.targeting { border-color: currentColor; }
 @media (max-width: 760px) {
   .planet-command-normal { width: min(100%, 480px); }
-  .planet-command-normal .planet-command-content { grid-template-columns: minmax(0, 1fr); }
+  .planet-command-normal .planet-command-content { grid-template-columns: 64px minmax(0, 1fr); }
   .planet-command-normal .planet-abilities { grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); }
 }
 @media (max-width: 480px) {

@@ -54,3 +54,14 @@ export function issueFleetOrder(engine: FleetNetwork, fromId: string, toId: stri
   engine.sendUnits(fromId, toId, deployed);
   return true;
 }
+
+/** Group orders can only reinforce worlds still owned by the player at launch time. */
+export function issueFriendlyGroupOrder(engine: FleetNetwork, sourceIds: Iterable<string>, toId: string, percentage: number, playerColor: string): number {
+  if (engine.bases.get(toId)?.color !== playerColor) return 0;
+  let launched = 0;
+  for (const fromId of new Set(sourceIds)) {
+    if (engine.bases.get(fromId)?.color !== playerColor || fromId === toId) continue;
+    if (issueFleetOrder(engine, fromId, toId, percentage)) launched++;
+  }
+  return launched;
+}

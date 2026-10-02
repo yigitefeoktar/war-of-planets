@@ -1071,7 +1071,7 @@ export class GameEngine {
     ctx.restore();
   }
 
-  draw(ctx: CanvasRenderingContext2D, selectedBaseId: string | null, cameraX: number, cameraY: number, targetingMode: SuperweaponTargetMode = null) {
+  draw(ctx: CanvasRenderingContext2D, selectedBaseId: string | null, cameraX: number, cameraY: number, targetingMode: SuperweaponTargetMode = null, selectedGroup?: ReadonlySet<string>) {
     ctx.save();
 
     // Apply screen shake
@@ -1308,7 +1308,7 @@ export class GameEngine {
       }
 
       // Draw selection ring (Orbit)
-      if (selectedBaseId === base.id) {
+      if (selectedBaseId === base.id || (base.color === '#3b82f6' && selectedGroup?.has(base.id))) {
         const planetRadius = base.isDysonSphere ? 62 : base.isCapital ? 40 : 20;
         const fleetRadius = planetRadius + 25 + Math.sqrt(base.pixelCount) * 5;
         

@@ -2,12 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createMatch } from './game/mapLoader';
 import { CHAPTERS, DYSON_SPHERE_ID, SIEGE_OF_HELIOS, completeMission, followingMission, getOutcome, isChapterOneTestMode, launchMission, loadProgress, mapOrbits, nextMission, saveProgress, testLevelForMode, type MapDefinition, type ModeId, type Progress } from './game/campaign';
 import { AnimatePresence, motion } from 'motion/react';
-import { Maximize, Minimize, Volume2, VolumeX, Music, Pause, Play, Flag, Shield } from 'lucide-react';
+import { Maximize, Minimize, Volume2, VolumeX, Music, Pause, Play, Flag, Shield, Scan } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
 import { ModeCard } from './ui/ModeCard';
 import { advanceTutorial, drawTutorialHighlights, tutorialTargets, type TutorialState, type TutorialEvent } from './game/tutorial';
 import './ui/Tutorial.css';
-import { hasIncomingHostile, issueFleetOrder } from './game/logistics';
+import { hasIncomingHostile, issueFleetOrder, issueFriendlyGroupOrder } from './game/logistics';
+import { friendlyPlanetsInRectangle, type SelectionPoint } from './game/selection';
 import { GameEngine } from './game/engine';
 import { SUPERWEAPON_IDS, type SuperweaponId } from './game/superweapons';
 import { SUPERWEAPON_VISUALS } from './game/superweaponVisuals';
@@ -259,6 +260,10 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     dysonOwned: false,
   }));
   const [commandPlanet, setCommandPlanet] = useState<string | null>(null);
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
+  const multiSelectModeRef = useRef(false);
+  const [selectedPlanetCount, setSelectedPlanetCount] = useState(0);
+  const resetMultiSelectionRef = useRef<() => void>(() => {});
   const [targetingMode, setTargetingMode] = useState<SuperweaponId | null>(null);
   const targetingModeRef = useRef<SuperweaponId | null>(null);
   const [wasWeaponReady, setWasWeaponReady] = useState(false);
@@ -300,7 +305,17 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     fleetSizeRef.current = size;
   };
 
+  const toggleMultiSelect = () => {
+    resetMultiSelectionRef.current();
+    multiSelectModeRef.current = !multiSelectModeRef.current;
+    setMultiSelectMode(multiSelectModeRef.current);
+    targetingModeRef.current = null;
+    setTargetingMode(null);
+    playSound('click', isSoundEnabledRef.current);
+  };
+
   const togglePause = () => {
+    resetMultiSelectionRef.current();
     setIsPaused(prev => {
       const next = !prev;
       isPausedRef.current = next;
@@ -330,6 +345,9 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   const activateAbility = (weapon: SuperweaponId) => {
     const engine = engineRef.current;
     if (!engine || isPausedRef.current || winner) return;
+    resetMultiSelectionRef.current();
+    multiSelectModeRef.current = false;
+    setMultiSelectMode(false);
     const next = targetingModeRef.current === weapon ? null : weapon;
     targetingModeRef.current = next;
     setTargetingMode(next);
@@ -530,10 +548,30 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     let mouseDownY = 0;
 
     let selectedBaseId: string | null = null;
+    let selectedGroup = new Set<string>();
+    type SelectionDrag = { pointerId: number; button: number; start: SelectionPoint; end: SelectionPoint; moved: boolean; previous: Set<string> };
+    let selectionDrag: SelectionDrag | null = null;
+    const setSelectedGroup = (ids: Set<string>) => {
+      selectedGroup = ids;
+      setSelectedPlanetCount(ids.size);
+    };
     let isGameOver = false;
     const selectPlanet = (id: string | null) => {
       selectedBaseId = id;
       setCommandPlanet(id);
+    };
+    const cancelSelectionDrag = () => {
+      const drag = selectionDrag;
+      selectionDrag = null;
+      if (drag) {
+        setSelectedGroup(drag.previous);
+        if (canvas.hasPointerCapture(drag.pointerId)) canvas.releasePointerCapture(drag.pointerId);
+      }
+    };
+    resetMultiSelectionRef.current = () => {
+      cancelSelectionDrag();
+      setSelectedGroup(new Set());
+      selectPlanet(null);
     };
     const handlePlanetClick = (id: string | null) => {
       if (targetingModeRef.current) {
@@ -550,6 +588,24 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
           targetingModeRef.current = null;
           setTargetingMode(null);
           playSound('click', isSoundEnabledRef.current);
+        }
+        return;
+      }
+      if (selectedGroup.size > 0 || multiSelectModeRef.current) {
+        const target = id ? engine.bases.get(id) : null;
+        if (!target) { setSelectedGroup(new Set()); return; }
+        if (target.color !== '#3b82f6') {
+          playSound('error', isSoundEnabledRef.current);
+          return;
+        }
+        if (selectedGroup.size > 0) {
+          const launched = issueFriendlyGroupOrder(engine, selectedGroup, target.id, fleetSizeRef.current, '#3b82f6');
+          if (launched) setSelectedGroup(new Set());
+          else playSound('error', isSoundEnabledRef.current);
+        } else {
+          selectPlanet(null);
+          setSelectedGroup(new Set([target.id]));
+          playSound('select', isSoundEnabledRef.current);
         }
         return;
       }
@@ -619,7 +675,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     // Mouse Events for Camera Panning
     const handleMouseDown = (e: MouseEvent) => {
       resumeAudioContext();
-      if (isIntroPlaying || isPausedRef.current || e.button !== 0) return;
+      if (isIntroPlaying || isGameOver || isPausedRef.current || selectionDrag || e.button !== 0) return;
       isDragging = true;
       cameraVelocityX = 0;
       cameraVelocityY = 0;
@@ -631,7 +687,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (isPausedRef.current) return;
+      if (isPausedRef.current || selectionDrag) return;
       if (isDragging) {
         const dx = e.clientX - lastMouseX;
         const dy = e.clientY - lastMouseY;
@@ -690,7 +746,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      if (isIntroPlaying || isPausedRef.current) return;
+      if (isIntroPlaying || isPausedRef.current || selectionDrag) return;
       cancelTween();
       const rect = canvas.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
@@ -725,7 +781,8 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     const handleTouchStart = (e: TouchEvent) => {
       resumeAudioContext();
       e.preventDefault();
-      if (isIntroPlaying) return;
+      if (selectionDrag) { resetTouchState(); return; }
+      if (isIntroPlaying || isGameOver || isPausedRef.current) return;
 
       // Stop any existing momentum immediately when touching the screen
       cameraVelocityX = 0;
@@ -760,7 +817,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
     const handleTouchMove = (e: TouchEvent) => {
       e.preventDefault();
-      if (isIntroPlaying || isPausedRef.current) return;
+      if (isIntroPlaying || isPausedRef.current || selectionDrag) return;
 
       if (gestureMode === 'pinch') {
         const t0 = findTouch(e.touches, primaryTouchId);
@@ -823,7 +880,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
     const handleTouchEnd = (e: TouchEvent) => {
       e.preventDefault();
-      if (isIntroPlaying || isGameOver || isPausedRef.current) return;
+      if (isIntroPlaying || isGameOver || isPausedRef.current || selectionDrag) return;
 
       // Determine whether the lifted touch is one we were tracking.
       let liftedPrimary = false;
@@ -856,7 +913,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
           const tapNow = Date.now();
           const tapDt = tapNow - lastTapTime;
           const tapMove = Math.hypot(touch.clientX - lastTapX, touch.clientY - lastTapY);
-          if (tapDt < DOUBLE_TAP_MS && tapMove < DOUBLE_TAP_PX) {
+          if (selectedGroup.size === 0 && tapDt < DOUBLE_TAP_MS && tapMove < DOUBLE_TAP_PX) {
             cancelTween();
             const newZoom = clampZoom(cameraZoom * 1.5, getZoomLimits());
             const worldAnchorX = (touchX / cameraZoom) + cameraX;
@@ -958,6 +1015,74 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       resetTouchState();
     };
 
+    const planetAtClientPoint = (clientX: number, clientY: number, padding: number) => {
+      const rect = canvas.getBoundingClientRect();
+      const worldX = (clientX - rect.left) / cameraZoom + cameraX;
+      const worldY = (clientY - rect.top) / cameraZoom + cameraY;
+      if (orbits.some(orbit => !orbit.dysonSphere && Math.hypot(worldX - orbit.x, worldY - orbit.y) <= 52)) return null;
+      let nearest: string | null = null;
+      let minDistance = Infinity;
+      for (const base of engine.bases.values()) {
+        const distance = Math.hypot(base.x - worldX, base.y - worldY);
+        if (distance < 20 + Math.sqrt(base.pixelCount) * 5 + padding / cameraZoom && distance < minDistance) {
+          nearest = base.id;
+          minDistance = distance;
+        }
+      }
+      return nearest;
+    };
+    const selectionPoint = (event: PointerEvent): SelectionPoint => {
+      const rect = canvas.getBoundingClientRect();
+      return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    };
+    const updateBoxSelection = () => {
+      if (!selectionDrag?.moved) return;
+      const toWorld = (point: SelectionPoint) => ({ x: point.x / cameraZoom + cameraX, y: point.y / cameraZoom + cameraY });
+      const ids = friendlyPlanetsInRectangle(engine.bases.values(), toWorld(selectionDrag.start), toWorld(selectionDrag.end), '#3b82f6');
+      if (ids.size !== selectedGroup.size || [...ids].some(id => !selectedGroup.has(id))) setSelectedGroup(ids);
+    };
+    const handleSelectionStart = (event: PointerEvent) => {
+      if (selectionDrag) { event.preventDefault(); return; }
+      if (!event.isPrimary || isIntroPlaying || isGameOver || isPausedRef.current) return;
+      if (event.button !== 2 && !(event.button === 0 && multiSelectModeRef.current)) return;
+      event.preventDefault();
+      resumeAudioContext();
+      targetingModeRef.current = null;
+      setTargetingMode(null);
+      selectPlanet(null);
+      isDragging = false;
+      resetTouchState();
+      cameraVelocityX = cameraVelocityY = 0;
+      keysHeld.clear();
+      cancelTween();
+      const start = selectionPoint(event);
+      selectionDrag = { pointerId: event.pointerId, button: event.button, start, end: start, moved: false, previous: selectedGroup };
+      canvas.setPointerCapture(event.pointerId);
+    };
+    const handleSelectionMove = (event: PointerEvent) => {
+      if (!selectionDrag || selectionDrag.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      selectionDrag.end = selectionPoint(event);
+      if (Math.hypot(selectionDrag.end.x - selectionDrag.start.x, selectionDrag.end.y - selectionDrag.start.y) >= (event.pointerType === 'touch' ? 12 : 8)) selectionDrag.moved = true;
+      updateBoxSelection();
+    };
+    const handleSelectionEnd = (event: PointerEvent) => {
+      if (!selectionDrag || selectionDrag.pointerId !== event.pointerId) return;
+      if (isPausedRef.current || isGameOver) { cancelSelectionDrag(); return; }
+      handleSelectionMove(event);
+      const drag = selectionDrag;
+      selectionDrag = null;
+      if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+      if (drag.moved) {
+        if (selectedGroup.size > 0) playSound('select', isSoundEnabledRef.current);
+      } else if (drag.button === 0) {
+        handlePlanetClick(planetAtClientPoint(event.clientX, event.clientY, event.pointerType === 'touch' ? 50 : 25));
+      }
+    };
+    const handleSelectionCancel = (event: PointerEvent) => {
+      if (selectionDrag?.pointerId === event.pointerId) cancelSelectionDrag();
+    };
+
     // Center the camera on the player's first remaining capital (or, if none,
     // on any remaining player base). At a comfortable zoom of 1.0.
     const centerOnPlayerCapital = () => {
@@ -974,12 +1099,16 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       if (e.repeat) return;
       const tag = (document.activeElement as HTMLElement | null)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-      if (e.code === 'Escape' && (selectedBaseId || targetingModeRef.current)) {
+      if (e.code === 'Escape' && (selectedBaseId || targetingModeRef.current || selectedGroup.size || selectionDrag || multiSelectModeRef.current)) {
+        resetMultiSelectionRef.current();
+        multiSelectModeRef.current = false;
+        setMultiSelectMode(false);
         targetingModeRef.current = null;
         setTargetingMode(null);
         selectPlanet(null); e.preventDefault(); return;
       }
-      if (isIntroPlaying || isPausedRef.current) return;
+      if (selectionDrag) { e.preventDefault(); return; }
+      if (isIntroPlaying || isGameOver || isPausedRef.current) return;
 
       // Bookmarks: Shift+1..4 saves, plain 1..4 recalls.
       if (e.code === 'Digit1' || e.code === 'Digit2' || e.code === 'Digit3' || e.code === 'Digit4') {
@@ -1019,8 +1148,17 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
     const handleBlur = () => {
       keysHeld.clear();
+      isDragging = false;
+      cancelSelectionDrag();
+      resetTouchState();
+      cameraVelocityX = cameraVelocityY = 0;
     };
 
+    canvas.addEventListener('pointerdown', handleSelectionStart);
+    canvas.addEventListener('pointermove', handleSelectionMove);
+    canvas.addEventListener('pointerup', handleSelectionEnd);
+    canvas.addEventListener('pointercancel', handleSelectionCancel);
+    canvas.addEventListener('lostpointercapture', handleSelectionCancel);
     canvas.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
@@ -1111,7 +1249,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         }
 
         // Apply momentum (Kinetic Scrolling)
-        if (!isDragging && gestureMode === 'none' && !isIntroPlaying) {
+        if (!selectionDrag && !isDragging && gestureMode === 'none' && !isIntroPlaying) {
           // Cap fling speed so a noisy final sample can't produce an unbounded jump.
           // Velocity is in world units per ms; cap is expressed per second for readability.
           const MAX_FLING_PER_SEC = 1500; // world units / second
@@ -1140,7 +1278,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
         // Keyboard panning (WASD + arrows). Speed is constant in screen space:
         // we divide by zoom so panning feels the same regardless of zoom level.
-        if (!isIntroPlaying && !isPausedRef.current && keysHeld.size > 0) {
+        if (!selectionDrag && !isIntroPlaying && !isPausedRef.current && keysHeld.size > 0) {
           let kx = 0, ky = 0;
           if (keysHeld.has('KeyW') || keysHeld.has('ArrowUp')) ky -= 1;
           if (keysHeld.has('KeyS') || keysHeld.has('ArrowDown')) ky += 1;
@@ -1156,7 +1294,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         }
 
         // Camera tween (Space=center-on-capital, bookmark recall).
-        if (camTween) {
+        if (!selectionDrag && camTween) {
           const p = Math.min(1, (Date.now() - camTween.t0) / camTween.dur);
           const ease = 1 - Math.pow(1 - p, 3); // ease-out cubic
           cameraX = camTween.sx + (camTween.ex - camTween.sx) * ease;
@@ -1168,7 +1306,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
         // Smoothed wheel zoom: exponentially approach desiredZoom while keeping
         // the world point under the wheel anchor stationary on screen.
-        if (Math.abs(cameraZoom - desiredZoom) > 0.0001) {
+        if (!selectionDrag && Math.abs(cameraZoom - desiredZoom) > 0.0001) {
           const oldZoom = cameraZoom;
           const k = 1 - Math.exp(-safeDt / ZOOM_TIME_CONSTANT_S);
           cameraZoom = oldZoom + (desiredZoom - oldZoom) * k;
@@ -1232,7 +1370,29 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       ctx.scale(cameraZoom, cameraZoom);
 
       // Draw game
-      engine.draw(ctx, selectedBaseId, cameraX, cameraY, targetingModeRef.current);
+      if (isGameOver) cancelSelectionDrag();
+      updateBoxSelection();
+      // Captured or removed sources must stop looking selected immediately.
+      for (const id of selectedGroup) {
+        if (engine.bases.get(id)?.color !== '#3b82f6') {
+          const remaining = new Set(selectedGroup);
+          remaining.delete(id);
+          setSelectedGroup(remaining);
+        }
+      }
+      engine.draw(ctx, selectedBaseId, cameraX, cameraY, targetingModeRef.current, selectedGroup);
+      if (selectionDrag) {
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        const { start, end } = selectionDrag;
+        ctx.fillStyle = 'rgba(34, 211, 238, 0.13)';
+        ctx.strokeStyle = '#73e9f6';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.fillRect(start.x, start.y, end.x - start.x, end.y - start.y);
+        ctx.strokeRect(start.x, start.y, end.x - start.x, end.y - start.y);
+        ctx.restore();
+      }
       if (!isIntroPlaying && !isGameOver && !isPausedRef.current) {
         updateTutorial({ type: 'selection', playerSelected: selectedBaseId !== null && engine.bases.get(selectedBaseId)?.color === '#3b82f6' });
         if (tutorialRef.current.step !== 'done') {
@@ -1312,6 +1472,12 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     animationFrameId = requestAnimationFrame(loop);
 
     return () => {
+      resetMultiSelectionRef.current = () => {};
+      canvas.removeEventListener('pointerdown', handleSelectionStart);
+      canvas.removeEventListener('pointermove', handleSelectionMove);
+      canvas.removeEventListener('pointerup', handleSelectionEnd);
+      canvas.removeEventListener('pointercancel', handleSelectionCancel);
+      canvas.removeEventListener('lostpointercapture', handleSelectionCancel);
       engineRef.current = null;
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
@@ -1463,6 +1629,13 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
           return <div className={`planet-command planet-command-${state}`} style={{ '--weapon-count': weapons.filter(weapon => availableWeapons.has(weapon)).length } as React.CSSProperties} role="region" aria-label={state === 'normal' ? 'Planet commands and superweapons' : 'Planet information'}
             onPointerDown={event => event.stopPropagation()} onTouchStart={event => event.stopPropagation()}>
             <div className="planet-command-content">
+          <button className="planet-multi-select" aria-label="Multi-select friendly planets" aria-pressed={multiSelectMode}
+            title="Drag to select friendly planets, then choose a friendly target. PC: right-click drag. Escape: cancel."
+            onClick={toggleMultiSelect}>
+            <Scan size={22} aria-hidden="true" />
+            <span>MULTI</span>
+            <small>{selectedPlanetCount ? `${selectedPlanetCount} selected` : multiSelectMode ? 'ON' : 'OFF'}</small>
+          </button>
           {state === 'enemy' && shownPlanet && <div className="planet-command-summary">
             <span className="planet-command-kicker" style={{ color: shownPlanet.color }}>{factions.find(faction => faction.color === shownPlanet.color)?.name ?? 'NEUTRAL'}</span>
             <strong className="planet-command-count">{shownPlanet.pixelCount}</strong>
@@ -1514,6 +1687,9 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
           </div>;
         };
         return <div className="planet-command-stage">
+          {(multiSelectMode || selectedPlanetCount > 0) && <p className="planet-multi-select-hint" role="status">
+            {selectedPlanetCount > 0 ? `${selectedPlanetCount} selected · Choose a friendly target` : 'Drag to select friendly planets'}
+          </p>}
           <AnimatePresence mode="wait" initial={false}>
             {enemySelected ? <motion.div key="enemy" className="planet-command-group" initial={{ y: '110%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '110%', opacity: 0 }} transition={{ duration: 0.22, ease: 'easeInOut' }}>
               {renderBar('enemy')}
@@ -1612,7 +1788,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       <canvas 
         ref={canvasRef} 
         onContextMenu={(e) => e.preventDefault()}
-        className="block w-full h-full cursor-grab active:cursor-grabbing touch-none"
+        className={`block w-full h-full touch-none ${multiSelectMode ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}`}
       />
     </div>
   );
