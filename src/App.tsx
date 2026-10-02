@@ -447,7 +447,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     const introStartTime = Date.now() + 500; // 500ms pause before zooming
     const introDuration = 2500; // 2.5 seconds zoom
 
-    const startZoom = clampZoom(Math.min(width / WORLD_WIDTH, height / WORLD_HEIGHT) * 0.9, getZoomLimits());
+    const startZoom = clampZoom(Math.min(width / WORLD_WIDTH, height / WORLD_HEIGHT) * (map?.overviewScale ?? 0.9), getZoomLimits());
     const startX = (WORLD_WIDTH - width / startZoom) / 2;
     const startY = (WORLD_HEIGHT - height / startZoom) / 2;
 
@@ -455,7 +455,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     // on the opening fleet, keeping nearby planets large enough to tap.
     const focusCapital = (map?.tutorial || (map?.mobileFocus === 'capital' && width < 700)) && playerBase;
     const targetZoom = clampZoom(map && focusCapital ? width < 700 ? Math.min(0.35, width / (map.attackRange * 2 + 100)) : 0.6
-      : map ? Math.max(width < 700 ? 0.35 : 0, Math.min(width / WORLD_WIDTH, height / WORLD_HEIGHT) * 0.9) : 0.6, getZoomLimits());
+      : map ? Math.max(width < 700 ? 0.35 : 0, startZoom) : 0.6, getZoomLimits());
     const targetX = focusCapital ? playerBase.x - (width / 2) / targetZoom : map ? (WORLD_WIDTH - width / targetZoom) / 2 : playerBase ? playerBase.x - (width / 2) / targetZoom : startX;
     const targetY = focusCapital ? playerBase.y - (height * 0.7) / targetZoom : map ? (WORLD_HEIGHT - height / targetZoom) / 2 : playerBase ? playerBase.y - (height / 2) / targetZoom : startY;
 

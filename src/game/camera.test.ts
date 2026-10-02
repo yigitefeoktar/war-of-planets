@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { clampZoom, zoomLimits } from './camera';
-import { BREACH_LINE, FIRST_STRIKE, SIEGE_OF_HELIOS, THE_PINCER, TURNING_TIDE } from './campaign';
+import { BREACH_LINE, FIRST_STRIKE, SIEGE_OF_HELIOS, THE_PINCER, TURNING_TIDE, validateMap } from './campaign';
 
 test('zoom range follows map size while retaining a usable overview', () => {
   for (const [viewWidth, viewHeight] of [[1920, 1080], [390, 844]]) {
@@ -24,5 +24,25 @@ test('zoom range follows map size while retaining a usable overview', () => {
       assert.equal(clampZoom(0, limits), limits.min);
       assert.equal(clampZoom(10, limits), limits.max);
     }
+  }
+});
+
+
+test('Pincer overview keeps all six branches clear of the desktop controls', () => {
+  assert.ok(THE_PINCER.overviewScale);
+  for (const [viewWidth, viewHeight] of [[1280, 720], [1920, 1080], [1024, 600]]) {
+    const zoom = clampZoom(Math.min(viewWidth / THE_PINCER.width, viewHeight / THE_PINCER.height) * THE_PINCER.overviewScale,
+      zoomLimits(viewWidth, viewHeight, THE_PINCER.width, THE_PINCER.height));
+    const cameraX = (THE_PINCER.width - viewWidth / zoom) / 2;
+    const cameraY = (THE_PINCER.height - viewHeight / zoom) / 2;
+    for (const planet of THE_PINCER.planets) {
+      const x = (planet.x - cameraX) * zoom, y = (planet.y - cameraY) * zoom;
+      // Room above for weapon badges and below for the fleet/weapon bar.
+      assert.ok(x >= 30 && x <= viewWidth - 30);
+      assert.ok(y >= 110 && y <= viewHeight - 125, planet.id);
+    }
+  }
+  for (const overviewScale of [0, -1, Infinity, NaN, 1.1]) {
+    assert.throws(() => validateMap({ ...THE_PINCER, overviewScale }), /Invalid overview scale/);
   }
 });
