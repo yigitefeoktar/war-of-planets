@@ -30,6 +30,7 @@ export type MapDefinition = {
   attackRange: number;
   galaxyTheme?: GalaxyTheme;
   overviewScale?: number;
+  capitalFocusY?: number;
   objective: { type: 'eliminate-capitals'; description: string };
   planets: PlanetDefinition[];
   orbit?: OrbitDefinition;
@@ -188,7 +189,7 @@ function buildPincer(): MapDefinition {
     // Preserve campaign saves and the existing Level 4 test option.
     id: 'helios-the-pincer', title: 'The Pincer', galaxyTheme: 'pincer',
     briefing: 'Red, green, and yellow expand toward your central capital from three directions. Capture nearby Repulse Shield worlds to hold the hub. Push through enemy gates or secure the three rich weapon branches; every route passes through the center.',
-    width: 5200, height: 5200, attackRange: 600, mobileFocus: 'capital', overviewScale: 0.68,
+    width: 5200, height: 5200, attackRange: 600, mobileFocus: 'capital', overviewScale: 0.68, capitalFocusY: 0.5,
     objective: { type: 'eliminate-capitals', description: 'Capture all three enemy capitals. Hold the Repulse hub and protect the blue capital.' },
     planets,
   };
@@ -334,6 +335,7 @@ export function progressLabel(mode: ModeId, progress: Progress): string {
 export function validateMap(map: MapDefinition): void {
   if (!Number.isFinite(map.width) || !Number.isFinite(map.height) || map.width <= 0 || map.height <= 0 || !Number.isFinite(map.attackRange) || map.attackRange <= 0) throw new Error('Invalid map dimensions or attack range');
   if (map.overviewScale !== undefined && (!Number.isFinite(map.overviewScale) || map.overviewScale <= 0 || map.overviewScale > 1)) throw new Error('Invalid overview scale');
+  if (map.capitalFocusY !== undefined && (!Number.isFinite(map.capitalFocusY) || map.capitalFocusY < 0 || map.capitalFocusY > 1)) throw new Error('Invalid capital camera position');
   if (map.objective.type !== 'eliminate-capitals') throw new Error('Unsupported map objective');
   const ids = new Set<string>();
   for (const p of map.planets) {

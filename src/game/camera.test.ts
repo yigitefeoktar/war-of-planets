@@ -46,3 +46,23 @@ test('Pincer overview keeps all six branches clear of the desktop controls', () 
     assert.throws(() => validateMap({ ...THE_PINCER, overviewScale }), /Invalid overview scale/);
   }
 });
+
+
+test('Pincer phone opening shows the capital and all six neutral shield choices above the command bar', () => {
+  const viewWidth = 390, viewHeight = 844;
+  const home = THE_PINCER.planets.find(planet => planet.capital && planet.owner === '#3b82f6')!;
+  const zoom = clampZoom(Math.min(0.35, viewWidth / (THE_PINCER.attackRange * 2 + 100)),
+    zoomLimits(viewWidth, viewHeight, THE_PINCER.width, THE_PINCER.height));
+  const cameraX = home.x - viewWidth / 2 / zoom;
+  const cameraY = home.y - viewHeight * THE_PINCER.capitalFocusY! / zoom;
+  const opening = THE_PINCER.planets.filter(planet => planet.id === home.id || planet.id.startsWith('pincer-hub-'));
+  assert.equal(opening.length, 7);
+  for (const planet of opening) {
+    const x = (planet.x - cameraX) * zoom, y = (planet.y - cameraY) * zoom;
+    assert.ok(x >= 35 && x <= viewWidth - 35);
+    assert.ok(y >= 90 && y <= viewHeight - 220, planet.id);
+  }
+  for (const capitalFocusY of [-0.1, Infinity, NaN, 1.1]) {
+    assert.throws(() => validateMap({ ...THE_PINCER, capitalFocusY }), /Invalid capital camera position/);
+  }
+});

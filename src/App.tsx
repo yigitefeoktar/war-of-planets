@@ -457,7 +457,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     const targetZoom = clampZoom(map && focusCapital ? width < 700 ? Math.min(0.35, width / (map.attackRange * 2 + 100)) : 0.6
       : map ? Math.max(width < 700 ? 0.35 : 0, startZoom) : 0.6, getZoomLimits());
     const targetX = focusCapital ? playerBase.x - (width / 2) / targetZoom : map ? (WORLD_WIDTH - width / targetZoom) / 2 : playerBase ? playerBase.x - (width / 2) / targetZoom : startX;
-    const targetY = focusCapital ? playerBase.y - (height * 0.7) / targetZoom : map ? (WORLD_HEIGHT - height / targetZoom) / 2 : playerBase ? playerBase.y - (height / 2) / targetZoom : startY;
+    const targetY = focusCapital ? playerBase.y - (height * (map?.capitalFocusY ?? 0.7)) / targetZoom : map ? (WORLD_HEIGHT - height / targetZoom) / 2 : playerBase ? playerBase.y - (height / 2) / targetZoom : startY;
 
     let cameraZoom = startZoom;
     let cameraX = startX;
