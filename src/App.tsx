@@ -13,7 +13,7 @@ import { GameEngine } from './game/engine';
 import { SUPERWEAPON_IDS, type SuperweaponId } from './game/superweapons';
 import { SUPERWEAPON_VISUALS } from './game/superweaponVisuals';
 import {
-  cameraDelta, cameraDuration, cameraFrame, cameraPosition, capitalFrame, clampZoom,
+  CAMERA_OVERVIEW_HOLD_MS, cameraDelta, cameraDuration, cameraFrame, cameraPosition, cameraProgress, clampZoom,
   interpolateCamera, openingFrame, overviewFrame, zoomLimits, type CameraFrame, type CameraViewport,
 } from './game/camera';
 import type { Base } from './game/types';
@@ -495,9 +495,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     const getCapitalFrame = () => {
       const capital = playerCapital();
       if (!capital) return cameraFrame(cameraX, cameraY, cameraZoom, getViewport());
-      const neighbors = [...engine.bases.values()].filter(base => Math.hypot(base.x - capital.x, base.y - capital.y) <= engine.MAX_ATTACK_RANGE);
-      return capitalFrame(getViewport(), capital, neighbors, WORLD_WIDTH, WORLD_HEIGHT, engine.MAX_ATTACK_RANGE,
-        map?.capitalFocusY ?? (map?.tutorial ? 0.7 : undefined));
+      return getOpeningFrame();
     };
     const startFrame = overviewFrame(getViewport(), WORLD_WIDTH, WORLD_HEIGHT, map?.overviewScale);
     const startPosition = cameraPosition(startFrame, getViewport());
@@ -541,22 +539,23 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     };
 
     // Intro, capital recall, and bookmarks share one focus/zoom interpolation path.
-    type CamTween = { from: CameraFrame; target: () => CameraFrame; elapsed: number; duration: number; intro: boolean };
+    type CamTween = { from: CameraFrame; target: () => CameraFrame; elapsed: number; duration: number; hold: number; intro: boolean };
     let camTween: CamTween | null = { from: startFrame, target: getOpeningFrame, elapsed: 0,
-      duration: cameraDuration(startFrame, getOpeningFrame(), getViewport(), engine.reducedMotion), intro: true };
+      duration: cameraDuration(startFrame, getOpeningFrame(), getViewport(), engine.reducedMotion), hold: CAMERA_OVERVIEW_HOLD_MS, intro: true };
     const cancelTween = () => {
       camTween = null;
     };
     const tweenTo = (target: () => CameraFrame) => {
       const from = cameraFrame(cameraX, cameraY, cameraZoom, getViewport());
       cameraVelocityX = cameraVelocityY = 0;
-      camTween = { from, target, elapsed: 0, duration: cameraDuration(from, target(), getViewport(), engine.reducedMotion), intro: false };
+      camTween = { from, target, elapsed: 0, duration: cameraDuration(from, target(), getViewport(), engine.reducedMotion), hold: 0, intro: false };
     };
     updateCameraLayoutRef.current = () => {
       if (camTween) {
         const from = cameraFrame(cameraX, cameraY, cameraZoom, getViewport());
         const stationaryIntro = camTween.intro && camTween.duration === 0;
         camTween = { ...camTween, from, elapsed: 0,
+          hold: Math.max(0, camTween.hold - camTween.elapsed),
           duration: stationaryIntro ? 0 : cameraDuration(from, camTween.target(), getViewport(), engine.reducedMotion) };
       }
     };
@@ -1320,8 +1319,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         // Resolve live capital positions after the simulation moves orbiting worlds.
         if (!selectionDrag && camTween && !isPausedRef.current) {
           camTween.elapsed += tweenDt;
-          const progress = engine.reducedMotion || camTween.duration === 0 ? 1
-            : Math.min(1, camTween.elapsed / camTween.duration);
+          const progress = cameraProgress(camTween.elapsed, camTween.duration, camTween.hold, engine.reducedMotion);
           applyCamera(interpolateCamera(camTween.from, camTween.target(), progress));
           if (progress >= 1) {
             if (camTween.intro) {

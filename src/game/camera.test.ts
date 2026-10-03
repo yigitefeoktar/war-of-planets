@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cameraDelta, cameraDuration, cameraFrame, cameraPosition, clampZoom, interpolateCamera, openingFrame, overviewFrame, zoomLimits, type CameraViewport } from './camera';
+import { CAMERA_OVERVIEW_HOLD_MS, cameraDelta, cameraDuration, cameraFrame, cameraPosition, cameraProgress, capitalFrame, clampZoom, interpolateCamera, openingFrame, overviewFrame, zoomLimits, type CameraViewport } from './camera';
 import { BREACH_LINE, FIRST_STRIKE, SIEGE_OF_HELIOS, THE_PINCER, TURNING_TIDE, validateMap } from './campaign';
 
 test('zoom range follows map size while retaining a usable overview', () => {
@@ -76,17 +76,17 @@ const views: CameraViewport[] = [
   { width: 360, height: 640, top: 80, bottom: 200 },
 ];
 
-test('opening policy preserves desktop overviews and frames every phone opening clear of the HUD', () => {
+test('every map approaches its capital on every screen and keeps its opening context clear of the HUD', () => {
   for (const map of maps) for (const view of views) {
     const home = map.planets.find(p => p.capital && p.owner === '#3b82f6')!;
     const frame = openingFrame(view, map, home, map.planets);
     const start = overviewFrame(view, map.width, map.height, map.overviewScale);
-    if (!map.tutorial && view.width >= 700) {
-      assert.deepEqual(frame, start);
-      assert.equal(cameraDuration(start, frame, view), 0, `${map.title} has no stationary intro delay`);
-    } else {
+    assert.equal(frame.focusX, home.x);
+    assert.equal(frame.focusY, home.y);
+    assert.ok(cameraDuration(start, frame, view) > 0, `${map.title} has a visible approach at ${view.width}px`);
+    {
       const position = cameraPosition(frame, view);
-      const neighbors = map.planets.filter(p => Math.hypot(p.x - home.x, p.y - home.y) <= map.attackRange);
+      const neighbors = map.planets.filter(p => Math.hypot(p.x - home.x, p.y - home.y) <= map.attackRange * (view.width < 700 ? 1 : 2));
       for (const planet of neighbors) {
         const x = (planet.x - position.x) * position.zoom;
         const y = (planet.y - position.y) * position.zoom;
@@ -96,6 +96,55 @@ test('opening policy preserves desktop overviews and frames every phone opening 
       }
     }
   }
+});
+
+test('PC destinations show more battlefield width than phone destinations for every map', () => {
+  const pc = views[1], phone = views[3];
+  for (const map of maps) {
+    const home = map.planets.find(p => p.capital && p.owner === '#3b82f6')!;
+    const pcFrame = openingFrame(pc, map, home, map.planets);
+    const phoneFrame = openingFrame(phone, map, home, map.planets);
+    assert.ok(pc.width / pcFrame.zoom > phone.width / phoneFrame.zoom, map.title);
+  }
+});
+
+test('Pincer PC framing includes branch entrances while phones retain the immediate shield hub', () => {
+  const pc = views[1], phone = views[3];
+  const home = THE_PINCER.planets.find(p => p.capital && p.owner === '#3b82f6')!;
+  const immediate = THE_PINCER.planets.filter(p => Math.hypot(p.x - home.x, p.y - home.y) <= THE_PINCER.attackRange);
+  const pcFrame = openingFrame(pc, THE_PINCER, home, THE_PINCER.planets);
+  const tightPcFrame = capitalFrame(pc, home, immediate, THE_PINCER.width, THE_PINCER.height, THE_PINCER.attackRange, THE_PINCER.capitalFocusY);
+  assert.ok(pcFrame.zoom < tightPcFrame.zoom, 'PC reveals routes beyond immediate expansion choices');
+  const phoneFrame = openingFrame(phone, THE_PINCER, home, THE_PINCER.planets);
+  const tightPhoneFrame = capitalFrame(phone, home, immediate, THE_PINCER.width, THE_PINCER.height, THE_PINCER.attackRange, THE_PINCER.capitalFocusY);
+  assert.deepEqual(phoneFrame, tightPhoneFrame, 'mobile opening stays at its readable local framing');
+  const position = cameraPosition(pcFrame, pc);
+  const entries = THE_PINCER.planets.filter(p => p.id.endsWith('-entry'));
+  assert.equal(entries.length, 6);
+  for (const planet of entries) {
+    const x = (planet.x - position.x) * position.zoom, y = (planet.y - position.y) * position.zoom;
+    assert.ok(x >= 35 && x <= pc.width - 35);
+    assert.ok(y >= pc.top + 35 - 1e-6 && y <= pc.height - pc.bottom - 35 + 1e-6, planet.id);
+  }
+});
+
+test('map flags do not suppress capital focus on wide screens', () => {
+  const map = { ...BREACH_LINE, mobileFocus: undefined, tutorial: undefined };
+  const home = map.planets.find(p => p.capital && p.owner === '#3b82f6')!;
+  const frame = openingFrame(views[0], map, home, map.planets);
+  assert.equal(frame.focusX, home.x);
+  assert.equal(frame.focusY, home.y);
+});
+
+test('intro briefly holds the overview while recalls and reduced motion skip the hold', () => {
+  const duration = 800;
+  assert.equal(cameraProgress(0, duration, CAMERA_OVERVIEW_HOLD_MS), 0);
+  assert.equal(cameraProgress(CAMERA_OVERVIEW_HOLD_MS - 1, duration, CAMERA_OVERVIEW_HOLD_MS), 0);
+  assert.equal(cameraProgress(CAMERA_OVERVIEW_HOLD_MS + duration / 2, duration, CAMERA_OVERVIEW_HOLD_MS), 0.5);
+  assert.equal(cameraProgress(CAMERA_OVERVIEW_HOLD_MS + duration, duration, CAMERA_OVERVIEW_HOLD_MS), 1);
+  assert.equal(cameraProgress(duration / 2, duration), 0.5, 'Space recall has no overview hold');
+  assert.equal(cameraProgress(0, duration, CAMERA_OVERVIEW_HOLD_MS, true), 1);
+  assert.equal(cameraProgress(0, 0, CAMERA_OVERVIEW_HOLD_MS), 1, 'stationary camera never waits');
 });
 
 test('map approaches have finite, monotonic proportional zoom and exact endpoints', () => {

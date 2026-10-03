@@ -4,6 +4,7 @@ export type ZoomLimits = { min: number; max: number };
 export type CameraFrame = { focusX: number; focusY: number; zoom: number; anchorY: number };
 export type CameraViewport = { width: number; height: number; top: number; bottom: number };
 export type CameraPoint = { x: number; y: number };
+export const CAMERA_OVERVIEW_HOLD_MS = 220;
 
 export function zoomLimits(viewWidth: number, viewHeight: number, worldWidth: number, worldHeight: number): ZoomLimits {
   const fit = Math.min(viewWidth / worldWidth, viewHeight / worldHeight);
@@ -25,16 +26,23 @@ export function overviewFrame(view: CameraViewport, worldWidth: number, worldHei
     anchorY: (view.top + usableHeight / 2) / view.height };
 }
 
-export function capitalFrame(view: CameraViewport, capital: CameraPoint, neighbors: readonly CameraPoint[],
+export function capitalFrame(view: CameraViewport, capital: CameraPoint, planets: readonly CameraPoint[],
   worldWidth: number, worldHeight: number, attackRange: number, preferredY?: number): CameraFrame {
   const mobile = view.width < 700;
   const margin = 35;
   const top = view.top + margin;
   const bottom = Math.max(top + 1, view.height - view.bottom - margin);
+  // Phones fit immediate choices; wider screens also show the next steps along routes.
+  // Both intro and capital recall use live geometry, including orbiting planets.
+  const contextRange = attackRange * (mobile ? 1 : 2);
+  const neighbors = planets.filter(point => Math.hypot(point.x - capital.x, point.y - capital.y) <= contextRange);
+  const above = Math.max(0, ...neighbors.map(point => capital.y - point.y));
+  const below = Math.max(0, ...neighbors.map(point => point.y - capital.y));
+  // A southern capital needs more room above it. Avoid wasting half a PC view on empty space.
+  const balance = mobile || above + below === 0 ? 0.5 : Math.max(0.25, Math.min(0.75, above / (above + below)));
   const anchorY = Math.max(top, Math.min(bottom, preferredY === undefined
-    ? (top + bottom) / 2 : view.height * preferredY)) / view.height;
+    ? top + (bottom - top) * balance : view.height * preferredY)) / view.height;
   let zoom = mobile ? Math.min(0.35, view.width / (attackRange * 2 + 100)) : 0.6;
-  // Fit the actual opening choices, rather than treating a 6000-unit map as a tiny map.
   for (const point of [capital, ...neighbors]) {
     const dx = Math.abs(point.x - capital.x);
     const dy = point.y - capital.y;
@@ -50,10 +58,9 @@ export function openingFrame(view: CameraViewport, map: MapDefinition | undefine
   planets: readonly CameraPoint[]): CameraFrame {
   const worldWidth = map?.width ?? 3000, worldHeight = map?.height ?? 3000;
   const overview = overviewFrame(view, worldWidth, worldHeight, map?.overviewScale);
-  if (!capital || (map && !map.tutorial && !(map.mobileFocus === 'capital' && view.width < 700))) return overview;
+  if (!capital) return overview;
   const range = map?.attackRange ?? 600;
-  const neighbors = planets.filter(point => Math.hypot(point.x - capital.x, point.y - capital.y) <= range);
-  return capitalFrame(view, capital, neighbors, worldWidth, worldHeight, range, map?.capitalFocusY ?? (map?.tutorial ? 0.7 : undefined));
+  return capitalFrame(view, capital, planets, worldWidth, worldHeight, range, map?.capitalFocusY ?? (map?.tutorial ? 0.7 : undefined));
 }
 
 export function cameraPosition(frame: CameraFrame, view: Pick<CameraViewport, 'width' | 'height'>) {
@@ -89,4 +96,9 @@ export function cameraDuration(from: CameraFrame, to: CameraFrame, view: CameraV
 // A camera clock advances only during active frames. Tab restoration cannot skip a tween.
 export function cameraDelta(previous: number | null, now: number, suspended = false) {
   return suspended || previous === null ? 0 : Math.max(0, Math.min(50, now - previous));
+}
+
+export function cameraProgress(elapsed: number, duration: number, hold = 0, reducedMotion = false) {
+  if (reducedMotion || duration === 0) return 1;
+  return Math.max(0, Math.min(1, (elapsed - hold) / duration));
 }
