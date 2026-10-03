@@ -6,6 +6,7 @@ import { FactionBonuses, superweaponChargeMultiplier } from './factions';
 import { assignQuickMatchSuperweaponPlanets, isPointAccessible, SUPERWEAPON_CHARGE_INTERVAL_SECONDS, SUPERWEAPON_IDS, SUPERWEAPON_MAX_CHARGES, OVERDRIVE_DURATION, OVERDRIVE_MULTIPLIER, REPULSE_DURATION, type SuperweaponTargetMode } from './superweapons';
 import { SUPERWEAPON_VISUALS, superweaponIconLayout } from './superweaponVisuals';
 import { galaxyAppearance, type GalaxyTheme } from './galaxy';
+import { overlapsView, visibleWorldBounds } from './visibility';
 
 interface Star {
   x: number;
@@ -1090,12 +1091,13 @@ export class GameEngine {
 
     // Calculate visible bounds
     const transform = ctx.getTransform();
-    const zoom = transform.a;
-    const iconZoom = Math.hypot(transform.a, transform.b);
-    const viewLeft = -transform.e / zoom;
-    const viewTop = -transform.f / zoom;
-    const viewRight = viewLeft + ctx.canvas.width / zoom;
-    const viewBottom = viewTop + ctx.canvas.height / zoom;
+    const zoom = Math.hypot(transform.a, transform.b);
+    const iconZoom = zoom;
+    const view = visibleWorldBounds(transform, ctx.canvas.width, ctx.canvas.height);
+    const { left: viewLeft, top: viewTop, right: viewRight, bottom: viewBottom } = view;
+    // Include fleet rings, ability halos, glows, and screen-sized weapon badges.
+    const visibleBase = (base: Base) => overlapsView(view, base.x, base.y,
+      Math.max(220, 100 + Math.sqrt(base.pixelCount) * 5) + 100 / zoom);
 
     const now = this.now();
     this.drawGalaxyBackdrop(ctx, cameraX, cameraY, viewLeft, viewTop, viewRight, viewBottom);
@@ -1180,6 +1182,7 @@ export class GameEngine {
       // This keeps ships perfectly crisp without the blurriness of scaled images
       const colorGroups = new Map<string, typeof this.pixels>();
       for (const p of this.pixels) {
+        if (!overlapsView(view, p.x, p.y, 12 + 16 / zoom)) continue;
         if (!colorGroups.has(p.color)) colorGroups.set(p.color, []);
         colorGroups.get(p.color)!.push(p);
       }
@@ -1215,6 +1218,7 @@ export class GameEngine {
     } else {
       // Use cached images for close-up view
       for (const p of this.pixels) {
+        if (!overlapsView(view, p.x, p.y, 12 + 16 / zoom)) continue;
         const img = this.getShipImage(p.color);
         ctx.save();
         ctx.translate(p.x, p.y);
@@ -1227,11 +1231,12 @@ export class GameEngine {
     }
 
     // Keep active barriers and production pulses legible over dense idle fleets.
-    for (const base of this.bases.values()) drawPlanetEffects(ctx, base);
+    for (const base of this.bases.values()) if (visibleBase(base)) drawPlanetEffects(ctx, base);
     drawRepelledShips(ctx, this.repelledShips);
 
     // Draw bases (planets)
     for (const base of this.bases.values()) {
+      if (!visibleBase(base)) continue;
       let drawX = base.x;
       let drawY = base.y;
       const timeSinceAttack = this.now() - (base.lastAttackedTime || 0);
@@ -1356,6 +1361,7 @@ export class GameEngine {
 
     // Draw all selections last so neighboring planets and their effects cannot cover them.
     for (const base of this.bases.values()) {
+      if (!visibleBase(base)) continue;
       if (selectedBaseId !== base.id && !(base.color === '#3b82f6' && selectedGroup?.has(base.id))) continue;
       const planetRadius = base.isDysonSphere ? 62 : base.isCapital ? 40 : 20;
       const fleetRadius = planetRadius + 25 + Math.sqrt(base.pixelCount) * 5;

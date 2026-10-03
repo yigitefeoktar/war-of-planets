@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createMatch } from './game/mapLoader';
 import { CHAPTERS, DYSON_SPHERE_ID, SIEGE_OF_HELIOS, completeMission, followingMission, getOutcome, isChapterOneTestMode, launchMission, loadProgress, mapOrbits, nextMission, saveProgress, testLevelForMode, type MapDefinition, type ModeId, type Progress } from './game/campaign';
-import { AnimatePresence, motion } from 'motion/react';
+import { motion } from 'motion/react';
 import { Maximize, Minimize, Volume2, VolumeX, Music, Pause, Play, Flag, Shield } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
 import { ModeCard } from './ui/ModeCard';
@@ -12,7 +12,10 @@ import { MIN_MULTI_SELECT_PLANETS, canUseMultiSelect, countOwnedPlanets, friendl
 import { GameEngine } from './game/engine';
 import { SUPERWEAPON_IDS, type SuperweaponId } from './game/superweapons';
 import { SUPERWEAPON_VISUALS } from './game/superweaponVisuals';
-import { clampZoom, zoomLimits } from './game/camera';
+import {
+  cameraDelta, cameraDuration, cameraFrame, cameraPosition, capitalFrame, clampZoom,
+  interpolateCamera, openingFrame, overviewFrame, zoomLimits, type CameraFrame, type CameraViewport,
+} from './game/camera';
 import type { Base } from './game/types';
 
 const SUPERWEAPON_LABELS: Record<SuperweaponId, string> = {
@@ -234,6 +237,10 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   const onResultRef = useRef(onResult);
   onResultRef.current = onResult;
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const topHudRef = useRef<HTMLDivElement>(null);
+  const commandHudRef = useRef<HTMLDivElement>(null);
+  const hudInsetsRef = useRef({ top: 90, bottom: 220 });
+  const updateCameraLayoutRef = useRef<() => void>(() => {});
   const [factions, setFactions] = useState<{ color: string; isAlive: boolean; isPlayer: boolean; shipCount: number; name: string }[]>([]);
   const [winner, setWinner] = useState<{ color: string } | null>(null);
   const [showUI, setShowUI] = useState(false);
@@ -268,7 +275,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   const [targetingMode, setTargetingMode] = useState<SuperweaponId | null>(null);
   const targetingModeRef = useRef<SuperweaponId | null>(null);
   const [wasWeaponReady, setWasWeaponReady] = useState(false);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isPaused, setIsPaused] = useState(false);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
   const engineRef = useRef<GameEngine | null>(null);
@@ -337,12 +343,23 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     surrenderRef.current = true;
   };
 
-  useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      setMousePos({ x: e.clientX, y: e.clientY });
-    };
-    window.addEventListener('mousemove', handleGlobalMouseMove);
-    return () => window.removeEventListener('mousemove', handleGlobalMouseMove);
+  useLayoutEffect(() => {
+    const observer = new ResizeObserver(entries => {
+      let changed = false;
+      for (const entry of entries) {
+        const edge = entry.target === topHudRef.current ? 'top' : 'bottom';
+        const height = Math.ceil(entry.borderBoxSize[0]?.blockSize ?? entry.contentRect.height)
+          + (edge === 'bottom' ? 24 : 8);
+        if (hudInsetsRef.current[edge] !== height) {
+          hudInsetsRef.current[edge] = height;
+          changed = true;
+        }
+      }
+      if (changed) updateCameraLayoutRef.current();
+    });
+    if (topHudRef.current) observer.observe(topHudRef.current);
+    if (commandHudRef.current) observer.observe(commandHudRef.current);
+    return () => observer.disconnect();
   }, []);
 
   const activateAbility = (weapon: SuperweaponId) => {
@@ -381,10 +398,17 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        width = entry.contentRect.width;
-        height = entry.contentRect.height;
+        const nextWidth = Math.max(1, Math.round(entry.contentRect.width));
+        const nextHeight = Math.max(1, Math.round(entry.contentRect.height));
+        if (width === nextWidth && height === nextHeight) continue;
+        const frame = cameraFrame(cameraX, cameraY, cameraZoom, { width, height });
+        width = nextWidth;
+        height = nextHeight;
         canvas.width = width;
         canvas.height = height;
+        applyCamera(frame);
+        updateCameraLayoutRef.current();
+        clampCamera();
       }
     });
     resizeObserver.observe(canvas);
@@ -397,7 +421,10 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     // Initialize Game Engine
     const engine = createMatch(map, { hardMode: isHardMode });
     const orbits = mapOrbits(map);
-    engine.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    engine.reducedMotion = motionPreference.matches;
+    const handleMotionPreference = () => { engine.reducedMotion = motionPreference.matches; };
+    motionPreference.addEventListener('change', handleMotionPreference);
     engineRef.current = engine;
     // Availability includes weapons that can be produced later in this match.
     setAvailableWeapons(new Set<SuperweaponId>(engine.superweaponUnlocksEnabled
@@ -461,76 +488,77 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
     updatePlayerStats();
 
-    // Camera state
-    const playerBase = Array.from(engine.bases.values()).find(b => b.color === '#3b82f6');
-    
-    // Intro Animation State
+    const getViewport = (): CameraViewport => ({ width, height, ...hudInsetsRef.current });
+    const playerCapital = () => [...engine.bases.values()].find(b => b.color === '#3b82f6' && b.isCapital)
+      ?? [...engine.bases.values()].find(b => b.color === '#3b82f6');
+    const getOpeningFrame = () => openingFrame(getViewport(), map, playerCapital(), [...engine.bases.values()]);
+    const getCapitalFrame = () => {
+      const capital = playerCapital();
+      if (!capital) return cameraFrame(cameraX, cameraY, cameraZoom, getViewport());
+      const neighbors = [...engine.bases.values()].filter(base => Math.hypot(base.x - capital.x, base.y - capital.y) <= engine.MAX_ATTACK_RANGE);
+      return capitalFrame(getViewport(), capital, neighbors, WORLD_WIDTH, WORLD_HEIGHT, engine.MAX_ATTACK_RANGE,
+        map?.capitalFocusY ?? (map?.tutorial ? 0.7 : undefined));
+    };
+    const startFrame = overviewFrame(getViewport(), WORLD_WIDTH, WORLD_HEIGHT, map?.overviewScale);
+    const startPosition = cameraPosition(startFrame, getViewport());
+    let cameraZoom = startPosition.zoom;
+    let cameraX = startPosition.x;
+    let cameraY = startPosition.y;
+    const applyCamera = (frame: CameraFrame) => {
+      const position = cameraPosition(frame, getViewport());
+      cameraX = position.x;
+      cameraY = position.y;
+      cameraZoom = position.zoom;
+    };
     let isIntroPlaying = true;
-    const introStartTime = Date.now() + 500; // 500ms pause before zooming
-    const introDuration = 2500; // 2.5 seconds zoom
-
-    const startZoom = clampZoom(Math.min(width / WORLD_WIDTH, height / WORLD_HEIGHT) * (map?.overviewScale ?? 0.9), getZoomLimits());
-    const startX = (WORLD_WIDTH - width / startZoom) / 2;
-    const startY = (WORLD_HEIGHT - height / startZoom) / 2;
-
-    // Larger missions fit on desktop. On phones their overview intro settles
-    // on the opening fleet, keeping nearby planets large enough to tap.
-    const focusCapital = (map?.tutorial || (map?.mobileFocus === 'capital' && width < 700)) && playerBase;
-    const targetZoom = clampZoom(map && focusCapital ? width < 700 ? Math.min(0.35, width / (map.attackRange * 2 + 100)) : 0.6
-      : map ? Math.max(width < 700 ? 0.35 : 0, startZoom) : 0.6, getZoomLimits());
-    const targetX = focusCapital ? playerBase.x - (width / 2) / targetZoom : map ? (WORLD_WIDTH - width / targetZoom) / 2 : playerBase ? playerBase.x - (width / 2) / targetZoom : startX;
-    const targetY = focusCapital ? playerBase.y - (height * (map?.capitalFocusY ?? 0.7)) / targetZoom : map ? (WORLD_HEIGHT - height / targetZoom) / 2 : playerBase ? playerBase.y - (height / 2) / targetZoom : startY;
-
-    let cameraZoom = startZoom;
-    let cameraX = startX;
-    let cameraY = startY;
 
     // World camera bounds — allow generous overscan so that zooming out at
     // the edge of the map doesn't pull the camera back inward (which would
-    // make the whole map appear to shift). If the viewport is larger than
-    // the world plus overscan (very zoomed out), centerline the camera.
+    // make the whole map appear to shift). Overscan grows with the viewport
+    // at overview zoom, preserving the world-space focus throughout the tween.
     const CAMERA_OVERSCAN = 2000;
     const clampCamera = () => {
       const limits = getZoomLimits();
       cameraZoom = clampZoom(cameraZoom, limits);
-      desiredZoom = clampZoom(desiredZoom, limits);
       const viewW = canvas.width / cameraZoom;
       const viewH = canvas.height / cameraZoom;
-      if (viewW >= WORLD_WIDTH + CAMERA_OVERSCAN * 2) {
-        cameraX = (WORLD_WIDTH - viewW) / 2;
-      } else {
-        const minX = -CAMERA_OVERSCAN;
-        const maxX = WORLD_WIDTH + CAMERA_OVERSCAN - viewW;
+      // A tall phone overview can be several world heights high. Keep enough
+      // overscan for the HUD-aware anchor instead of snapping it to the centerline.
+      const overscanX = Math.max(CAMERA_OVERSCAN, viewW);
+      const overscanY = Math.max(CAMERA_OVERSCAN, viewH);
+      {
+        const minX = -overscanX;
+        const maxX = WORLD_WIDTH + overscanX - viewW;
         if (cameraX < minX) cameraX = minX;
         else if (cameraX > maxX) cameraX = maxX;
       }
-      if (viewH >= WORLD_HEIGHT + CAMERA_OVERSCAN * 2) {
-        cameraY = (WORLD_HEIGHT - viewH) / 2;
-      } else {
-        const minY = -CAMERA_OVERSCAN;
-        const maxY = WORLD_HEIGHT + CAMERA_OVERSCAN - viewH;
+      {
+        const minY = -overscanY;
+        const maxY = WORLD_HEIGHT + overscanY - viewH;
         if (cameraY < minY) cameraY = minY;
         else if (cameraY > maxY) cameraY = maxY;
       }
     };
 
-    // Smoothed wheel zoom: handleWheel sets desiredZoom + an anchor; the loop
-    // approaches it exponentially while keeping the world point under the
-    // anchor fixed.
-    let desiredZoom = cameraZoom;
-    let zoomAnchorScreenX = 0;
-    let zoomAnchorScreenY = 0;
-    const ZOOM_TIME_CONSTANT_S = 0.06; // ~150ms perceived response
-
-    // Camera tween (used by Space=center-on-capital and bookmark recall).
-    type CamTween = { sx: number; sy: number; sz: number; ex: number; ey: number; ez: number; t0: number; dur: number };
-    let camTween: CamTween | null = null;
+    // Intro, capital recall, and bookmarks share one focus/zoom interpolation path.
+    type CamTween = { from: CameraFrame; target: () => CameraFrame; elapsed: number; duration: number; intro: boolean };
+    let camTween: CamTween | null = { from: startFrame, target: getOpeningFrame, elapsed: 0,
+      duration: cameraDuration(startFrame, getOpeningFrame(), getViewport(), engine.reducedMotion), intro: true };
     const cancelTween = () => {
       camTween = null;
-      desiredZoom = cameraZoom;
     };
-    const tweenTo = (ex: number, ey: number, ez: number, dur = 400) => {
-      camTween = { sx: cameraX, sy: cameraY, sz: cameraZoom, ex, ey, ez: clampZoom(ez, getZoomLimits()), t0: Date.now(), dur };
+    const tweenTo = (target: () => CameraFrame) => {
+      const from = cameraFrame(cameraX, cameraY, cameraZoom, getViewport());
+      cameraVelocityX = cameraVelocityY = 0;
+      camTween = { from, target, elapsed: 0, duration: cameraDuration(from, target(), getViewport(), engine.reducedMotion), intro: false };
+    };
+    updateCameraLayoutRef.current = () => {
+      if (camTween) {
+        const from = cameraFrame(cameraX, cameraY, cameraZoom, getViewport());
+        const stationaryIntro = camTween.intro && camTween.duration === 0;
+        camTween = { ...camTween, from, elapsed: 0,
+          duration: stationaryIntro ? 0 : cameraDuration(from, camTween.target(), getViewport(), engine.reducedMotion) };
+      }
     };
 
     // Camera bookmarks (slots 1..4) and held-key state for WASD/arrow panning.
@@ -772,13 +800,10 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       const newZoom = clampZoom(cameraZoom * zoomFactor, getZoomLimits());
       updateTutorial({ type: 'zoom', before: cameraZoom, after: newZoom });
 
-      // Apply the zoom instantly (PC behavior matches the original — no
-      // kinetic / smoothed feel). Keep desiredZoom in sync so the per-frame
-      // smoothing block in the loop is a no-op.
+      // Manual wheel zoom stays direct, anchored to the cursor.
       cameraX = worldX - (mouseX / newZoom);
       cameraY = worldY - (mouseY / newZoom);
       cameraZoom = newZoom;
-      desiredZoom = newZoom;
     };
 
     // Touch Events
@@ -858,7 +883,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         cameraX = worldX - (centerScreenX / newZoom);
         cameraY = worldY - (centerScreenY / newZoom);
         cameraZoom = newZoom;
-        desiredZoom = cameraZoom; // pinch is direct; don't let smoothed zoom override
         cancelTween();
 
         lastPinchDist = dist;
@@ -933,7 +957,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
             cameraX = worldAnchorX - touchX / newZoom;
             cameraY = worldAnchorY - touchY / newZoom;
             cameraZoom = newZoom;
-            desiredZoom = newZoom;
             lastTapTime = 0; // consume — prevents triple-tap chaining
             return;
           }
@@ -1101,15 +1124,9 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     };
 
     // Center the camera on the player's first remaining capital (or, if none,
-    // on any remaining player base). At a comfortable zoom of 1.0.
+    // on any remaining player base), keeping nearby choices clear of the HUD.
     const centerOnPlayerCapital = () => {
-      const playerBases = Array.from(engine.bases.values()).filter(b => b.color === '#3b82f6');
-      const target = playerBases.find(b => b.isCapital) ?? playerBases[0];
-      if (!target) return;
-      const targetZoomVal = clampZoom(Math.max(cameraZoom, 1.0), getZoomLimits());
-      const ex = target.x - canvas.width / (2 * targetZoomVal);
-      const ey = target.y - canvas.height / (2 * targetZoomVal);
-      tweenTo(ex, ey, targetZoomVal, 400);
+      if (playerCapital()) tweenTo(getCapitalFrame);
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1134,7 +1151,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
           bookmarks.set(slot, { x: cameraX, y: cameraY, z: cameraZoom });
         } else {
           const bm = bookmarks.get(slot);
-          if (bm) tweenTo(bm.x, bm.y, bm.z, 400);
+          if (bm) tweenTo(() => cameraFrame(bm.x, bm.y, clampZoom(bm.z, getZoomLimits()), getViewport()));
         }
         e.preventDefault();
         return;
@@ -1190,7 +1207,12 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
     let animationFrameId: number;
     let lastUiUpdateTime = 0;
-    let lastTime = Date.now();
+    let lastTime: number | null = null;
+    const handleVisibility = () => {
+      lastTime = null;
+      if (document.hidden) handleBlur();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
 
     let cinematicStartTime = 0;
     let cinematicStartX = 0;
@@ -1204,33 +1226,18 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     const cinematicTargetZoom = clampZoom(2.5, getZoomLimits());
     let isPlayerWinner = false;
 
-    const loop = () => {
-      const currentTime = Date.now();
-      const dt = (currentTime - lastTime) / 1000;
+    const loop = (currentTime: number) => {
+      if (document.hidden) {
+        lastTime = null;
+        animationFrameId = requestAnimationFrame(loop);
+        return;
+      }
+      const dt = lastTime === null ? 0 : Math.max(0, currentTime - lastTime) / 1000;
+      const tweenDt = cameraDelta(lastTime, currentTime, isPausedRef.current);
       lastTime = currentTime;
       
       // Cap dt to prevent huge jumps if tab is inactive
       const safeDt = Math.min(dt, 0.1);
-
-      if (isIntroPlaying) {
-        if (currentTime > introStartTime) {
-          let progress = (currentTime - introStartTime) / introDuration;
-          if (progress >= 1) {
-            progress = 1;
-            if (isIntroPlaying) {
-              isIntroPlaying = false;
-              setShowUI(true);
-            }
-          }
-          // easeInOutCubic
-          const ease = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-          
-          cameraZoom = startZoom + (targetZoom - startZoom) * ease;
-          cameraX = startX + (targetX - startX) * ease;
-          cameraY = startY + (targetY - startY) * ease;
-          desiredZoom = cameraZoom;
-        }
-      }
 
       if (!isGameOver) {
         if (surrenderRef.current) {
@@ -1266,7 +1273,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         }
 
         // Apply momentum (Kinetic Scrolling)
-        if (!selectionDrag && !isDragging && gestureMode === 'none' && !isIntroPlaying) {
+        if (!selectionDrag && !isDragging && gestureMode === 'none' && !isIntroPlaying && !camTween && !isPausedRef.current) {
           // Cap fling speed so a noisy final sample can't produce an unbounded jump.
           // Velocity is in world units per ms; cap is expressed per second for readability.
           const MAX_FLING_PER_SEC = 1500; // world units / second
@@ -1310,28 +1317,19 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
           }
         }
 
-        // Camera tween (Space=center-on-capital, bookmark recall).
-        if (!selectionDrag && camTween) {
-          const p = Math.min(1, (Date.now() - camTween.t0) / camTween.dur);
-          const ease = 1 - Math.pow(1 - p, 3); // ease-out cubic
-          cameraX = camTween.sx + (camTween.ex - camTween.sx) * ease;
-          cameraY = camTween.sy + (camTween.ey - camTween.sy) * ease;
-          cameraZoom = camTween.sz + (camTween.ez - camTween.sz) * ease;
-          desiredZoom = cameraZoom;
-          if (p >= 1) camTween = null;
-        }
-
-        // Smoothed wheel zoom: exponentially approach desiredZoom while keeping
-        // the world point under the wheel anchor stationary on screen.
-        if (!selectionDrag && Math.abs(cameraZoom - desiredZoom) > 0.0001) {
-          const oldZoom = cameraZoom;
-          const k = 1 - Math.exp(-safeDt / ZOOM_TIME_CONSTANT_S);
-          cameraZoom = oldZoom + (desiredZoom - oldZoom) * k;
-          if (Math.abs(cameraZoom - desiredZoom) < 0.0005) cameraZoom = desiredZoom;
-          const worldAX = zoomAnchorScreenX / oldZoom + cameraX;
-          const worldAY = zoomAnchorScreenY / oldZoom + cameraY;
-          cameraX = worldAX - zoomAnchorScreenX / cameraZoom;
-          cameraY = worldAY - zoomAnchorScreenY / cameraZoom;
+        // Resolve live capital positions after the simulation moves orbiting worlds.
+        if (!selectionDrag && camTween && !isPausedRef.current) {
+          camTween.elapsed += tweenDt;
+          const progress = engine.reducedMotion || camTween.duration === 0 ? 1
+            : Math.min(1, camTween.elapsed / camTween.duration);
+          applyCamera(interpolateCamera(camTween.from, camTween.target(), progress));
+          if (progress >= 1) {
+            if (camTween.intro) {
+              isIntroPlaying = false;
+              setShowUI(true);
+            }
+            camTween = null;
+          }
         }
 
         // Final bounds clamp — applied after every camera mutation so all input
@@ -1352,7 +1350,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         const ease = 1 - Math.pow(1 - progress, 4); // Quartic ease out (whip pan)
         
         cameraZoom = cinematicStartZoom + (cinematicTargetZoom - cinematicStartZoom) * ease;
-        desiredZoom = cameraZoom;
 
         // Orbit effect: Add a slight circular offset based on time
         const orbitRadius = progress * 50;
@@ -1423,7 +1420,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       }
 
       // Update UI state periodically (every 250ms) to avoid React re-render spam
-      const now = Date.now();
+      const now = currentTime;
       if (now - lastUiUpdateTime > 250 && !isGameOver) {
         updatePlayerStats();
         const currentFactions = [
@@ -1468,7 +1465,8 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
               playSound('lose', isSoundEnabledRef.current);
             }
             
-            cinematicStartTime = Date.now();
+            camTween = null;
+            cinematicStartTime = currentTime;
             cinematicStartX = cameraX;
             cinematicStartY = cameraY;
             cinematicStartZoom = cameraZoom;
@@ -1495,6 +1493,9 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
     return () => {
       resetMultiSelectionRef.current = () => {};
+      updateCameraLayoutRef.current = () => {};
+      motionPreference.removeEventListener('change', handleMotionPreference);
+      document.removeEventListener('visibilitychange', handleVisibility);
       canvas.removeEventListener('pointerdown', handleSelectionStart);
       canvas.removeEventListener('pointermove', handleSelectionMove);
       canvas.removeEventListener('pointerup', handleSelectionEnd);
@@ -1520,7 +1521,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   return (
     <div className="fixed inset-0 w-full h-[100dvh] overflow-hidden bg-[#05050a] touch-none overscroll-none select-none">
       {/* Domination UI */}
-      <div className={`absolute top-0 left-0 right-0 p-2 sm:p-4 md:p-6 pointer-events-none z-40 flex justify-center transition-all duration-1000 ease-out ${showUI ? 'translate-y-0 opacity-100' : '-translate-y-[150%] opacity-0'}`}>
+      <div ref={topHudRef} inert={!showUI} className={`game-hud game-hud-top absolute top-0 left-0 right-0 p-2 sm:p-4 md:p-6 pointer-events-none z-40 flex justify-center ${showUI ? 'game-hud-visible' : ''}`}>
         <div className="bg-cyan-950/40 backdrop-blur-md px-3 py-2 sm:px-6 sm:py-3 border border-cyan-500/30 shadow-[0_0_30px_rgba(6,182,212,0.1)] relative rounded-sm flex items-center gap-3 sm:gap-6 md:gap-8 pointer-events-auto">
           {/* Corner accents */}
           <div className="absolute -top-[1px] -left-[1px] w-2 h-2 border-t-2 border-l-2 border-cyan-400" />
@@ -1636,7 +1637,9 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         </div>
       )}
 
-      {showUI && !winner && !isPaused && (() => {
+      <div className="planet-command-stage" inert={!showUI || !!winner || isPaused} aria-hidden={!showUI || !!winner || isPaused}>
+      <div ref={commandHudRef} className={`planet-command-group game-hud game-hud-bottom ${showUI && !winner && !isPaused ? 'game-hud-visible' : ''}`}>
+      {(() => {
         const engine = engineRef.current;
         const planet = commandPlanet ? engine?.bases.get(commandPlanet) : undefined;
         if (!engine) return null;
@@ -1709,19 +1712,15 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
             </div>
           </div>;
         };
-        return <div className="planet-command-stage">
+        return <>
           {(multiSelectMode || selectedPlanetCount > 0) && <p className="planet-multi-select-hint" role="status">
             {selectedPlanetCount > 0 ? `${selectedPlanetCount} selected · Choose a friendly target` : 'Drag to select friendly planets'}
           </p>}
-          <AnimatePresence mode="wait" initial={false}>
-            {enemySelected ? <motion.div key="enemy" className="planet-command-group" initial={{ y: '110%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '110%', opacity: 0 }} transition={{ duration: 0.22, ease: 'easeInOut' }}>
-              {renderBar('enemy')}
-            </motion.div> : <motion.div key="normal" className="planet-command-group" initial={{ y: '110%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '110%', opacity: 0 }} transition={{ duration: 0.22, ease: 'easeInOut' }}>
-              {renderBar('normal')}
-            </motion.div>}
-          </AnimatePresence>
-        </div>;
+          {renderBar(enemySelected ? 'enemy' : 'normal')}
+        </>;
       })()}
+      </div>
+      </div>
 
       {/* Game Over Overlay */}
       {winner && (

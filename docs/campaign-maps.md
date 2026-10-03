@@ -91,6 +91,14 @@ A 5600 × 5600 finale with 108 planets, five normal white stars, and no Dyson sp
 
 Desktop opens on a complete overview; phones settle on the blue capital after the overview intro. The minimum zoom scales to the full 5600-unit map, including narrow phone viewports. Existing pan, zoom, and capital camera shortcuts remain available.
 
+## Camera and HUD transitions
+
+Opening and Space-to-capital camera moves share a world-space focus and proportional zoom transition. Overviews account for the measured top and bottom controls and preserve authored overview scales. Missions 2–5 keep desktop overviews and reveal the controls immediately instead of waiting through a stationary three-second intro. First Strike focuses the tutorial opening on every screen; phones focus each mission's capital and nearby expansion choices. Quick Match and Hard Mode approach the generated player capital. The capital shortcut uses the same neighborhood framing rather than forcing 1× zoom.
+
+Moving approaches take 450–1600 ms according to travel distance and zoom ratio, without the old 500 ms delay. Orbiting capitals are resolved after each simulation step. Resizing preserves the current world center and retargets active transitions for the new viewport and control sizes. Pause freezes camera transitions, and hidden-tab time does not consume them. Reduced motion skips the approach and HUD slides. Manual mouse wheel, pinch, drag, and bookmark controls remain available; manual camera input cancels an active recall.
+
+The top and bottom HUD panels enter together with transform/opacity transitions. Hidden controls are inert. Friendly/enemy command content updates in one stable container without queued exit/entry animations. Offscreen ships and planets skip drawing with padding for glows, effects, and weapon badges; rotation-aware viewport bounds retain edge visuals and leave simulation state unchanged.
+
 ## Orbiting systems
 
 An optional `orbit` defines a single fixed star center (`x`, `y`), clockwise period in simulation seconds (`periodSeconds`), and participating `planetIds`. Maps with several stars use `orbits` instead. The Turning Tide retains its single 180-second system; The Battle for Helios uses five independent systems. Members of each system share angular speed, preserving spacing and mutual attack ranges. Decorative stars have no effect on gravity, collision, damage, or victory. An optional `dysonSphere` still supports one legacy capturable sphere per map, though no current Chapter 1 map uses it.

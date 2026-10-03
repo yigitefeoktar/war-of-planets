@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { clampZoom, zoomLimits } from './camera';
+import { cameraDelta, cameraDuration, cameraFrame, cameraPosition, clampZoom, interpolateCamera, openingFrame, overviewFrame, zoomLimits, type CameraViewport } from './camera';
 import { BREACH_LINE, FIRST_STRIKE, SIEGE_OF_HELIOS, THE_PINCER, TURNING_TIDE, validateMap } from './campaign';
 
 test('zoom range follows map size while retaining a usable overview', () => {
@@ -64,5 +64,113 @@ test('Pincer phone opening shows the capital and all six neutral shield choices 
   }
   for (const capitalFocusY of [-0.1, Infinity, NaN, 1.1]) {
     assert.throws(() => validateMap({ ...THE_PINCER, capitalFocusY }), /Invalid capital camera position/);
+  }
+});
+
+const maps = [FIRST_STRIKE, BREACH_LINE, TURNING_TIDE, THE_PINCER, SIEGE_OF_HELIOS];
+const views: CameraViewport[] = [
+  { width: 1920, height: 1080, top: 110, bottom: 125 },
+  { width: 1280, height: 720, top: 110, bottom: 125 },
+  { width: 1024, height: 600, top: 90, bottom: 125 },
+  { width: 390, height: 844, top: 90, bottom: 220 },
+  { width: 360, height: 640, top: 80, bottom: 200 },
+];
+
+test('opening policy preserves desktop overviews and frames every phone opening clear of the HUD', () => {
+  for (const map of maps) for (const view of views) {
+    const home = map.planets.find(p => p.capital && p.owner === '#3b82f6')!;
+    const frame = openingFrame(view, map, home, map.planets);
+    const start = overviewFrame(view, map.width, map.height, map.overviewScale);
+    if (!map.tutorial && view.width >= 700) {
+      assert.deepEqual(frame, start);
+      assert.equal(cameraDuration(start, frame, view), 0, `${map.title} has no stationary intro delay`);
+    } else {
+      const position = cameraPosition(frame, view);
+      const neighbors = map.planets.filter(p => Math.hypot(p.x - home.x, p.y - home.y) <= map.attackRange);
+      for (const planet of neighbors) {
+        const x = (planet.x - position.x) * position.zoom;
+        const y = (planet.y - position.y) * position.zoom;
+        assert.ok(x >= 35 - 1e-6 && x <= view.width - 35 + 1e-6, `${map.title}: ${planet.id} horizontally visible`);
+        assert.ok(y >= view.top + 35 - 1e-6 && y <= view.height - view.bottom - 35 + 1e-6,
+          `${map.title}: ${planet.id} clear of controls`);
+      }
+    }
+  }
+});
+
+test('map approaches have finite, monotonic proportional zoom and exact endpoints', () => {
+  for (const map of maps) for (const view of views) {
+    const home = map.planets.find(p => p.capital && p.owner === '#3b82f6')!;
+    const from = overviewFrame(view, map.width, map.height, map.overviewScale);
+    const to = openingFrame(view, map, home, map.planets);
+    const duration = cameraDuration(from, to, view);
+    assert.ok(duration === 0 || (duration >= 450 && duration <= 1600));
+    assert.equal(cameraDuration(from, to, view, true), 0);
+    assert.deepEqual(interpolateCamera(from, to, 0), from);
+    assert.deepEqual(interpolateCamera(from, to, 1), to);
+    let previous = from.zoom;
+    for (let step = 0; step <= 100; step++) {
+      const frame = interpolateCamera(from, to, step / 100);
+      const pose = cameraPosition(frame, view);
+      assert.ok(Object.values(pose).every(Number.isFinite));
+      assert.ok(to.zoom >= from.zoom ? frame.zoom >= previous - 1e-9 : frame.zoom <= previous + 1e-9);
+      previous = frame.zoom;
+    }
+    assert.ok(Math.abs(interpolateCamera(from, to, 0.5).zoom - Math.sqrt(from.zoom * to.zoom)) < 1e-9);
+  }
+});
+
+test('resize rebases from the current world center, then resolves the new opening policy', () => {
+  const desktop = views[0], phone = views[3];
+  const home = THE_PINCER.planets.find(p => p.capital && p.owner === '#3b82f6')!;
+  const start = overviewFrame(desktop, THE_PINCER.width, THE_PINCER.height, THE_PINCER.overviewScale);
+  const pose = cameraPosition(start, desktop);
+  const current = cameraFrame(pose.x, pose.y, pose.zoom, desktop);
+  const resizedPose = cameraPosition(current, phone);
+  assert.deepEqual(cameraFrame(resizedPose.x, resizedPose.y, resizedPose.zoom, phone), current);
+  const target = openingFrame(phone, THE_PINCER, home, THE_PINCER.planets);
+  assert.deepEqual(interpolateCamera(current, target, 0), current);
+  assert.deepEqual(interpolateCamera(current, target, 1), target);
+  assert.equal(cameraPosition(target, phone).zoom, target.zoom);
+});
+
+test('live Helios capital coordinates remain at the requested screen anchor', () => {
+  const view = views[3];
+  const capital = SIEGE_OF_HELIOS.planets.find(p => p.capital && p.owner === '#3b82f6')!;
+  for (const offset of [0, 20, 50]) {
+    const moving = { ...capital, x: capital.x + offset, y: capital.y - offset };
+    const target = openingFrame(view, SIEGE_OF_HELIOS, moving, SIEGE_OF_HELIOS.planets);
+    const pose = cameraPosition(interpolateCamera(target, target, 1), view);
+    assert.ok(Math.abs((moving.x - pose.x) * pose.zoom - view.width / 2) < 1e-9);
+    assert.ok(Math.abs((moving.y - pose.y) * pose.zoom - view.height * target.anchorY) < 1e-9);
+  }
+});
+
+test('camera clock skips inactive time, freezes on pause, and limits stalls without skipping the approach', () => {
+  assert.equal(cameraDelta(null, 50000), 0, 'first or restored frame');
+  assert.equal(cameraDelta(100, 116), 16);
+  assert.equal(cameraDelta(100, 30100), 50, 'long stall');
+  assert.equal(cameraDelta(100, 30100, true), 0, 'paused or hidden');
+  assert.equal(cameraDelta(100, 90), 0);
+  for (const hz of [30, 60, 120]) {
+    let elapsed = 0, previous = 0;
+    for (let frame = 1; frame <= hz; frame++) {
+      const now = frame * 1000 / hz;
+      elapsed += cameraDelta(previous, now);
+      previous = now;
+    }
+    assert.ok(Math.abs(elapsed - 1000) < 1e-6, `${hz} Hz consumes the same active time`);
+  }
+});
+
+test('generated matches approach their capital and handle a missing capital gracefully', () => {
+  for (const view of views) {
+    const capital = { x: 350, y: 2600 };
+    const start = overviewFrame(view, 3000, 3000);
+    const target = openingFrame(view, undefined, capital, [capital]);
+    assert.equal(target.focusX, capital.x);
+    assert.equal(target.focusY, capital.y);
+    assert.ok(cameraDuration(start, target, view) > 0);
+    assert.deepEqual(openingFrame(view, undefined, undefined, []), start);
   }
 });
