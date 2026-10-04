@@ -8,6 +8,9 @@ import { SUPERWEAPON_VISUALS, superweaponIconLayout } from './superweaponVisuals
 import { galaxyAppearance, type GalaxyTheme } from './galaxy';
 import { overlapsView, visibleWorldBounds } from './visibility';
 
+export const FACTION_SHIP_LIMIT = 10_000;
+export const LOW_GARRISON_THRESHOLD = 40;
+
 interface Star {
   x: number;
   y: number;
@@ -141,6 +144,7 @@ export class GameEngine {
   private territoryClusters: TerritoryCluster[] = [];
   private territorySignature = '';
   private lastTerritoryUpdate = Number.NEGATIVE_INFINITY;
+  private factionsAtShipLimit = new Set<string>();
 
   // Callbacks for sound/events
   onCapture?: (baseId: string, color: string) => void;
@@ -150,6 +154,7 @@ export class GameEngine {
   onOmniStrike?: (color: string, targetId: string) => void;
   onSuperweapon?: (weapon: 'overdrive' | 'repulse', color: string, targetId: string) => void;
   onAbilityPulse?: (weapon: 'overdrive' | 'repulse', color: string) => void;
+  onShipLimitReached?: (color: string) => void;
   private rng: () => number;
   private nowProvider: () => number;
 
@@ -174,6 +179,16 @@ export class GameEngine {
 
   private now() {
     return this.nowProvider();
+  }
+
+  private updateShipLimit(color: string, count: number) {
+    if (color === '#6b7280') return;
+    if (count < FACTION_SHIP_LIMIT) {
+      this.factionsAtShipLimit.delete(color);
+    } else if (!this.factionsAtShipLimit.has(color)) {
+      this.factionsAtShipLimit.add(color);
+      this.onShipLimitReached?.(color);
+    }
   }
 
   init() {
@@ -499,6 +514,8 @@ export class GameEngine {
     }
 
     if (totalLaunched > 0) {
+      // Summoned ships bypass production restrictions, but count toward the total.
+      this.updateShipLimit(playerColor, this.pixels.reduce((count, ship) => count + Number(!ship.dead && ship.color === playerColor), 0));
       this.shakeAmount = 15;
       this.shakeDuration = 0.5;
       this.onOmniStrike?.(playerColor, toId);
@@ -658,15 +675,33 @@ export class GameEngine {
 
     // Spawn units every 250ms (4x faster)
     if (now - this.lastSpawnTime > 250) {
+      const factionCounts = new Map<string, number>();
+      const garrisonCounts = new Map<string, number>();
+      for (const ship of this.pixels) {
+        if (ship.dead) continue;
+        factionCounts.set(ship.color, (factionCounts.get(ship.color) ?? 0) + 1);
+        if (ship.state === 'idle' && this.bases.get(ship.baseId)?.color === ship.color) {
+          garrisonCounts.set(ship.baseId, (garrisonCounts.get(ship.baseId) ?? 0) + 1);
+        }
+      }
+      for (const [color, count] of factionCounts) this.updateShipLimit(color, count);
       for (const base of this.bases.values()) {
-        if (base.color !== '#6b7280' && !base.isDysonSphere) { // Spawn without limit
-          const count = this.factionBonuses.production(base.id, base.color) * (base.overdrive ? OVERDRIVE_MULTIPLIER : 1);
+        if (base.color !== '#6b7280' && !base.isDysonSphere) {
+          const factionCount = factionCounts.get(base.color) ?? 0;
+          const garrisonCount = garrisonCounts.get(base.id) ?? 0;
+          // A ship may be produced while either allowance remains. The +1
+          // preserves the inclusive exception: a garrison of 40 can still grow.
+          const allowance = Math.max(FACTION_SHIP_LIMIT - factionCount, LOW_GARRISON_THRESHOLD + 1 - garrisonCount, 0);
+          if (allowance === 0) continue;
+          const count = Math.min(allowance, this.factionBonuses.production(base.id, base.color) * (base.overdrive ? OVERDRIVE_MULTIPLIER : 1));
           if (base.overdrive) {
             base.overdrive.pulse = 1;
             this.createExplosion(base.x, base.y, '#ffbd59', 8);
             this.onAbilityPulse?.('overdrive', base.color);
           }
           for (let i = 0; i < count; i++) this.pixels.push(this.createIdlePixel(base.id, base.x, base.y, base.color));
+          factionCounts.set(base.color, factionCount + count);
+          this.updateShipLimit(base.color, factionCount + count);
         }
       }
       this.lastSpawnTime = now;
@@ -858,8 +893,16 @@ export class GameEngine {
       }
     }
 
-    // Remove dead pixels
-    this.pixels = this.pixels.filter(p => !p.dead);
+    // Count survivors in the existing cleanup pass, including ships in flight.
+    const survivingCounts = new Map<string, number>();
+    this.pixels = this.pixels.filter(p => {
+      if (p.dead) return false;
+      survivingCounts.set(p.color, (survivingCounts.get(p.color) ?? 0) + 1);
+      return true;
+    });
+    for (const color of new Set([...this.factionsAtShipLimit, ...survivingCounts.keys()])) {
+      this.updateShipLimit(color, survivingCounts.get(color) ?? 0);
+    }
   }
 
   private drawGalaxyBackdrop(
