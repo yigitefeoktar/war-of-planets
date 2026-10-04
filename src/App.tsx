@@ -1866,11 +1866,6 @@ export default function App() {
   const followingMap = session && session.mode !== 'quick-match' && session.mode !== 'hard-mode'
     ? followingMission(CHAPTERS[session.mode], session.map?.id ?? '')
     : undefined;
-  useEffect(() => {
-    if (result !== true || !session || !followingMap) return;
-    const timer = window.setTimeout(() => begin(session.mode, followingMap), 6000);
-    return () => window.clearTimeout(timer);
-  }, [result, session, followingMap]);
   const onResult = (won: boolean) => {
     setResult(won);
     if (won && session?.map && !isChapterOneTestMode(session.mode)) setProgress(previous => completeMission(previous, session.map!.id));
@@ -1937,7 +1932,7 @@ export default function App() {
   const isLastChapterLevel = Boolean(chapter && session.map && chapter.maps.at(-1)?.id === session.map.id);
   const isChapterComplete = isLastChapterLevel && result === true;
   const isChapterFinale = session.map?.id === SIEGE_OF_HELIOS.id;
-  const resultDetail = followingMap ? 'Next mission starts automatically in a moment.'
+  const resultDetail = followingMap ? 'Mission complete. Select Next Mission when you are ready.'
     : isChapterFinale ? 'The Helios Breach is yours. Unidentified signals wait beyond the frontier.'
     : chapter && chapter.maps.length < chapter.plannedLevels ? 'Mission complete. More chapter missions are coming soon.'
     : chapter ? 'Chapter complete. All missions secured.' : 'Sector secured.';
