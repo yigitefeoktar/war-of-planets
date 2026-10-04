@@ -1,8 +1,6 @@
 let audioCtx: AudioContext | null = null;
 let masterGain: GainNode | null = null;
-let musicGain: GainNode | null = null;
 let bgMusic: HTMLAudioElement | null = null;
-let musicSource: MediaElementAudioSourceNode | null = null;
 let keepAliveOsc: OscillatorNode | null = null;
 
 const MUSIC_VOLUME = 0.15;
@@ -14,10 +12,6 @@ const getAudioContext = () => {
     });
     masterGain = audioCtx.createGain();
     masterGain.connect(audioCtx.destination);
-    
-    musicGain = audioCtx.createGain();
-    musicGain.gain.value = MUSIC_VOLUME;
-    musicGain.connect(masterGain!);
     
     (window as any)._audioCtx = audioCtx;
   }
@@ -390,43 +384,23 @@ export const playSound = (type: SoundType, enabled: boolean) => {
   }
 };
 
-let playPromise: Promise<void> | null = null;
-
 export const startMusic = (src: string, enabled: boolean) => {
   if (!src) return;
-  const ctx = getAudioContext();
-
-  // If music already exists and is the same src
-  if (bgMusic && bgMusic.src.includes(src)) {
-    if (enabled && bgMusic.paused) {
-      playPromise = bgMusic.play();
-      playPromise.catch(() => {});
-    } else if (!enabled && !bgMusic.paused) {
-      bgMusic.pause();
-    }
+  if (!enabled) {
+    setMusicEnabled(false);
     return;
   }
 
-  // Clean up old music
-  if (bgMusic) {
-    bgMusic.pause();
-    bgMusic = null;
+  const url = new URL(src, document.baseURI).href;
+  if (!bgMusic || bgMusic.src !== url) {
+    stopMusic();
+    bgMusic = new Audio(url);
+    bgMusic.loop = true;
+    // Keep music independent of the Web Audio context used by sound effects.
+    bgMusic.volume = MUSIC_VOLUME;
   }
 
-  bgMusic = new Audio(src);
-  bgMusic.loop = true;
-  bgMusic.crossOrigin = "anonymous";
-  
-  // Connect to AudioContext for better volume control and to keep context alive
-  if (!musicSource || musicSource.mediaElement !== bgMusic) {
-    musicSource = ctx.createMediaElementSource(bgMusic);
-    musicSource.connect(musicGain!);
-  }
-  
-  if (enabled) {
-    playPromise = bgMusic.play();
-    playPromise.catch(() => {});
-  }
+  setMusicEnabled(true);
 };
 
 export const stopMusic = () => {
@@ -441,7 +415,9 @@ export const setMusicEnabled = (enabled: boolean) => {
   
   if (enabled) {
     if (bgMusic.paused) {
-      bgMusic.play().catch(() => {});
+      bgMusic.play().catch(error => {
+        if (error.name !== 'AbortError') console.warn('Music playback failed', error);
+      });
     }
   } else {
     if (!bgMusic.paused) {

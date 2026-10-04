@@ -18,6 +18,8 @@ import {
 } from './game/camera';
 import type { Base } from './game/types';
 
+const MUSIC_SRC = '/audio/bg-music.mp3';
+
 const SUPERWEAPON_LABELS: Record<SuperweaponId, string> = {
   omni: 'Omni Strike', overdrive: 'Production Overdrive', repulse: 'Repulse Shield',
 };
@@ -299,16 +301,13 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   }, [isMusicEnabled]);
 
   useEffect(() => {
-    startMusic('/audio/bg-music.mp3', isMusicEnabled);
-    return () => {
-      stopMusic();
-    };
+    startMusic(MUSIC_SRC, isMusicEnabled);
   }, [isMusicEnabled]);
 
   useEffect(() => {
     if (winner) {
       const timer = setTimeout(() => {
-        stopMusic();
+        setMusicEnabled(false);
       }, 500);
       return () => clearTimeout(timer);
     }
@@ -1857,7 +1856,9 @@ export default function App() {
     if (won && session?.map && !isChapterOneTestMode(session.mode)) setProgress(previous => completeMission(previous, session.map!.id));
   };
   const [isSoundEnabled, setIsSoundEnabled] = useState(true);
-  const [isMusicEnabled, setIsMusicEnabled] = useState(true);
+  const [isMusicEnabled, setIsMusicEnabled] = useState(false);
+
+  useEffect(() => () => stopMusic(), []);
 
   const interactionHandled = useRef(false);
 
@@ -1885,8 +1886,9 @@ export default function App() {
   }, []);
 
   const handleToggleMusic = (enabled: boolean) => {
+    // Start directly in the click handler so browsers allow media playback.
+    startMusic(MUSIC_SRC, enabled);
     setIsMusicEnabled(enabled);
-    setMusicEnabled(enabled);
   };
 
   if (!session) {
@@ -1897,6 +1899,7 @@ export default function App() {
         saveWarning={saveWarning}
         onSelectMode={mode => setProgress(previous => ({ ...previous, selectedMode: mode }))}
         onPlay={() => {
+          startMusic(MUSIC_SRC, isMusicEnabled);
           const mode = progress.selectedMode;
           const map = mode === 'quick-match' || mode === 'hard-mode' ? undefined : launchMission(CHAPTERS[mode], progress.completed);
           if (mode === 'quick-match' || mode === 'hard-mode' || map) begin(mode, map);
