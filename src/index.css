@@ -44,6 +44,7 @@
 }
 .superweapon-targeting-popover button:hover { background: color-mix(in srgb, var(--weapon-color) 20%, #071320); }
 .superweapon-targeting-popover button:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+.fleet-order-error { padding: 12px; white-space: normal; text-align: center; pointer-events: none; }
 @media (max-width: 767px) { .superweapon-targeting-popover { top: 88px; } }
 @media (max-width: 639px) { .superweapon-targeting-popover { top: 64px; } }
 .planet-command-group {

@@ -270,6 +270,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const multiSelectModeRef = useRef(false);
   const [selectedPlanetCount, setSelectedPlanetCount] = useState(0);
+  const [fleetOrderError, setFleetOrderError] = useState(0);
   const [ownedPlanetCount, setOwnedPlanetCount] = useState(0);
   const resetMultiSelectionRef = useRef<() => void>(() => {});
   const [targetingMode, setTargetingMode] = useState<SuperweaponId | null>(null);
@@ -280,6 +281,12 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   const engineRef = useRef<GameEngine | null>(null);
   const isPausedRef = useRef(false);
   const surrenderRef = useRef(false);
+
+  useEffect(() => {
+    if (!fleetOrderError) return;
+    const timer = window.setTimeout(() => setFleetOrderError(0), 3000);
+    return () => window.clearTimeout(timer);
+  }, [fleetOrderError]);
 
   const isSoundEnabledRef = useRef(isSoundEnabled);
   useEffect(() => {
@@ -604,6 +611,11 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       setSelectedGroup(new Set());
       selectPlanet(null);
     };
+    const rejectFleetOrder = () => {
+      setFleetOrderError(previous => previous + 1);
+      playSound('error', isSoundEnabledRef.current);
+      resetMultiSelectionRef.current();
+    };
     const handlePlanetClick = (id: string | null) => {
       if (targetingModeRef.current) {
         const weapon = targetingModeRef.current;
@@ -632,13 +644,14 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         const target = id ? engine.bases.get(id) : null;
         if (!target) { setSelectedGroup(new Set()); return; }
         if (target.color !== '#3b82f6') {
-          playSound('error', isSoundEnabledRef.current);
+          if (selectedGroup.size > 0) rejectFleetOrder();
+          else playSound('error', isSoundEnabledRef.current);
           return;
         }
         if (selectedGroup.size > 0) {
           const launched = issueFriendlyGroupOrder(engine, selectedGroup, target.id, fleetSizeRef.current, '#3b82f6');
           if (launched) setSelectedGroup(new Set());
-          else playSound('error', isSoundEnabledRef.current);
+          else rejectFleetOrder();
         } else {
           selectPlanet(null);
           setSelectedGroup(new Set([target.id]));
@@ -651,7 +664,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       if (!id || selectedBaseId === id) { selectPlanet(null); return; }
       const source = selectedBaseId && engine.bases.get(selectedBaseId);
       if (source && source.color === '#3b82f6') {
-        if (!issueFleetOrder(engine, source.id, id, fleetSizeRef.current)) playSound('error', isSoundEnabledRef.current);
+        if (!issueFleetOrder(engine, source.id, id, fleetSizeRef.current)) rejectFleetOrder();
         selectPlanet(null);
       } else {
         const target = engine.bases.get(id);
@@ -1578,6 +1591,12 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         <div className="superweapon-targeting-popover" style={{ '--weapon-color': SUPERWEAPON_VISUALS[targetingMode].color } as React.CSSProperties} role="region" aria-label={`${SUPERWEAPON_LABELS[targetingMode]} targeting`}>
           <span>Choose a planet</span>
           <button type="button" aria-label={`Cancel ${SUPERWEAPON_LABELS[targetingMode]} targeting`} onClick={() => { targetingModeRef.current = null; setTargetingMode(null); playSound('click', isSoundEnabledRef.current); }}>Cancel</button>
+        </div>
+      )}
+
+      {showUI && fleetOrderError > 0 && !targetingMode && !winner && !isPaused && (
+        <div className="superweapon-targeting-popover fleet-order-error" style={{ '--weapon-color': '#ef4444' } as React.CSSProperties} role="alert">
+          Cannot send ships to this planet.
         </div>
       )}
 
