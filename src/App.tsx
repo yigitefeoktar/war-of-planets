@@ -9,7 +9,7 @@ import { advanceTutorial, drawTutorialHighlights, tutorialTargets, type Tutorial
 import './ui/Tutorial.css';
 import { hasIncomingHostile, issueFleetOrder, issueFriendlyGroupOrder } from './game/logistics';
 import { MIN_MULTI_SELECT_PLANETS, canUseMultiSelect, countOwnedPlanets, friendlyPlanetsInRectangle, type SelectionPoint } from './game/selection';
-import { GameEngine } from './game/engine';
+import { FACTION_SHIP_LIMIT, LOW_GARRISON_THRESHOLD, GameEngine } from './game/engine';
 import { SUPERWEAPON_IDS, type SuperweaponId } from './game/superweapons';
 import { SUPERWEAPON_VISUALS } from './game/superweaponVisuals';
 import {
@@ -204,7 +204,7 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
             className={`flex items-center gap-2 px-4 py-2 border transition-all rounded-sm font-mono text-xs tracking-widest uppercase group ${
               isMusicEnabled 
                 ? 'bg-cyan-950/40 border-cyan-500/30 text-cyan-500/60 hover:text-cyan-400 hover:border-cyan-400/50 hover:bg-cyan-900/30' 
-                : 'bg-red-950/20 border-red-900/30 text-red-500/40 hover:text-red-400 hover:border-red-500/50 hover:bg-red-900/30'
+                : 'bg-red-900/30 border-red-500/50 text-red-400'
             }`}
           >
             <Music size={14} className={`group-hover:scale-110 transition-transform ${!isMusicEnabled && 'opacity-50'}`} />
@@ -221,7 +221,7 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
             className={`flex items-center gap-2 px-4 py-2 border transition-all rounded-sm font-mono text-xs tracking-widest uppercase group ${
               isSoundEnabled 
                 ? 'bg-cyan-950/40 border-cyan-500/30 text-cyan-500/60 hover:text-cyan-400 hover:border-cyan-400/50 hover:bg-cyan-900/30' 
-                : 'bg-red-950/20 border-red-900/30 text-red-500/40 hover:text-red-400 hover:border-red-500/50 hover:bg-red-900/30'
+                : 'bg-red-900/30 border-red-500/50 text-red-400'
             }`}
           >
             {isSoundEnabled ? <Volume2 size={14} className="group-hover:scale-110 transition-transform" /> : <VolumeX size={14} className="group-hover:scale-110 transition-transform opacity-50" />}
@@ -273,6 +273,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   const multiSelectModeRef = useRef(false);
   const [selectedPlanetCount, setSelectedPlanetCount] = useState(0);
   const [fleetOrderError, setFleetOrderError] = useState(0);
+  const [shipLimitNotice, setShipLimitNotice] = useState(0);
   const [ownedPlanetCount, setOwnedPlanetCount] = useState(0);
   const resetMultiSelectionRef = useRef<() => void>(() => {});
   const [targetingMode, setTargetingMode] = useState<SuperweaponId | null>(null);
@@ -289,6 +290,12 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     const timer = window.setTimeout(() => setFleetOrderError(0), 3000);
     return () => window.clearTimeout(timer);
   }, [fleetOrderError]);
+
+  useEffect(() => {
+    if (!shipLimitNotice || !showUI || isPaused || winner || targetingMode || fleetOrderError) return;
+    const timer = window.setTimeout(() => setShipLimitNotice(0), 8000);
+    return () => window.clearTimeout(timer);
+  }, [shipLimitNotice, showUI, isPaused, winner, targetingMode, fleetOrderError]);
 
   const isSoundEnabledRef = useRef(isSoundEnabled);
   useEffect(() => {
@@ -480,6 +487,11 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
     engine.onSuperweapon = (weapon) => {
       playSound(weapon, isSoundEnabledRef.current);
+    };
+    engine.onShipLimitReached = (color) => {
+      if (color !== '#3b82f6') return;
+      setShipLimitNotice(previous => previous + 1);
+      playSound('select', isSoundEnabledRef.current);
     };
     let lastAbilitySound = 0;
     engine.onAbilityPulse = (weapon, color) => {
@@ -1596,6 +1608,17 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       {showUI && fleetOrderError > 0 && !targetingMode && !winner && !isPaused && (
         <div className="superweapon-targeting-popover fleet-order-error" style={{ '--weapon-color': '#ef4444' } as React.CSSProperties} role="alert">
           Cannot send ships to this planet.
+        </div>
+      )}
+
+      {/* Paused Overlay */}
+      {showUI && shipLimitNotice > 0 && !fleetOrderError && !targetingMode && !winner && !isPaused && (
+        <div className="superweapon-targeting-popover ship-limit-notice" style={{ '--weapon-color': '#ffbd59' } as React.CSSProperties} role="status">
+          <div>
+            <strong>{FACTION_SHIP_LIMIT.toLocaleString('en-US')}-ship limit reached</strong>
+            <p>Production resumes below {FACTION_SHIP_LIMIT.toLocaleString('en-US')} ships. Planets with {LOW_GARRISON_THRESHOLD} or fewer ships and Omni Strike can bypass the limit.</p>
+          </div>
+          <button type="button" aria-label="Dismiss ship limit notice" onClick={() => setShipLimitNotice(0)}>OK</button>
         </div>
       )}
 
