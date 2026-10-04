@@ -2,8 +2,8 @@ import type { Pixel } from './types';
 import { overlapsView, type ViewBounds } from './visibility';
 
 export const SHIP_DETAIL_LIMITS = {
-  enter: 2000,
-  exit: 1500,
+  enter: 20000,
+  exit: 16000,
   ships: 1200,
   trails: 96,
   particles: 400,

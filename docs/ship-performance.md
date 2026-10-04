@@ -1,10 +1,18 @@
 # Ship rendering under high load
 
-The regular ship renderer is unchanged below 2,000 ships. At 2,000 ships,
+The regular ship renderer is unchanged below 20,000 ships. At 20,000 ships,
 `ShipRendering` enables a presentation-only budget. It stays enabled until the
-fleet falls to 1,500 ships and outstanding explosion particles fall to 400.
+fleet falls to 16,000 ships and outstanding explosion particles fall to 400.
 This gap prevents repeated mode changes near the entry threshold and keeps a
 large destruction effect from immediately restoring expensive rendering.
+
+The final map has 108 planets (60 orbiting and 48 fixed) and starts with 3,220
+ships. The planet count stays 108 after faction elimination; ending ship count
+depends on production, losses and match length. The 20,000-ship entry point is
+a deliberately late-game estimate: roughly 185 ships per planet across all 108,
+ten times the original 2,000-ship threshold. It is not a measurement of a
+particular completed match. The opening and battles up to 19,999 ships retain
+the regular presentation.
 
 The high-count path:
 
@@ -34,7 +42,8 @@ Planet selection, attack ranges, abilities and HUD counts keep full detail.
 Run `npx tsx --test src/game/shipRendering.test.ts` for threshold transitions,
 small-battle drawing parity, representative stability and route coverage,
 offscreen culling, effect budgets, seeded combat/production/AI equivalence
-and Helios orbiting-fleet state preservation.
+and Helios orbiting-fleet state preservation. Tests also check the 108-planet
+count after eliminating all enemy capitals and full detail up to 19,999 ships.
 
 Run these separately for a repeatable mixed idle/travel/warp workload:
 
@@ -46,9 +55,10 @@ npx tsx scripts/ship-benchmark.ts
 The headless benchmark reports median simulation update time and records
 Canvas commands; it does **not** measure browser rasterization or FPS.
 For the 1,200 × 800 close-up fixture, the 500-ship case uses 2,875 commands
-with either path. At 10,000 ships, commands drop from 56,075 to 5,693; at
-30,000 they drop from 168,075 to 5,795. These counts explain the conservative
-2,000-ship entry point, where commands drop from 11,275 to 3,793.
+with either path. At 10,000 ships, both paths retain 56,075 commands. At 30,000,
+commands drop from 168,075 to 5,795. Raising the activation threshold trades
+earlier performance relief for full detail during ordinary and mid-game play,
+as requested after the slowdown was reported only near the finale's end.
 
 The simulation still scales with actual ship count. This bounds expensive
 drawing work without promising unlimited fleets or a fixed FPS on every

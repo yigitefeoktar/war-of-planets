@@ -43,7 +43,7 @@ export function measureUpdate(count: number, fullDetail = false) {
 
 if (typeof document === 'undefined' && process.argv[1]?.endsWith('ship-benchmark.ts')) {
   globalThis.Path2D = class {} as typeof Path2D;
-  for (const count of [500, 2000, 10000, 30000]) {
+  for (const count of [500, 2000, 10000, 20000, 30000]) {
     const engine = crowdedMatch(count);
     if (process.argv.includes('--full-detail')) engine.shipRendering.update = () => false;
     engine.stars = []; engine.nebulae = [];
