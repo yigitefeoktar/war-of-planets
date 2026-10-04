@@ -20,3 +20,10 @@ For every requested code or UI change:
    - the verification and Vercel deployment result
 
 Never commit generated videos, screenshots, prototype artifacts, credentials, or unrelated local files unless the user explicitly places them in scope.
+
+## Deployment identity
+
+- Source: `main` at `https://github.com/yigitefeoktar/war-of-planets.git`.
+- Frontend: Vercel project `war-of-planets`; production URL `https://war-of-planets.vercel.app/`. Use the GitHub integration and verify the Vercel check on the exact pushed SHA.
+- No `deployment.json` or enabled backend is configured. Skip backend processes, ports, tunnels and PC tasks. This release workflow uses Vercel and does not require Google Cloud billing or triggers.
+- For recovery, revert the relevant task commit on `main`, run the standard checks above, push without force, and verify the new Vercel deployment.
