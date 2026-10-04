@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { Maximize, Minimize, Volume2, VolumeX, Music, Pause, Play, Flag, Shield } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
 import { ModeCard } from './ui/ModeCard';
+import { AnimatedGamePopup } from './ui/AnimatedGamePopup';
 import { advanceTutorial, drawTutorialHighlights, tutorialTargets, type TutorialState, type TutorialEvent } from './game/tutorial';
 import './ui/Tutorial.css';
 import { hasIncomingHostile, issueFleetOrder, issueFriendlyGroupOrder } from './game/logistics';
@@ -1597,27 +1598,22 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         </div>
       </div>
 
-      {activePopup === 'superweapon' && targetingMode && (
-        <div className="superweapon-targeting-popover" style={{ '--weapon-color': SUPERWEAPON_VISUALS[targetingMode].color } as React.CSSProperties} role="region" aria-label={`${SUPERWEAPON_LABELS[targetingMode]} targeting`}>
+      <AnimatedGamePopup
+        id={activePopup === 'superweapon' ? targetingMode : activePopup}
+        color={activePopup === 'superweapon' && targetingMode ? SUPERWEAPON_VISUALS[targetingMode].color : activePopup === 'impossible-planet' ? '#ef4444' : '#ffbd59'}
+        className={activePopup === 'impossible-planet' ? 'fleet-order-error' : activePopup === 'ship-limit' ? 'ship-limit-notice' : ''}
+        role={activePopup === 'superweapon' ? 'region' : activePopup === 'impossible-planet' ? 'alert' : 'status'}
+        label={activePopup === 'superweapon' && targetingMode ? `${SUPERWEAPON_LABELS[targetingMode]} targeting` : undefined}
+      >
+        {activePopup === 'superweapon' && targetingMode ? <>
           <span>Choose a planet</span>
           <button type="button" aria-label={`Cancel ${SUPERWEAPON_LABELS[targetingMode]} targeting`} onClick={() => { targetingModeRef.current = null; setTargetingMode(null); playSound('click', isSoundEnabledRef.current); }}>Cancel</button>
+        </> : activePopup === 'impossible-planet' ? 'Cannot send ships to this planet.' : activePopup === 'ship-limit' ? <div>
+          <strong>{FACTION_SHIP_LIMIT.toLocaleString('en-US')}-ship limit reached</strong>
+          <p>Production resumes below {FACTION_SHIP_LIMIT.toLocaleString('en-US')} ships. Planets with {LOW_GARRISON_THRESHOLD} or fewer ships and Omni Strike can bypass the limit.</p>
         </div>
-      )}
-
-      {activePopup === 'impossible-planet' && (
-        <div className="superweapon-targeting-popover fleet-order-error" style={{ '--weapon-color': '#ef4444' } as React.CSSProperties} role="alert">
-          Cannot send ships to this planet.
-        </div>
-      )}
-
-      {activePopup === 'ship-limit' && (
-        <div className="superweapon-targeting-popover ship-limit-notice" style={{ '--weapon-color': '#ffbd59' } as React.CSSProperties} role="status">
-          <div>
-            <strong>{FACTION_SHIP_LIMIT.toLocaleString('en-US')}-ship limit reached</strong>
-            <p>Production resumes below {FACTION_SHIP_LIMIT.toLocaleString('en-US')} ships. Planets with {LOW_GARRISON_THRESHOLD} or fewer ships and Omni Strike can bypass the limit.</p>
-          </div>
-        </div>
-      )}
+        : null}
+      </AnimatedGamePopup>
 
       {/* Paused Overlay */}
       {isPaused && !winner && (
