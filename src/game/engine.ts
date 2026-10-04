@@ -155,6 +155,7 @@ export class GameEngine {
   onSuperweapon?: (weapon: 'overdrive' | 'repulse', color: string, targetId: string) => void;
   onAbilityPulse?: (weapon: 'overdrive' | 'repulse', color: string) => void;
   onShipLimitReached?: (color: string) => void;
+  onShipLimitChanged?: (color: string, atLimit: boolean) => void;
   private rng: () => number;
   private nowProvider: () => number;
 
@@ -184,9 +185,10 @@ export class GameEngine {
   private updateShipLimit(color: string, count: number) {
     if (color === '#6b7280') return;
     if (count < FACTION_SHIP_LIMIT) {
-      this.factionsAtShipLimit.delete(color);
+      if (this.factionsAtShipLimit.delete(color)) this.onShipLimitChanged?.(color, false);
     } else if (!this.factionsAtShipLimit.has(color)) {
       this.factionsAtShipLimit.add(color);
+      this.onShipLimitChanged?.(color, true);
       this.onShipLimitReached?.(color);
     }
   }

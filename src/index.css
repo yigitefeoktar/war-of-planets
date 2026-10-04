@@ -46,9 +46,8 @@
 .superweapon-targeting-popover button:hover { background: color-mix(in srgb, var(--weapon-color) 20%, #071320); }
 .superweapon-targeting-popover button:focus-visible { outline: 2px solid white; outline-offset: 2px; }
 .fleet-order-error { padding: 12px; white-space: normal; text-align: center; pointer-events: none; }
-.ship-limit-notice { width: 440px; padding: 12px; white-space: normal; }
+.ship-limit-notice { width: 440px; padding: 12px; white-space: normal; pointer-events: none; }
 .ship-limit-notice p { margin-top: 6px; font-weight: 400; line-height: 1.5; }
-.ship-limit-notice button { flex-shrink: 0; }
 @media (max-width: 767px) { .superweapon-targeting-popover { top: 88px; } }
 @media (max-width: 639px) { .superweapon-targeting-popover { top: 64px; } }
 @media (max-width: 639px) { .faction-ship-count-large { font-size: 10px; letter-spacing: 0; } }

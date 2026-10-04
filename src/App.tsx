@@ -12,6 +12,7 @@ import { MIN_MULTI_SELECT_PLANETS, canUseMultiSelect, countOwnedPlanets, friendl
 import { FACTION_SHIP_LIMIT, LOW_GARRISON_THRESHOLD, GameEngine } from './game/engine';
 import { SUPERWEAPON_IDS, type SuperweaponId } from './game/superweapons';
 import { SUPERWEAPON_VISUALS } from './game/superweaponVisuals';
+import { activeGamePopup, IMPOSSIBLE_PLANET_NOTICE_MS, resolveSuperweaponClick } from './game/popups';
 import {
   CAMERA_OVERVIEW_HOLD_MS, cameraDelta, cameraDuration, cameraFrame, cameraPosition, cameraProgress, clampZoom,
   interpolateCamera, openingFrame, overviewFrame, zoomLimits, type CameraFrame, type CameraViewport,
@@ -272,8 +273,8 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const multiSelectModeRef = useRef(false);
   const [selectedPlanetCount, setSelectedPlanetCount] = useState(0);
-  const [fleetOrderError, setFleetOrderError] = useState(0);
-  const [shipLimitNotice, setShipLimitNotice] = useState(0);
+  const [impossiblePlanetUntil, setImpossiblePlanetUntil] = useState(0);
+  const [shipLimitActive, setShipLimitActive] = useState(false);
   const [ownedPlanetCount, setOwnedPlanetCount] = useState(0);
   const resetMultiSelectionRef = useRef<() => void>(() => {});
   const [targetingMode, setTargetingMode] = useState<SuperweaponId | null>(null);
@@ -286,16 +287,10 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   const surrenderRef = useRef(false);
 
   useEffect(() => {
-    if (!fleetOrderError) return;
-    const timer = window.setTimeout(() => setFleetOrderError(0), 3000);
+    if (!impossiblePlanetUntil) return;
+    const timer = window.setTimeout(() => setImpossiblePlanetUntil(0), Math.max(0, impossiblePlanetUntil - Date.now()));
     return () => window.clearTimeout(timer);
-  }, [fleetOrderError]);
-
-  useEffect(() => {
-    if (!shipLimitNotice || !showUI || isPaused || winner || targetingMode || fleetOrderError) return;
-    const timer = window.setTimeout(() => setShipLimitNotice(0), 8000);
-    return () => window.clearTimeout(timer);
-  }, [shipLimitNotice, showUI, isPaused, winner, targetingMode, fleetOrderError]);
+  }, [impossiblePlanetUntil]);
 
   const isSoundEnabledRef = useRef(isSoundEnabled);
   useEffect(() => {
@@ -490,8 +485,10 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     };
     engine.onShipLimitReached = (color) => {
       if (color !== '#3b82f6') return;
-      setShipLimitNotice(previous => previous + 1);
       playSound('select', isSoundEnabledRef.current);
+    };
+    engine.onShipLimitChanged = (color, atLimit) => {
+      if (color === '#3b82f6') setShipLimitActive(atLimit);
     };
     let lastAbilitySound = 0;
     engine.onAbilityPulse = (weapon, color) => {
@@ -623,24 +620,22 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       selectPlanet(null);
     };
     const rejectFleetOrder = () => {
-      setFleetOrderError(previous => previous + 1);
+      setImpossiblePlanetUntil(Date.now() + IMPOSSIBLE_PLANET_NOTICE_MS);
       playSound('error', isSoundEnabledRef.current);
       resetMultiSelectionRef.current();
     };
     const handlePlanetClick = (id: string | null) => {
       if (targetingModeRef.current) {
         const weapon = targetingModeRef.current;
-        const target = id ? engine.bases.get(id) : null;
-        if (target && (weapon === 'omni' ? engine.activateOmniStrike('#3b82f6', target.id) : engine.activatePlanetAbility('#3b82f6', target.id, weapon))) {
-          targetingModeRef.current = null;
-          setTargetingMode(null);
+        const outcome = resolveSuperweaponClick(engine, '#3b82f6', weapon, id);
+        targetingModeRef.current = null;
+        setTargetingMode(null);
+        if (outcome === 'activated') {
           updatePlayerStats();
           selectPlanet(null);
-        } else if (id) {
-          playSound('error', isSoundEnabledRef.current);
+        } else if (outcome === 'impossible') {
+          rejectFleetOrder();
         } else {
-          targetingModeRef.current = null;
-          setTargetingMode(null);
           playSound('click', isSoundEnabledRef.current);
         }
         return;
@@ -1540,6 +1535,10 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     };
   }, []);
 
+  const activePopup = showUI && !winner && !isPaused && !showSurrenderConfirm
+    ? activeGamePopup({ targetingMode, impossiblePlanetUntil, shipLimitActive }, Date.now())
+    : null;
+
   return (
     <div className="fixed inset-0 w-full h-[100dvh] overflow-hidden bg-[#05050a] touch-none overscroll-none select-none">
       {/* Domination UI */}
@@ -1598,26 +1597,25 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         </div>
       </div>
 
-      {showUI && targetingMode && !winner && !isPaused && (
+      {activePopup === 'superweapon' && targetingMode && (
         <div className="superweapon-targeting-popover" style={{ '--weapon-color': SUPERWEAPON_VISUALS[targetingMode].color } as React.CSSProperties} role="region" aria-label={`${SUPERWEAPON_LABELS[targetingMode]} targeting`}>
           <span>Choose a planet</span>
           <button type="button" aria-label={`Cancel ${SUPERWEAPON_LABELS[targetingMode]} targeting`} onClick={() => { targetingModeRef.current = null; setTargetingMode(null); playSound('click', isSoundEnabledRef.current); }}>Cancel</button>
         </div>
       )}
 
-      {showUI && fleetOrderError > 0 && !targetingMode && !winner && !isPaused && (
+      {activePopup === 'impossible-planet' && (
         <div className="superweapon-targeting-popover fleet-order-error" style={{ '--weapon-color': '#ef4444' } as React.CSSProperties} role="alert">
           Cannot send ships to this planet.
         </div>
       )}
 
-      {showUI && shipLimitNotice > 0 && !fleetOrderError && !targetingMode && !winner && !isPaused && (
+      {activePopup === 'ship-limit' && (
         <div className="superweapon-targeting-popover ship-limit-notice" style={{ '--weapon-color': '#ffbd59' } as React.CSSProperties} role="status">
           <div>
             <strong>{FACTION_SHIP_LIMIT.toLocaleString('en-US')}-ship limit reached</strong>
             <p>Production resumes below {FACTION_SHIP_LIMIT.toLocaleString('en-US')} ships. Planets with {LOW_GARRISON_THRESHOLD} or fewer ships and Omni Strike can bypass the limit.</p>
           </div>
-          <button type="button" aria-label="Dismiss ship limit notice" onClick={() => setShipLimitNotice(0)}>OK</button>
         </div>
       )}
 

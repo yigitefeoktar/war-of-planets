@@ -157,13 +157,18 @@ test('limit notices fire once per crossing and rearm after dropping below the ca
   const { engine, tick } = match();
   engine.addBase('blue', 1000, 1000, BLUE, FACTION_SHIP_LIMIT - 1);
   const notices: string[] = [];
+  const limitChanges: [string, boolean][] = [];
   engine.onShipLimitReached = color => notices.push(color);
+  engine.onShipLimitChanged = (color, active) => limitChanges.push([color, active]);
   tick(); tick(); tick();
   assert.deepEqual(notices, [BLUE]);
+  assert.deepEqual(limitChanges, [[BLUE, true]]);
   engine.pixels[0].dead = true;
   engine.update(0);
+  assert.deepEqual(limitChanges, [[BLUE, true], [BLUE, false]]);
   tick();
   assert.deepEqual(notices, [BLUE, BLUE]);
+  assert.deepEqual(limitChanges, [[BLUE, true], [BLUE, false], [BLUE, true]]);
 });
 
 test('starting above the limit stops production without deleting any ships', () => {
