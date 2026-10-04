@@ -62,7 +62,7 @@ export function drawPlanetEffects(ctx: CanvasRenderingContext2D, base: Base) {
   }
 }
 
-export function drawRepelledShips(ctx: CanvasRenderingContext2D, ships: readonly RepelledShip[]) {
+export function drawRepelledShips(ctx: CanvasRenderingContext2D, ships: RepelledShip[]) {
   for (const ship of ships) {
     ctx.save(); ctx.translate(ship.x, ship.y);
     ctx.strokeStyle = '#b9efff'; ctx.lineWidth = 2; ctx.globalAlpha = Math.min(1, ship.life * 5);

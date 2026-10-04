@@ -7,7 +7,6 @@ import { assignQuickMatchSuperweaponPlanets, isPointAccessible, SUPERWEAPON_CHAR
 import { SUPERWEAPON_VISUALS, superweaponIconLayout } from './superweaponVisuals';
 import { galaxyAppearance, type GalaxyTheme } from './galaxy';
 import { overlapsView, visibleWorldBounds } from './visibility';
-import { ShipRendering, SHIP_DETAIL_LIMITS, sampleEffects } from './shipRendering';
 
 interface Star {
   x: number;
@@ -142,8 +141,6 @@ export class GameEngine {
   private territoryClusters: TerritoryCluster[] = [];
   private territorySignature = '';
   private lastTerritoryUpdate = Number.NEGATIVE_INFINITY;
-  readonly shipRendering = new ShipRendering();
-  private crowdedDefenders = new Map<string, Pixel[]>();
 
   // Callbacks for sound/events
   onCapture?: (baseId: string, color: string) => void;
@@ -701,19 +698,9 @@ export class GameEngine {
     }
 
     // Update base pixel counts and group defenders
-    // Reuse scratch storage only in the high-count path. Ship order and the
-    // exact combat/update sequence remain identical to the regular path.
-    const crowded = this.shipRendering.active;
-    if (!crowded) this.crowdedDefenders.clear();
-    const defendersByBase = crowded ? this.crowdedDefenders : new Map<string, Pixel[]>();
-    if (crowded) {
-      for (const [id, defenders] of defendersByBase) {
-        if (!this.bases.has(id)) defendersByBase.delete(id);
-        else defenders.length = 0;
-      }
-    }
+    const defendersByBase = new Map<string, Pixel[]>();
     for (const base of this.bases.values()) {
-      if (!defendersByBase.has(base.id)) defendersByBase.set(base.id, []);
+      defendersByBase.set(base.id, []);
     }
 
     for (const p of this.pixels) {
@@ -872,13 +859,7 @@ export class GameEngine {
     }
 
     // Remove dead pixels
-    if (crowded) {
-      let alive = 0;
-      for (const pixel of this.pixels) if (!pixel.dead) this.pixels[alive++] = pixel;
-      this.pixels.length = alive;
-    } else {
-      this.pixels = this.pixels.filter(p => !p.dead);
-    }
+    this.pixels = this.pixels.filter(p => !p.dead);
   }
 
   private drawGalaxyBackdrop(
@@ -1095,7 +1076,6 @@ export class GameEngine {
   }
 
   draw(ctx: CanvasRenderingContext2D, selectedBaseId: string | null, cameraX: number, cameraY: number, targetingMode: SuperweaponTargetMode = null, selectedGroup?: ReadonlySet<string>) {
-    const crowded = this.shipRendering.update(this.pixels.length, this.particles.length);
     ctx.save();
 
     // Apply screen shake
@@ -1168,8 +1148,7 @@ export class GameEngine {
     ctx.globalAlpha = 1.0;
 
     // Draw particles
-    const visibleParticles = crowded ? sampleEffects(this.particles, view, SHIP_DETAIL_LIMITS.particles) : this.particles;
-    for (const p of visibleParticles) {
+    for (const p of this.particles) {
       ctx.fillStyle = p.color;
       ctx.globalAlpha = p.life / p.maxLife;
       ctx.beginPath();
@@ -1179,31 +1158,11 @@ export class GameEngine {
     ctx.globalAlpha = 1.0; // Reset alpha
 
     // Draw pixels (ships)
-    const isZoomedOut = zoom < 0.6 || crowded;
-    const renderedShips = this.shipRendering.select(this.pixels, view, zoom);
+    const isZoomedOut = zoom < 0.6;
 
     // Draw warp trails first
     ctx.save();
-    if (crowded) {
-      const warps = renderedShips.filter(p => p.isWarp && p.trail && p.trail.length > 1);
-      const stride = Math.max(1, Math.ceil(warps.length / SHIP_DETAIL_LIMITS.trails));
-      const trailsByColor = new Map<string, Pixel[]>();
-      for (let i = 0; i < warps.length; i += stride) {
-        const p = warps[i];
-        if (!trailsByColor.has(p.color)) trailsByColor.set(p.color, []);
-        trailsByColor.get(p.color)!.push(p);
-      }
-      ctx.globalAlpha = 0.35;
-      ctx.lineWidth = 2;
-      for (const [color, ships] of trailsByColor) {
-        ctx.beginPath(); ctx.strokeStyle = color;
-        for (const p of ships) {
-          ctx.moveTo(p.trail![0].x, p.trail![0].y);
-          for (let i = 1; i < p.trail!.length; i++) ctx.lineTo(p.trail![i].x, p.trail![i].y);
-        }
-        ctx.stroke();
-      }
-    } else for (const p of this.pixels) {
+    for (const p of this.pixels) {
       if (p.isWarp && p.trail && p.trail.length > 1) {
         ctx.beginPath();
         ctx.strokeStyle = p.color;
@@ -1222,7 +1181,7 @@ export class GameEngine {
       // High-performance batched vector rendering for zoomed-out view
       // This keeps ships perfectly crisp without the blurriness of scaled images
       const colorGroups = new Map<string, typeof this.pixels>();
-      for (const p of renderedShips) {
+      for (const p of this.pixels) {
         if (!overlapsView(view, p.x, p.y, 12 + 16 / zoom)) continue;
         if (!colorGroups.has(p.color)) colorGroups.set(p.color, []);
         colorGroups.get(p.color)!.push(p);
@@ -1258,7 +1217,7 @@ export class GameEngine {
       }
     } else {
       // Use cached images for close-up view
-      for (const p of renderedShips) {
+      for (const p of this.pixels) {
         if (!overlapsView(view, p.x, p.y, 12 + 16 / zoom)) continue;
         const img = this.getShipImage(p.color);
         ctx.save();
@@ -1273,7 +1232,7 @@ export class GameEngine {
 
     // Keep active barriers and production pulses legible over dense idle fleets.
     for (const base of this.bases.values()) if (visibleBase(base)) drawPlanetEffects(ctx, base);
-    drawRepelledShips(ctx, crowded ? sampleEffects(this.repelledShips, view, SHIP_DETAIL_LIMITS.repelled) : this.repelledShips);
+    drawRepelledShips(ctx, this.repelledShips);
 
     // Draw bases (planets)
     for (const base of this.bases.values()) {
