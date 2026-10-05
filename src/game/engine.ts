@@ -8,7 +8,7 @@ import { SUPERWEAPON_VISUALS, superweaponIconLayout } from './superweaponVisuals
 import { galaxyAppearance, type GalaxyTheme } from './galaxy';
 import { overlapsView, visibleWorldBounds } from './visibility';
 
-export const FACTION_SHIP_LIMIT = 10_000;
+export const FACTION_SHIP_LIMIT = 15_000;
 export const LOW_GARRISON_THRESHOLD = 40;
 
 interface Star {

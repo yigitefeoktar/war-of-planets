@@ -22,17 +22,18 @@ function match() {
 
 test('ordinary production stays unchanged below the limit, including neutral and Dyson exclusions', () => {
   const { engine, tick, count } = match();
-  engine.addBase('blue', 1000, 1000, BLUE, 100);
+  engine.addBase('blue', 1000, 1000, BLUE, 10_000);
   engine.addBase('neutral', 3000, 1000, NEUTRAL, 40);
   engine.addBase('sphere', 5000, 1000, RED, 100);
   engine.bases.get('sphere')!.isDysonSphere = true;
   tick();
-  assert.equal(count(BLUE), 101);
+  assert.equal(count(BLUE), 10_001);
   assert.equal(count(NEUTRAL), 40);
   assert.equal(count(RED), 100);
 });
 
-test('all four factions have independent 10,000-ship limits', () => {
+test('all four factions have independent 15,000-ship limits', () => {
+  assert.equal(FACTION_SHIP_LIMIT, 15_000);
   const { engine, tick, count } = match();
   for (const [index, color] of [BLUE, RED, GREEN, YELLOW].entries()) {
     engine.addBase(color, 1000 + index * 3000, 1000, color, color === BLUE ? FACTION_SHIP_LIMIT - 1 : FACTION_SHIP_LIMIT);
@@ -45,16 +46,17 @@ test('all four factions have independent 10,000-ship limits', () => {
 
 test('the cap is shared between planets and production resumes after losses', () => {
   const { engine, tick, count } = match();
-  engine.addBase('first', 1000, 1000, BLUE, 5000);
-  engine.addBase('second', 3000, 1000, BLUE, 4999);
+  const halfLimit = FACTION_SHIP_LIMIT / 2;
+  engine.addBase('first', 1000, 1000, BLUE, halfLimit);
+  engine.addBase('second', 3000, 1000, BLUE, halfLimit - 1);
   tick();
   assert.equal(count(BLUE), FACTION_SHIP_LIMIT);
-  assert.equal(engine.bases.get('second')!.pixelCount, 4999);
+  assert.equal(engine.bases.get('second')!.pixelCount, halfLimit - 1);
   engine.pixels[0].dead = true;
   engine.pixels[1].dead = true;
   tick();
   assert.equal(count(BLUE), FACTION_SHIP_LIMIT);
-  assert.equal(engine.bases.get('second')!.pixelCount, 5000);
+  assert.equal(engine.bases.get('second')!.pixelCount, halfLimit);
 });
 
 test('ships in flight still count toward the cap; launching does not free allowance', () => {
@@ -67,7 +69,7 @@ test('ships in flight still count toward the cap; launching does not free allowa
   }
   tick();
   assert.equal(count(BLUE), FACTION_SHIP_LIMIT);
-  assert.equal(engine.pixels.filter(ship => ship.color === BLUE && ship.state === 'moving').length, 5000);
+  assert.equal(engine.pixels.filter(ship => ship.color === BLUE && ship.state === 'moving').length, FACTION_SHIP_LIMIT / 2);
 });
 
 test('low garrisons bypass the faction cap through 40 ships, then stop at 41', () => {
@@ -138,18 +140,20 @@ test('green bonus production cannot overshoot the ordinary cap', () => {
 
 test('Omni Strike bypasses the cap and immediately reports reaching it', () => {
   const { engine, count, tick } = match();
-  engine.addBase('source', 1000, 1000, BLUE, 9900);
+  const startingShips = FACTION_SHIP_LIMIT - 100;
+  const summonedShips = Math.floor(startingShips * 0.3);
+  engine.addBase('source', 1000, 1000, BLUE, startingShips);
   engine.addBase('target', 1300, 1000, NEUTRAL, 40);
   const notices: string[] = [];
   engine.onShipLimitReached = color => notices.push(color);
   engine.setSuperweaponCharge(BLUE, 'omni', 1);
   assert.equal(engine.activateOmniStrike(BLUE, 'target'), true);
-  assert.equal(count(BLUE), 12_870);
-  assert.equal(engine.pixels.filter(ship => ship.isWarp && ship.color === BLUE).length, 2970);
+  assert.equal(count(BLUE), startingShips + summonedShips);
+  assert.equal(engine.pixels.filter(ship => ship.isWarp && ship.color === BLUE).length, summonedShips);
   assert.deepEqual(notices, [BLUE]);
   for (const ship of engine.pixels) if (ship.color === BLUE) { ship.x = 1000; ship.y = 1000; }
   tick();
-  assert.equal(count(BLUE), 12_870);
+  assert.equal(count(BLUE), startingShips + summonedShips);
   assert.deepEqual(notices, [BLUE]);
 });
 

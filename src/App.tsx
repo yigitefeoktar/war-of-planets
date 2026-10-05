@@ -1563,7 +1563,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
                   boxShadow: faction.isAlive ? `0 0 12px ${faction.color}` : 'none' 
                 }} 
               />
-              <span className={`font-mono text-sm sm:text-lg md:text-xl font-bold text-white tracking-wider w-8 sm:w-12 md:w-16 text-left ${faction.shipCount >= FACTION_SHIP_LIMIT ? 'faction-ship-count-large' : ''}`}>
+              <span className={`font-mono text-sm sm:text-lg md:text-xl font-bold text-white tracking-wider w-8 sm:w-12 md:w-16 text-left ${faction.shipCount >= 10_000 ? 'faction-ship-count-large' : ''}`}>
                 {faction.isAlive ? faction.shipCount : 'OUT'}
               </span>
             </div>
