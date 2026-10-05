@@ -1366,7 +1366,7 @@ export class GameEngine {
       ctx.save();
       ctx.translate(drawX, drawY);
       
-      if (isOutOfRange) {
+      if (isOutOfRange && !base.isCapital) {
         ctx.globalAlpha = 0.3;
       }
 
