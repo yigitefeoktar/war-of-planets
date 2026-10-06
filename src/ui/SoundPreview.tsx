@@ -81,6 +81,7 @@ export default function SoundPreview() {
       <div className="mx-auto max-w-2xl">
         <h1 className="text-2xl font-bold">War of Planets — sound effects</h1>
         <p className="mt-2">All 15 game effects plus four replacement options. One sound at a time.</p>
+        <p className="mt-2 text-sm text-slate-600">Balanced mix: quiet controls, clear gameplay cues, and slightly louder major events.</p>
         <p role="status" className="my-4 min-h-6 font-medium">{status}</p>
         <section aria-labelledby="rejected-order-title">
           <h2 id="rejected-order-title" className="text-lg font-bold">Rejected order — compare replacements</h2>

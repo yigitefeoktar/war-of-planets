@@ -1,4 +1,5 @@
 import { scheduleMutedKnock } from './audio/mutedKnock';
+import { createEffectsBus, createSoundVoice } from './audio/soundMix';
 
 let audioCtx: AudioContext | null = null;
 let masterGain: GainNode | null = null;
@@ -12,8 +13,7 @@ const getAudioContext = () => {
     audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({
       latencyHint: 'interactive'
     });
-    masterGain = audioCtx.createGain();
-    masterGain.connect(audioCtx.destination);
+    masterGain = createEffectsBus(audioCtx);
     
     (window as any)._audioCtx = audioCtx;
   }
@@ -56,38 +56,39 @@ export const playSound = (type: SoundType, enabled: boolean) => {
     // Use a small look-ahead (10ms) to ensure the sound is scheduled in the future
     // and avoid "late" sound warnings/delays in the audio thread.
     const now = ctx.currentTime + 0.01;
+    const voice = createSoundVoice(ctx, masterGain!, type);
     
     if (type === 'overdrive' || type === 'repulse' || type === 'productionBurst' || type === 'shieldImpact') {
       const reactor = type === 'overdrive' || type === 'productionBurst';
       const short = type === 'productionBurst' || type === 'shieldImpact';
       const duration = short ? 0.12 : 0.65;
       for (const harmonic of [1, 1.5, 2]) {
-        const osc = ctx.createOscillator();
+        const osc = voice.track(ctx.createOscillator());
         const gain = ctx.createGain();
         osc.type = reactor ? 'triangle' : 'sine';
         osc.frequency.setValueAtTime((reactor ? 90 : 650) * harmonic, now);
         osc.frequency.exponentialRampToValueAtTime((reactor ? 420 : 100) * harmonic, now + duration);
         gain.gain.setValueAtTime(short ? 0.008 : 0.04, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-        osc.connect(gain); gain.connect(masterGain!); osc.start(now); osc.stop(now + duration);
+        osc.connect(gain); gain.connect(voice.output); osc.start(now); osc.stop(now + duration);
       }
     } else if (type === 'hover') {
       // Crystalline Blip (detuned high-frequency sines)
       [1600, 1610].forEach((freq) => {
-        const osc = ctx.createOscillator();
+        const osc = voice.track(ctx.createOscillator());
         const gain = ctx.createGain();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, now);
         gain.gain.setValueAtTime(0.01, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
         osc.connect(gain);
-        gain.connect(masterGain!);
+        gain.connect(voice.output);
         osc.start(now);
         osc.stop(now + 0.02);
       });
     } else if (type === 'click') {
       // Neural Link click (glassy resonance)
-      const osc = ctx.createOscillator();
+      const osc = voice.track(ctx.createOscillator());
       const gain = ctx.createGain();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(3000, now);
@@ -95,13 +96,13 @@ export const playSound = (type: SoundType, enabled: boolean) => {
       gain.gain.setValueAtTime(0.015, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.01);
       osc.connect(gain);
-      gain.connect(masterGain!);
+      gain.connect(voice.output);
       osc.start(now);
       osc.stop(now + 0.01);
     } else if (type === 'select') {
       // Module Online chirp (fast 3-note ascending arpeggio)
       [1200, 1800, 2400].forEach((freq, i) => {
-        const osc = ctx.createOscillator();
+        const osc = voice.track(ctx.createOscillator());
         const gain = ctx.createGain();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, now + i * 0.02);
@@ -109,15 +110,15 @@ export const playSound = (type: SoundType, enabled: boolean) => {
         gain.gain.linearRampToValueAtTime(0.015, now + i * 0.02 + 0.005);
         gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.02 + 0.04);
         osc.connect(gain);
-        gain.connect(masterGain!);
+        gain.connect(voice.output);
         osc.start(now + i * 0.02);
         osc.stop(now + i * 0.02 + 0.04);
       });
     } else if (type === 'error') {
-      scheduleMutedKnock(ctx, masterGain!, now);
+      scheduleMutedKnock(ctx, voice.output, now).forEach(voice.track);
     } else if (type === 'launch') {
       // Clean high-velocity power surge (no LFO)
-      const osc = ctx.createOscillator();
+      const osc = voice.track(ctx.createOscillator());
       const gain = ctx.createGain();
 
       osc.type = 'sine';
@@ -128,7 +129,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
 
       osc.connect(gain);
-      gain.connect(masterGain!);
+      gain.connect(voice.output);
 
       osc.start(now);
       osc.stop(now + 0.3);
@@ -137,7 +138,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
       
       // 1. Fast Double-Blip (High Precision)
       [2800, 3200].forEach((freq, i) => {
-        const osc = ctx.createOscillator();
+        const osc = voice.track(ctx.createOscillator());
         const gain = ctx.createGain();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, now + i * 0.04);
@@ -145,13 +146,13 @@ export const playSound = (type: SoundType, enabled: boolean) => {
         gain.gain.linearRampToValueAtTime(0.015, now + i * 0.04 + 0.005);
         gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.04 + 0.03);
         osc.connect(gain);
-        gain.connect(masterGain!);
+        gain.connect(voice.output);
         osc.start(now + i * 0.04);
         osc.stop(now + i * 0.04 + 0.05);
       });
 
       // 2. Resonant Thrum (System Lock)
-      const thrumOsc = ctx.createOscillator();
+      const thrumOsc = voice.track(ctx.createOscillator());
       const thrumGain = ctx.createGain();
       thrumOsc.type = 'triangle';
       thrumOsc.frequency.setValueAtTime(440, now + 0.08);
@@ -160,7 +161,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
       thrumGain.gain.linearRampToValueAtTime(0.02, now + 0.1);
       thrumGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
       thrumOsc.connect(thrumGain);
-      thrumGain.connect(masterGain!);
+      thrumGain.connect(voice.output);
       thrumOsc.start(now + 0.08);
       thrumOsc.stop(now + 0.4);
 
@@ -171,18 +172,18 @@ export const playSound = (type: SoundType, enabled: boolean) => {
       for (let i = 0; i < bufferSize; i++) {
         data[i] = Math.random() * 2 - 1;
       }
-      const noise = ctx.createBufferSource();
+      const noise = voice.track(ctx.createBufferSource());
       noise.buffer = buffer;
       const noiseGain = ctx.createGain();
       noiseGain.gain.setValueAtTime(0.01, now + 0.08);
       noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
       noise.connect(noiseGain);
-      noiseGain.connect(masterGain!);
+      noiseGain.connect(voice.output);
       noise.start(now + 0.08);
       noise.stop(now + 0.13);
     } else if (type === 'charge') {
       // Omni-Strike Charging (rising frequency + pulsing filter)
-      const osc = ctx.createOscillator();
+      const osc = voice.track(ctx.createOscillator());
       const gain = ctx.createGain();
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(100, now);
@@ -193,14 +194,14 @@ export const playSound = (type: SoundType, enabled: boolean) => {
       gain.gain.linearRampToValueAtTime(0, now + 1.5);
       
       osc.connect(gain);
-      gain.connect(masterGain!);
+      gain.connect(voice.output);
       osc.start(now);
       osc.stop(now + 1.5);
     } else if (type === 'omniLaunch') {
       // Massive Orbital Strike (Laser Zap + Sub-Bass Drop + Heavy Crash)
       
       // 1. The Initial Zap (High-energy laser)
-      const zapOsc = ctx.createOscillator();
+      const zapOsc = voice.track(ctx.createOscillator());
       const zapGain = ctx.createGain();
       zapOsc.type = 'sawtooth';
       zapOsc.frequency.setValueAtTime(2000, now);
@@ -208,12 +209,12 @@ export const playSound = (type: SoundType, enabled: boolean) => {
       zapGain.gain.setValueAtTime(0.03, now);
       zapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
       zapOsc.connect(zapGain);
-      zapGain.connect(masterGain!);
+      zapGain.connect(voice.output);
       zapOsc.start(now);
       zapOsc.stop(now + 0.3);
 
       // 2. The Sub-Bass Drop (Massive impact)
-      const bassOsc = ctx.createOscillator();
+      const bassOsc = voice.track(ctx.createOscillator());
       const bassGain = ctx.createGain();
       bassOsc.type = 'sine';
       bassOsc.frequency.setValueAtTime(150, now);
@@ -221,7 +222,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
       bassGain.gain.setValueAtTime(0.04, now);
       bassGain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
       bassOsc.connect(bassGain);
-      bassGain.connect(masterGain!);
+      bassGain.connect(voice.output);
       bassOsc.start(now);
       bassOsc.stop(now + 1.5);
 
@@ -232,7 +233,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
       for (let i = 0; i < bufferSize; i++) {
         data[i] = Math.random() * 2 - 1;
       }
-      const noise = ctx.createBufferSource();
+      const noise = voice.track(ctx.createBufferSource());
       noise.buffer = buffer;
       
       // Filter the noise to make it sound like a heavy explosion, not just static
@@ -247,13 +248,13 @@ export const playSound = (type: SoundType, enabled: boolean) => {
       
       noise.connect(filter);
       filter.connect(noiseGain);
-      noiseGain.connect(masterGain!);
+      noiseGain.connect(voice.output);
       
       noise.start(now);
       noise.stop(now + 1.0);
     } else if (type === 'capitalDestroyed') {
       // Massive structural collapse / Supernova
-      const osc = ctx.createOscillator();
+      const osc = voice.track(ctx.createOscillator());
       const gain = ctx.createGain();
       osc.type = 'square';
       osc.frequency.setValueAtTime(100, now);
@@ -263,7 +264,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
       gain.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
       
       osc.connect(gain);
-      gain.connect(masterGain!);
+      gain.connect(voice.output);
       osc.start(now);
       osc.stop(now + 2.0);
 
@@ -274,7 +275,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
       for (let i = 0; i < bufferSize; i++) {
         data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.5));
       }
-      const noise = ctx.createBufferSource();
+      const noise = voice.track(ctx.createBufferSource());
       noise.buffer = buffer;
       
       const filter = ctx.createBiquadFilter();
@@ -288,14 +289,14 @@ export const playSound = (type: SoundType, enabled: boolean) => {
       
       noise.connect(filter);
       filter.connect(noiseGain);
-      noiseGain.connect(masterGain!);
+      noiseGain.connect(voice.output);
       noise.start(now);
       noise.stop(now + 2.0);
     } else if (type === 'win') {
       // Triumphant ascending chord (C major: C4, E4, G4, C5)
       const freqs = [261.63, 329.63, 392.00, 523.25];
       freqs.forEach((freq, i) => {
-        const osc = ctx.createOscillator();
+        const osc = voice.track(ctx.createOscillator());
         const gain = ctx.createGain();
         osc.type = 'sine';
         
@@ -308,7 +309,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
         gain.gain.exponentialRampToValueAtTime(0.001, startTime + 2.0);
         
         osc.connect(gain);
-        gain.connect(masterGain!);
+        gain.connect(voice.output);
         osc.start(startTime);
         osc.stop(startTime + 2.0);
       });
@@ -317,7 +318,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
       
       // 1. Dissonant failing siren (two clashing square waves pitching down)
       [300, 315].forEach((freq) => {
-        const osc = ctx.createOscillator();
+        const osc = voice.track(ctx.createOscillator());
         const gain = ctx.createGain();
         osc.type = 'square';
         osc.frequency.setValueAtTime(freq, now);
@@ -335,7 +336,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
 
         osc.connect(filter);
         filter.connect(gain);
-        gain.connect(masterGain!);
+        gain.connect(voice.output);
 
         osc.start(now);
         osc.stop(now + 2.5);
@@ -351,7 +352,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
         data[i] = (Math.random() * 2 - 1) * spark;
       }
       
-      const noise = ctx.createBufferSource();
+      const noise = voice.track(ctx.createBufferSource());
       noise.buffer = buffer;
       
       const noiseFilter = ctx.createBiquadFilter();
@@ -365,7 +366,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
 
       noise.connect(noiseFilter);
       noiseFilter.connect(noiseGain);
-      noiseGain.connect(masterGain!);
+      noiseGain.connect(voice.output);
 
       noise.start(now);
       noise.stop(now + 1.5);

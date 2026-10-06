@@ -1,5 +1,6 @@
 // Shared by the game and Option 2 so the selected preview stays identical.
 export function scheduleMutedKnock(ctx: AudioContext, destination: AudioNode, start: number) {
+  const sources: OscillatorNode[] = [];
   for (const tone of [
     { frequency: 380, duration: 0.14, volume: 0.018, waveform: 'triangle' },
     { frequency: 190, duration: 0.1, volume: 0.006, waveform: 'sine' },
@@ -17,5 +18,7 @@ export function scheduleMutedKnock(ctx: AudioContext, destination: AudioNode, st
     osc.onended = () => { osc.disconnect(); gain.disconnect(); };
     osc.start(start);
     osc.stop(start + tone.duration);
+    sources.push(osc);
   }
+  return sources;
 }
