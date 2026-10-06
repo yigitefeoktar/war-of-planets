@@ -237,7 +237,7 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
   );
 }
 
-function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRetry, onMenu, resultDetail, victoryTitle, actionLabel, isChapterComplete, isLastChapterLevel }: { isSoundEnabled: boolean, isMusicEnabled: boolean, isHardMode: boolean, map?: MapDefinition, onResult: (won: boolean) => void, onRetry: () => void, onMenu: () => void, resultDetail: string, victoryTitle?: string, actionLabel: string, isChapterComplete: boolean, isLastChapterLevel: boolean }) {
+function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRetry, onMenu, resultDetail, victoryTitle, actionLabel, isChapterComplete }: { isSoundEnabled: boolean, isMusicEnabled: boolean, isHardMode: boolean, map?: MapDefinition, onResult: (won: boolean) => void, onRetry: () => void, onMenu: () => void, resultDetail: string, victoryTitle?: string, actionLabel: string, isChapterComplete: boolean }) {
   const onResultRef = useRef(onResult);
   onResultRef.current = onResult;
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1813,7 +1813,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
               </span>
             </motion.button>
 
-            {!isLastChapterLevel && <button
+            {!isChapterComplete && <button
               type="button"
               onMouseEnter={() => playSound('hover', isSoundEnabled)}
               onClick={() => {
@@ -1933,7 +1933,6 @@ export default function App() {
     isSoundEnabled={isSoundEnabled} isMusicEnabled={isMusicEnabled} isHardMode={session.mode === 'hard-mode'}
     onResult={onResult} resultDetail={resultDetail} victoryTitle={isChapterFinale ? 'HELIOS SECURED' : undefined}
     isChapterComplete={isChapterComplete}
-    isLastChapterLevel={isLastChapterLevel}
     actionLabel={isChapterComplete ? 'Back to Main Menu' : result && followingMap ? 'Next Mission' : session.map ? result ? 'Replay Mission' : 'Retry Mission' : session.mode === 'hard-mode' ? 'New Hard Match' : 'New Quick Match'}
     onRetry={() => begin(session.mode, result && followingMap ? followingMap : session.map)}
     onMenu={() => { setSession(null); setResult(null); setMusicEnabled(isMusicEnabled); }} /></React.Fragment>;
