@@ -462,12 +462,13 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     engine.onLaunch = (fromId, toId) => {
       const base = engine.bases.get(fromId);
       if (base?.color === '#3b82f6') {
-        updateTutorial({ type: 'launch', hostile: engine.bases.get(toId)?.color !== '#3b82f6', now: tutorialTime });
+        updateTutorial({ type: 'launch', hostile: engine.bases.get(toId)?.color !== '#3b82f6' });
         playSound('launch', isSoundEnabledRef.current);
       }
     };
 
-    engine.onCapture = (_, color) => {
+    engine.onCapture = (baseId, color) => {
+      updateTutorial({ type: 'capture', targetCaptured: color === '#3b82f6' && baseId === map?.tutorial?.attackTargetId, now: tutorialTime });
       if (color === '#3b82f6') {
         playSound('capture', isSoundEnabledRef.current);
       }

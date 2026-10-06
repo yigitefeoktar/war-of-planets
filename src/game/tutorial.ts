@@ -3,11 +3,12 @@ import type { Base } from './types';
 
 export const TUTORIAL_ACCENT = '#73dcff'; // Existing Chapter 1 card accent.
 export const TUTORIAL_PULSE_MS = 700;
-export const TUTORIAL_POST_ATTACK_DELAY_MS = 4000;
+export const TUTORIAL_POST_CAPTURE_DELAY_MS = 2000;
 export type TutorialState = { step: 'select' | 'attack' | 'watch' | 'capitals' | 'done'; capitalsReadyAt?: number };
 export type TutorialEvent =
   | { type: 'selection'; playerSelected: boolean }
-  | { type: 'launch'; hostile: boolean; now?: number }
+  | { type: 'launch'; hostile: boolean }
+  | { type: 'capture'; targetCaptured: boolean; now: number }
   | { type: 'tick'; now: number }
   | { type: 'dismiss' };
 
@@ -18,8 +19,9 @@ export function advanceTutorial(state: TutorialState, event: TutorialEvent): Tut
     const step = event.playerSelected ? 'attack' : 'select';
     return step === state.step ? state : { ...state, step };
   }
-  if (event.type === 'launch' && event.hostile && (state.step === 'select' || state.step === 'attack')) return { step: 'watch', capitalsReadyAt: (event.now ?? 0) + TUTORIAL_POST_ATTACK_DELAY_MS };
-  if (event.type === 'tick' && state.step === 'watch' && event.now >= state.capitalsReadyAt!) return { step: 'capitals' };
+  if (event.type === 'launch' && event.hostile && (state.step === 'select' || state.step === 'attack')) return { step: 'watch' };
+  if (event.type === 'capture' && event.targetCaptured && state.step === 'watch' && state.capitalsReadyAt === undefined) return { ...state, capitalsReadyAt: event.now + TUTORIAL_POST_CAPTURE_DELAY_MS };
+  if (event.type === 'tick' && state.step === 'watch' && state.capitalsReadyAt !== undefined && event.now >= state.capitalsReadyAt) return { step: 'capitals' };
   return state;
 }
 
