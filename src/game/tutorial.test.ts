@@ -1,18 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { advanceTutorial, drawTutorialHighlights, tutorialTargets, TUTORIAL_ACCENT, TUTORIAL_PULSE_MS, TUTORIAL_ZOOM_DELAY_MS, type TutorialState } from './tutorial';
+import { advanceTutorial, drawTutorialHighlights, tutorialTargets, TUTORIAL_ACCENT, TUTORIAL_PULSE_MS, TUTORIAL_POST_ATTACK_DELAY_MS, type TutorialState } from './tutorial';
 import { FIRST_STRIKE, TURNING_TIDE, PLAYER, NEUTRAL, validateMap } from './campaign';
 import { createMatch } from './mapLoader';
 
-test('tutorial follows select, attack, real zoom-out, and win-condition acknowledgement', () => {
+test('tutorial follows select, attack, and win-condition acknowledgement without zooming', () => {
   let state: TutorialState = { step: 'select' };
   state = advanceTutorial(state, { type: 'selection', playerSelected: true });
   assert.equal(state.step, 'attack');
-  state = advanceTutorial(state, { type: 'launch', hostile: true, zoom: 0.5 });
+  state = advanceTutorial(state, { type: 'launch', hostile: true });
   assert.equal(state.step, 'watch');
-  state = advanceTutorial(state, { type: 'tick', now: TUTORIAL_ZOOM_DELAY_MS });
-  assert.equal(state.step, 'zoom');
-  state = advanceTutorial(state, { type: 'zoom', before: 0.5, after: 0.44 });
+  state = advanceTutorial(state, { type: 'tick', now: TUTORIAL_POST_ATTACK_DELAY_MS });
   assert.equal(state.step, 'capitals');
   state = advanceTutorial(state, { type: 'dismiss' });
   assert.equal(state.step, 'done');
@@ -21,24 +19,16 @@ test('tutorial follows select, attack, real zoom-out, and win-condition acknowle
 test('deselecting returns to selection; unrelated actions cannot advance prompts', () => {
   const start: TutorialState = { step: 'select' };
   assert.equal(advanceTutorial(start, { type: 'selection', playerSelected: false }), start);
-  assert.equal(advanceTutorial(start, { type: 'zoom', before: 1, after: 0.5 }), start);
-  assert.equal(advanceTutorial(start, { type: 'launch', hostile: false, zoom: 1 }), start);
+  assert.equal(advanceTutorial(start, { type: 'tick', now: 5000 }), start);
+  assert.equal(advanceTutorial(start, { type: 'launch', hostile: false }), start);
   const selected = advanceTutorial(start, { type: 'selection', playerSelected: true });
   assert.equal(advanceTutorial(selected, { type: 'selection', playerSelected: false }).step, 'select');
   // Rapid select-and-launch between animation frames must work too.
-  assert.equal(advanceTutorial(start, { type: 'launch', hostile: true, zoom: 0.5 }).step, 'watch');
-});
-
-test('zoom-in and tiny wheel noise do not finish zoom lesson; cumulative pinch-out does', () => {
-  const zoom: TutorialState = { step: 'zoom', zoomStart: 0.5 };
-  assert.equal(advanceTutorial(zoom, { type: 'zoom', before: 0.5, after: 0.6 }), zoom);
-  assert.equal(advanceTutorial(zoom, { type: 'zoom', before: 0.5, after: 0.49 }), zoom);
-  assert.equal(advanceTutorial(zoom, { type: 'zoom', before: 0.46, after: 0.449 }).step, 'capitals');
-  assert.equal(advanceTutorial(zoom, { type: 'selection', playerSelected: false }), zoom);
+  assert.equal(advanceTutorial(start, { type: 'launch', hostile: true }).step, 'watch');
 });
 
 test('every lesson can be skipped and skipped tutorials never reopen', () => {
-  for (const step of ['select', 'attack', 'watch', 'zoom', 'capitals'] as const) {
+  for (const step of ['select', 'attack', 'watch', 'capitals'] as const) {
     const state = advanceTutorial({ step }, { type: 'dismiss' });
     assert.equal(state.step, 'done');
     assert.equal(advanceTutorial(state, { type: 'selection', playerSelected: true }), state);
@@ -111,15 +101,6 @@ test('tutorial first attack leads to a reachable second step toward the enemy ca
   assert.ok(FIRST_STRIKE.planets.some(planet => planet.owner === NEUTRAL && distance('player_1', planet.id) <= FIRST_STRIKE.attackRange));
 });
 
-test('touch tutorial requires zooming to the overview, not just one small wheel step', () => {
-  let state = advanceTutorial({ step: 'attack' }, { type: 'launch', hostile: true, zoom: 0.6, overviewZoom: 0.23 });
-  state = advanceTutorial(state, { type: 'tick', now: TUTORIAL_ZOOM_DELAY_MS });
-  state = advanceTutorial(state, { type: 'zoom', before: 0.6, after: 0.5 });
-  assert.equal(state.step, 'zoom');
-  state = advanceTutorial(state, { type: 'zoom', before: 0.3, after: 0.23 });
-  assert.equal(state.step, 'capitals');
-});
-
 test('click cues draw blue circles whose radius pulses, without arrow geometry', () => {
   const circles: number[][] = [];
   const context = {
@@ -138,47 +119,14 @@ test('click cues draw blue circles whose radius pulses, without arrow geometry',
   assert.ok(circles[1][2] > circles[0][2]);
 });
 
-test('zoom cue waits four active seconds after launch and later launches do not restart the delay', () => {
-  const launch = { type: 'launch', hostile: true, zoom: 0.6, now: 12000 } as const;
+test('win-condition lesson waits four active seconds after launch and later launches do not restart the delay', () => {
+  const launch = { type: 'launch', hostile: true, now: 12000 } as const;
   const waiting = advanceTutorial({ step: 'attack' }, launch);
   assert.equal(waiting.step, 'watch');
-  assert.equal(waiting.zoomReadyAt, 16000);
+  assert.equal(waiting.capitalsReadyAt, 16000);
   assert.equal(advanceTutorial(waiting, { type: 'tick', now: 15999 }), waiting);
   assert.equal(advanceTutorial(waiting, { type: 'selection', playerSelected: true }), waiting);
   assert.equal(advanceTutorial(waiting, { ...launch, now: 15000 }), waiting);
   assert.equal(tutorialTargets(waiting, [], null, undefined, 600).length, 0);
-  assert.equal(advanceTutorial(waiting, { type: 'tick', now: 16000 }).step, 'zoom');
-});
-
-test('early manual zoom is remembered without showing the next lesson immediately', () => {
-  let state = advanceTutorial({ step: 'attack' }, { type: 'launch', hostile: true, zoom: 0.6, overviewZoom: 0.23, now: 0 });
-  state = advanceTutorial(state, { type: 'zoom', before: 0.6, after: 0.2 });
-  assert.equal(state.step, 'watch');
-  assert.equal(state.zoomCompleted, true);
-  assert.equal(advanceTutorial(state, { type: 'tick', now: 3999 }).step, 'watch');
-  assert.equal(advanceTutorial(state, { type: 'tick', now: 4000 }).step, 'capitals');
-  const skipped = advanceTutorial(state, { type: 'dismiss' });
-  assert.equal(advanceTutorial(skipped, { type: 'tick', now: 4000 }).step, 'done');
-});
-
-test('PC tutorial skips zoom entirely after the normal post-attack delay', () => {
-  let state: TutorialState = { step: 'select', showZoomLesson: false };
-  state = advanceTutorial(state, { type: 'selection', playerSelected: true });
-  assert.equal(state.showZoomLesson, false);
-  state = advanceTutorial(state, { type: 'launch', hostile: true, zoom: 0.6, now: 0 });
-  assert.equal(state.step, 'watch');
-  state = advanceTutorial(state, { type: 'tick', now: 3999 });
-  assert.equal(state.step, 'watch');
-  state = advanceTutorial(state, { type: 'tick', now: 4000 });
-  assert.equal(state.step, 'capitals');
-  assert.equal(state.showZoomLesson, false);
-});
-
-test('touch tutorial retains its delayed zoom lesson', () => {
-  let state: TutorialState = { step: 'select', showZoomLesson: true };
-  state = advanceTutorial(state, { type: 'selection', playerSelected: true });
-  state = advanceTutorial(state, { type: 'launch', hostile: true, zoom: 0.3, now: 0 });
-  state = advanceTutorial(state, { type: 'tick', now: 4000 });
-  assert.equal(state.step, 'zoom');
-  assert.equal(state.showZoomLesson, true);
+  assert.equal(advanceTutorial(waiting, { type: 'tick', now: 16000 }).step, 'capitals');
 });

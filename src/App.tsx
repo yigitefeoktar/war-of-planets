@@ -7,7 +7,6 @@ import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAud
 import { ModeCard } from './ui/ModeCard';
 import { AnimatedGamePopup } from './ui/AnimatedGamePopup';
 import { advanceTutorial, drawTutorialHighlights, tutorialTargets, type TutorialState, type TutorialEvent } from './game/tutorial';
-import './ui/Tutorial.css';
 import { hasIncomingHostile, issueFleetOrder, issueFriendlyGroupOrder } from './game/logistics';
 import { MIN_MULTI_SELECT_PLANETS, canUseMultiSelect, countOwnedPlanets, friendlyPlanetsInRectangle, type SelectionPoint } from './game/selection';
 import { FACTION_SHIP_LIMIT, GameEngine } from './game/engine';
@@ -250,8 +249,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   const [showUI, setShowUI] = useState(false);
   const [tutorial, setTutorial] = useState<TutorialState>(() => ({
     step: map?.tutorial ? 'select' : 'done',
-    // Use input capability, not window size: a narrow desktop is still a PC.
-    showZoomLesson: window.matchMedia('(hover: none) and (pointer: coarse)').matches,
   }));
   const tutorialRef = useRef(tutorial);
   const updateTutorial = (event: TutorialEvent) => {
@@ -464,7 +461,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     engine.onLaunch = (fromId, toId) => {
       const base = engine.bases.get(fromId);
       if (base?.color === '#3b82f6') {
-        updateTutorial({ type: 'launch', hostile: engine.bases.get(toId)?.color !== '#3b82f6', zoom: cameraZoom, overviewZoom: Math.min(width / WORLD_WIDTH, height / WORLD_HEIGHT) * 0.9, now: tutorialTime });
+        updateTutorial({ type: 'launch', hostile: engine.bases.get(toId)?.color !== '#3b82f6', now: tutorialTime });
         playSound('launch', isSoundEnabledRef.current);
       }
     };
@@ -817,7 +814,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
       const zoomFactor = Math.exp(-e.deltaY * 0.002);
       const newZoom = clampZoom(cameraZoom * zoomFactor, getZoomLimits());
-      updateTutorial({ type: 'zoom', before: cameraZoom, after: newZoom });
 
       // Manual wheel zoom stays direct, anchored to the cursor.
       cameraX = worldX - (mouseX / newZoom);
@@ -898,7 +894,6 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         const rawFactor = lastPinchDist > 0 ? dist / lastPinchDist : 1;
         const zoomFactor = Math.max(0.5, Math.min(rawFactor, 2.0));
         const newZoom = clampZoom(cameraZoom * zoomFactor, getZoomLimits());
-        updateTutorial({ type: 'zoom', before: cameraZoom, after: newZoom });
         cameraX = worldX - (centerScreenX / newZoom);
         cameraY = worldY - (centerScreenY / newZoom);
         cameraZoom = newZoom;
@@ -1828,11 +1823,10 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         </motion.div>
       )}
       {showUI && !winner && !isPaused && !showSurrenderConfirm && tutorial.step !== 'done' && tutorial.step !== 'watch' && <>
-        {tutorial.step === 'zoom' && <div aria-hidden="true" className="tutorial-zoom-gesture"><span className="tutorial-zoom-circle" /><span className="tutorial-zoom-circle" /></div>}
         <section aria-label="How to play" className={`absolute ${tutorial.step === 'capitals' ? 'bottom-44' : 'top-24'} left-4 right-4 z-40 mx-auto max-w-md rounded-xl border border-[#73dcff]/50 bg-slate-950/95 p-4 text-white shadow-xl md:top-auto md:bottom-6 md:right-auto md:w-80`}>
           <div aria-live="polite" aria-atomic="true">
-            <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#73dcff]">{tutorial.step === 'select' || tutorial.step === 'attack' ? `1 / ${tutorial.showZoomLesson === false ? 2 : 3} · Attack` : tutorial.step === 'zoom' ? '2 / 3 · Zoom out' : tutorial.showZoomLesson === false ? '2 / 2 · Win the battle' : '3 / 3 · Win the battle'}</p>
-            <p className="text-sm leading-relaxed">{tutorial.step === 'select' ? 'Click or tap your highlighted BLUE planet to select your fleet.' : tutorial.step === 'attack' ? 'Now click or tap the highlighted RED planet to send your ships and attack.' : tutorial.step === 'zoom' ? 'Fleet launched! Scroll down with your mouse wheel, or pinch two fingers together, to zoom out and see more of the battlefield.' : 'Capture the large RED capital to win this battle. Later battles may have several enemy capitals. Protect your BLUE capital, or you lose.'}</p>
+            <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#73dcff]">{tutorial.step === 'select' || tutorial.step === 'attack' ? '1 / 2 · Attack' : '2 / 2 · Win the battle'}</p>
+            <p className="text-sm leading-relaxed">{tutorial.step === 'select' ? 'Click or tap your highlighted BLUE planet to select your fleet.' : tutorial.step === 'attack' ? 'Now click or tap the highlighted RED planet to send your ships and attack.' : 'Capture the large RED capital to win this battle. Later battles may have several enemy capitals. Protect your BLUE capital, or you lose.'}</p>
           </div>
           <button type="button" onClick={() => updateTutorial({ type: 'dismiss' })} className="mt-3 min-h-11 rounded border border-white/25 px-4 text-sm font-semibold text-cyan-100 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-cyan-300">{tutorial.step === 'capitals' ? 'Got it — let’s win' : 'Skip tutorial'}</button>
         </section>
