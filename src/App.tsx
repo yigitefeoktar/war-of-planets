@@ -76,7 +76,7 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
   };
 
   return (
-    <div className="fixed inset-0 w-full h-[100dvh] bg-[#030305] overflow-hidden font-sans select-none touch-none overscroll-none">
+    <div className="main-menu fixed inset-0 w-full h-[100dvh] bg-[#030305] overflow-hidden font-sans select-none touch-none overscroll-none">
       {/* Cinematic Nebula Background */}
       <div className="absolute inset-0 z-0 opacity-40">
         <motion.div 

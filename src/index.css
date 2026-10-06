@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+/* The mode dialog is portaled outside the main menu. Keep touch feedback
+   free of native highlights while preserving focus indicators for keyboards. */
+.main-menu button, .mode-dialog button {
+  -webkit-tap-highlight-color: transparent;
+}
+.main-menu button:focus:not(:focus-visible), .mode-dialog button:focus:not(:focus-visible) {
+  outline: none;
+}
+.main-menu button:focus-visible, .mode-dialog button:focus-visible {
+  outline: 2px solid #cffafe;
+  outline-offset: 4px;
+}
+
 .game-hud {
   opacity: 0;
   transition: transform .35s cubic-bezier(.2, .7, .2, 1), opacity .25s ease-out;
