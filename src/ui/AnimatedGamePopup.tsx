@@ -1,4 +1,4 @@
-import React, { type CSSProperties, type ReactNode } from 'react';
+import React, { useState, type CSSProperties, type ReactNode } from 'react';
 import { AnimatePresence, motion, useIsPresent, useReducedMotion } from 'motion/react';
 
 type PopupProps = {
@@ -34,11 +34,16 @@ function PopupPanel({ color, className = '', role, label, children }: Omit<Popup
 }
 
 export function AnimatedGamePopup({ id, ...props }: PopupProps) {
-  // Wait retains the outgoing panel and then renders the latest requested panel,
-  // even if priorities change again while its exit animation is running.
+  const [activation, setActivation] = useState({ id, generation: 0 });
+  if (activation.id !== id) {
+    setActivation({ id, generation: activation.generation + 1 });
+  }
+
+  // Reopening a weapon during its exit must create a fresh presence identity.
+  // Reusing the weapon's key can interrupt that exit and leave wait mode stuck.
   return (
     <AnimatePresence mode="wait">
-      {id ? React.createElement(PopupPanel, { ...props, key: id }) : null}
+      {id ? React.createElement(PopupPanel, { ...props, key: activation.generation }) : null}
     </AnimatePresence>
   );
 }
