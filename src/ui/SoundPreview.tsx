@@ -10,7 +10,7 @@ const sounds = {
   hover: { label: 'Button hover', description: 'The pointer enters a menu button.', duration: 0.02 },
   click: { label: 'Button click', description: 'A control is clicked or targeting is cancelled.', duration: 0.01 },
   select: { label: 'Selection / ready', description: 'Select a planet or mode; a weapon or ship limit becomes ready.', duration: 0.08 },
-  error: { label: 'Rejected order', description: 'An order cannot be carried out.', duration: 0.15 },
+  error: { label: 'Rejected order', description: 'An order cannot be carried out — the selected muted knock.', duration: 0.14 },
   launch: { label: 'Fleet launch', description: 'You send ships from a planet.', duration: 0.3 },
   charge: { label: 'Weapon targeting', description: 'Activate superweapon targeting — rising sawtooth buzz.', duration: 1.5 },
   omniLaunch: { label: 'Omni-Strike', description: 'Any faction fires Omni-Strike — zap, bass drop, and crash.', duration: 1.5 },
@@ -27,7 +27,7 @@ const gameSounds: PreviewSound[] = (Object.keys(sounds) as SoundType[]).map(type
   id: type, ...sounds[type], play: () => playSound(type, true),
 }));
 const comparisonSounds: PreviewSound[] = [
-  { id: 'error', ...sounds.error, label: 'Rejected order — current', play: () => playSound('error', true) },
+  { id: 'error', ...sounds.error, label: 'Rejected order — Muted knock (active)', play: () => playSound('error', true) },
   ...(Object.keys(rejectedOrderOptions) as RejectedOrderOption[]).map(option => ({
     id: option, ...rejectedOrderOptions[option], play: () => playRejectedOrderOption(option),
   })),
@@ -84,7 +84,7 @@ export default function SoundPreview() {
         <p role="status" className="my-4 min-h-6 font-medium">{status}</p>
         <section aria-labelledby="rejected-order-title">
           <h2 id="rejected-order-title" className="text-lg font-bold">Rejected order — compare replacements</h2>
-          <p className="mb-3 text-sm text-slate-600">Listen to each option, then tell me which number you prefer.</p>
+          <p className="mb-3 text-sm text-slate-600">Option 2, Muted knock, is now the game's rejected order sound.</p>
           <ul className="space-y-2">{comparisonSounds.map(soundRow)}</ul>
         </section>
         <section aria-labelledby="other-sounds-title" className="mt-6">

@@ -1,3 +1,5 @@
+import { scheduleMutedKnock } from './mutedKnock';
+
 export const rejectedOrderOptions = {
   softTwoNote: { label: 'Option 1 — Soft two-note', description: 'Two short, rounded notes stepping down.', duration: 0.24 },
   mutedKnock: { label: 'Option 2 — Muted knock', description: 'A single soft tap with a little body.', duration: 0.14 },
@@ -39,8 +41,7 @@ export async function playRejectedOrderOption(option: RejectedOrderOption) {
       tone(494, 0.12, 0.12);
       break;
     case 'mutedKnock':
-      tone(380, 0, 0.14, 0.018, 'triangle');
-      tone(190, 0, 0.1, 0.006);
+      scheduleMutedKnock(ctx, ctx.destination, now);
       break;
     case 'gentleChime':
       tone(880, 0, 0.22, 0.014);

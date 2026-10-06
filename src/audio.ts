@@ -1,3 +1,5 @@
+import { scheduleMutedKnock } from './audio/mutedKnock';
+
 let audioCtx: AudioContext | null = null;
 let masterGain: GainNode | null = null;
 let bgMusic: HTMLAudioElement | null = null;
@@ -112,18 +114,7 @@ export const playSound = (type: SoundType, enabled: boolean) => {
         osc.stop(now + i * 0.02 + 0.04);
       });
     } else if (type === 'error') {
-      // System Rejection (fast descending digital chirp)
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(800, now);
-      osc.frequency.exponentialRampToValueAtTime(100, now + 0.15);
-      gain.gain.setValueAtTime(0.02, now);
-      gain.gain.linearRampToValueAtTime(0, now + 0.15);
-      osc.connect(gain);
-      gain.connect(masterGain!);
-      osc.start(now);
-      osc.stop(now + 0.15);
+      scheduleMutedKnock(ctx, masterGain!, now);
     } else if (type === 'launch') {
       // Clean high-velocity power surge (no LFO)
       const osc = ctx.createOscillator();
