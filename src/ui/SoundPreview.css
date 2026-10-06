@@ -1,0 +1,8 @@
+/* The game disables document scrolling and touch gestures globally. */
+html:has(.sound-preview-page),
+html:has(.sound-preview-page) body {
+  overflow-y: auto;
+  touch-action: pan-y;
+  user-select: text;
+  -webkit-user-select: text;
+}
