@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { Maximize, Minimize, Volume2, VolumeX, Music, Pause, Play, Flag, Shield } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
 import { ModeCard } from './ui/ModeCard';
+import { SuperweaponButton } from './ui/SuperweaponButton';
 import { AnimatedGamePopup } from './ui/AnimatedGamePopup';
 import { advanceTutorial, drawTutorialHighlights, tutorialTargets, type TutorialState, type TutorialEvent } from './game/tutorial';
 import { hasIncomingHostile, issueFleetOrder, issueFriendlyGroupOrder } from './game/logistics';
@@ -1670,7 +1671,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         const enemySelected = !!planet && planet.color !== '#3b82f6';
         const weapons = ['overdrive', 'omni', 'repulse'] as SuperweaponId[];
         const labels = { omni: 'Omni Strike', overdrive: 'Production Overdrive', repulse: 'Repulse Shield' };
-        const descriptions = { omni: 'Warp 30% of every idle fleet here.', overdrive: '7x production / 7.5 seconds', repulse: 'Repel and destroy arrivals / 6 seconds' };
+        const descriptions = { omni: 'Warp 30% of every idle fleet here', overdrive: '7x production / 7.5 seconds', repulse: 'Repel and destroy arrivals / 6 seconds' };
         const renderBar = (state: 'normal' | 'enemy') => {
           const showSelectMode = state === 'normal' && engine.multiSelectEnabled;
           const shownPlanet = planet && (state === 'normal') === (planet.color === '#3b82f6') ? planet : undefined;
@@ -1710,26 +1711,18 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
                 const ready = charge.charge > 0 || chargeState.universalCharge > 0;
                 const canProduce = charge.sources > 0 || chargeState.dysonOwned;
                 const progress = Math.max(charge.sources > 0 ? charge.progress : 0, chargeState.dysonOwned ? chargeState.universalProgress : 0);
-                const status = !ready && canProduce ? `Charging · ${Math.max(1, Math.ceil(charge.secondsRemaining ?? 0))}s`
-                  : !ready && charge.progress > 0 ? 'Charge paused · recapture a matching site'
-                  : !ready ? 'Capture a matching weapon planet or Dyson sphere'
-                  : weapon === 'omni' && !engine.hasOmniFleet('#3b82f6') ? 'Need at least 4 idle ships on a world'
-                  : !targets.length ? 'No eligible target' : 'Ready';
+                const [compactStatus, status] = !ready && canProduce ? ['Charging', `Charging · ${Math.max(1, Math.ceil(charge.secondsRemaining ?? 0))}s`]
+                  : !ready && charge.progress > 0 ? ['Paused', 'Charge paused · recapture a matching site']
+                  : !ready ? ['Need site', 'Capture a matching weapon planet or Dyson sphere']
+                  : weapon === 'omni' && !engine.hasOmniFleet('#3b82f6') ? ['Need ships', 'Need at least 4 idle ships on a world']
+                  : !targets.length ? ['No target', 'No eligible target'] : ['Ready', 'Ready'];
                 const canPress = status === 'Ready' || targetingMode === weapon;
-                const visual = SUPERWEAPON_VISUALS[weapon];
-                return <button key={weapon} className={`planet-ability ${weapon}`} style={{ '--weapon-color': visual.color } as React.CSSProperties} disabled={!canPress} aria-label={`${labels[weapon]}. ${status}`} aria-pressed={targetingMode === weapon} onClick={() => activateAbility(weapon)}>
-                  <span className="planet-ability-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      {visual.paths.map(({ d, fill }, index) => <path key={index} d={d} fill={fill ? 'currentColor' : 'none'} stroke={fill ? 'none' : 'currentColor'} />)}
-                    </svg>
-                  </span>
-                  <span className="planet-ability-copy">
-                    <span className="planet-ability-title"><span>{labels[weapon]}</span><strong>{ready ? charge.charge > 0 ? '1 CHARGE' : 'DYSON' : `${Math.floor(progress * 100)}%`}</strong></span>
-                    <span className="planet-ability-description">{descriptions[weapon]}</span>
-                    {!ready && canProduce && <span className="planet-ability-track" role="progressbar" aria-label={`${labels[weapon]} charge`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(progress * 100)}><span style={{ width: `${progress * 100}%` }} /></span>}
-                    <small>{status}{active.length > 0 && ` · Active on ${active.length} ${active.length === 1 ? 'world' : 'worlds'} / ${Math.max(...active)}s`}</small>
-                  </span>
-                </button>;
+                return <React.Fragment key={weapon}><SuperweaponButton weapon={weapon} label={labels[weapon]} description={descriptions[weapon]}
+                  chargeLabel={ready ? charge.charge > 0 ? '1 CHARGE' : 'DYSON' : `${Math.floor(progress * 100)}%`}
+                  status={`${status}${active.length > 0 ? ` · Active on ${active.length} ${active.length === 1 ? 'world' : 'worlds'} / ${Math.max(...active)}s` : ''}`}
+                  compactStatus={active.length > 0 ? `Active · ${Math.max(...active)}s` : compactStatus}
+                  progress={progress} charging={!ready && canProduce} disabled={!canPress} targeting={targetingMode === weapon}
+                  onActivate={() => activateAbility(weapon)} /></React.Fragment>;
               })}
             </div>
           </>}
