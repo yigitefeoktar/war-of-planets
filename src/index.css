@@ -169,6 +169,19 @@
 @media (max-width: 480px) {
   .planet-command-normal .planet-abilities { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+/* Compact superweapons only on phones held in portrait. */
+@media (max-width: 760px) and (orientation: portrait) {
+  .planet-abilities { gap: 6px; }
+  .planet-ability { min-height: 52px; gap: 4px; padding: 6px; border-radius: 7px; }
+  .planet-ability-icon { flex-basis: auto; }
+  .planet-ability-icon svg { width: 16px; height: 16px; }
+  .planet-ability-copy { gap: 2px; }
+  .planet-ability-title { align-items: flex-start; flex-direction: column; gap: 2px; font-size: 9px; line-height: 1.2; }
+  .planet-ability-track { height: 2px; }
+  .planet-ability small { font-size: 7px; }
+}
+
 html, body {
   margin: 0;
   padding: 0;
