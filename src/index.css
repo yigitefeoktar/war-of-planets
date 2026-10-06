@@ -177,9 +177,10 @@
   .planet-ability-icon { flex-basis: auto; }
   .planet-ability-icon svg { width: 16px; height: 16px; }
   .planet-ability-copy { gap: 2px; }
-  .planet-ability-title { align-items: flex-start; flex-direction: column; gap: 2px; font-size: 9px; line-height: 1.2; }
+  .planet-ability-title { align-items: flex-start; flex-direction: column; gap: 2px; font-size: 8px; line-height: 1.2; }
+  .planet-ability-title strong { font-size: 7px; }
   .planet-ability-track { height: 2px; }
-  .planet-ability small { font-size: 7px; }
+  .planet-ability small { font-size: 6px; }
 }
 
 html, body {
