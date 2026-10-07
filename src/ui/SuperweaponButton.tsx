@@ -3,6 +3,10 @@ import { Info, X } from 'lucide-react';
 import { SUPERWEAPON_VISUALS } from '../game/superweaponVisuals';
 import type { SuperweaponId } from '../game/types';
 
+const COMPACT_LABELS: Record<SuperweaponId, string> = {
+  overdrive: 'Overdrive', omni: 'Omni', repulse: 'Repulse',
+};
+
 type SuperweaponButtonProps = {
   weapon: SuperweaponId;
   label: string;
@@ -25,17 +29,18 @@ export function SuperweaponButton({ weapon, label, description, chargeLabel, sta
 
   return <div className="planet-ability-card" style={{ '--weapon-color': visual.color } as React.CSSProperties}>
     <button type="button" className={`planet-ability ${weapon}${!disabled ? ' ready' : ''}${targeting ? ' targeting' : ''}`}
-      disabled={disabled} aria-label={`${label}. ${status}`} aria-pressed={targeting} title={explanation} onClick={onActivate}>
+      disabled={disabled} aria-label={`${label}. ${chargeLabel}. ${status}`} aria-pressed={targeting} title={explanation} onClick={onActivate}>
       <span className="planet-ability-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           {visual.paths.map(({ d, fill }, index) => <path key={index} d={d} fill={fill ? 'currentColor' : 'none'} stroke={fill ? 'none' : 'currentColor'} />)}
         </svg>
+        <strong className="planet-ability-icon-charge" aria-hidden="true">{chargeLabel}</strong>
       </span>
       <span className="planet-ability-copy">
         <span className="planet-ability-title">
           <span className="planet-ability-name">
             <span className="planet-ability-full">{label}</span>
-            <span className="planet-ability-compact">{weapon === 'overdrive' ? 'Overdrive' : weapon === 'repulse' ? 'Repulse' : label}</span>
+            <span className="planet-ability-compact">{COMPACT_LABELS[weapon]}</span>
           </span>
           <strong>{chargeLabel}</strong>
         </span>
