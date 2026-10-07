@@ -32,8 +32,17 @@ export function SuperweaponButton({ weapon, label, description, chargeLabel, sta
         </svg>
       </span>
       <span className="planet-ability-copy">
-        <span className="planet-ability-title">{weapon === 'overdrive' ? 'Overdrive' : label}</span>
-        <span className="planet-ability-meta"><strong>{chargeLabel}</strong><small>{targeting ? 'Targeting' : compactStatus}</small></span>
+        <span className="planet-ability-title">
+          <span className="planet-ability-name">
+            <span className="planet-ability-full">{label}</span>
+            <span className="planet-ability-compact">{weapon === 'overdrive' ? 'Overdrive' : weapon === 'repulse' ? 'Repulse' : label}</span>
+          </span>
+          <strong>{chargeLabel}</strong>
+        </span>
+        <small className="planet-ability-status">
+          <span className="planet-ability-full">{targeting ? 'Choose a target world' : status}</span>
+          <span className="planet-ability-compact">{targeting ? 'Targeting' : compactStatus}</span>
+        </small>
         <span className={`planet-ability-track${charging ? ' charging' : ''}`} role={charging ? 'progressbar' : undefined}
           aria-hidden={!charging} aria-label={charging ? `${label} charge` : undefined}
           aria-valuemin={charging ? 0 : undefined} aria-valuemax={charging ? 100 : undefined}

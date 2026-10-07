@@ -81,23 +81,26 @@
 .planet-command-hint { color: #69899d; font-size: 9px; line-height: 1.25; margin: 5px 0 0; }
 .planet-abilities { position: relative; display: flex; gap: 8px; min-width: 0; }
 .planet-ability-card { position: relative; min-width: 0; }
-.planet-ability { display: flex; align-items: center; gap: 8px; width: 100%; height: 72px; min-width: 0; padding: 10px 32px 10px 10px; text-align: left; border: 1px solid color-mix(in srgb, var(--weapon-color) 35%, transparent); border-radius: 10px; background: linear-gradient(145deg, color-mix(in srgb, var(--weapon-color) 14%, #081b2b), #071725); color: var(--weapon-color); box-shadow: inset 0 1px rgba(255, 255, 255, .025); transition: border-color .15s, background .15s, box-shadow .15s; }
-.planet-ability-icon { display: grid; flex: 0 0 22px; place-items: center; filter: drop-shadow(0 0 8px currentColor); }
-.planet-ability-icon svg { width: 22px; height: 22px; }
-.planet-ability-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 5px; }
-.planet-ability-title { display: block; width: 100%; overflow: hidden; color: #d4f1fb; font-size: 11px; line-height: 1.2; font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
-.planet-ability-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; line-height: 1.2; white-space: nowrap; }
-.planet-ability-meta strong { font-size: 9px; }
-.planet-ability-meta small { min-width: 0; overflow: hidden; color: #91afbf; font-size: 8px; text-overflow: ellipsis; }
+.planet-ability { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; height: 84px; min-width: 0; padding: 10px; text-align: left; border: 1px solid color-mix(in srgb, var(--weapon-color) 35%, transparent); border-radius: 10px; background: linear-gradient(145deg, color-mix(in srgb, var(--weapon-color) 14%, #081b2b), #071725); color: var(--weapon-color); box-shadow: inset 0 1px rgba(255, 255, 255, .025); transition: border-color .15s, filter .15s, transform .15s; }
+.planet-ability-icon { display: grid; flex: 0 0 26px; place-items: center; filter: drop-shadow(0 0 8px currentColor); }
+.planet-ability-icon svg { width: 24px; height: 24px; }
+.planet-ability-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 3px; }
+/* Fixed text slots keep the original fuller desktop layout steady in every state. */
+.planet-ability-title { display: flex; justify-content: space-between; align-items: center; gap: 6px; width: 100%; height: 30px; flex-shrink: 0; color: #d4f1fb; font-size: 11px; line-height: 15px; font-weight: 700; }
+.planet-ability-name { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.planet-ability-title strong { flex-shrink: 0; white-space: nowrap; }
+.planet-ability-status { display: block; height: 20px; flex-shrink: 0; padding-right: 18px; color: #638395; font-size: 8px; line-height: 10px; }
+.planet-ability-status .planet-ability-full { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.planet-ability-compact { display: none; }
 /* Reserve the track's space in every state so charging never resizes the HUD. */
-.planet-ability-track { display: block; visibility: hidden; height: 3px; overflow: hidden; background: rgba(17, 53, 77, .85); border-radius: 999px; box-shadow: inset 0 1px 3px rgba(0, 0, 0, .45); }
+.planet-ability-track { display: block; visibility: hidden; height: 3px; margin-right: 18px; overflow: hidden; background: rgba(17, 53, 77, .85); border-radius: 999px; box-shadow: inset 0 1px 3px rgba(0, 0, 0, .45); }
 .planet-ability-track.charging { visibility: visible; }
 .planet-ability-track > span { display: block; height: 100%; min-width: 2px; background: var(--weapon-color); border-radius: inherit; box-shadow: 0 0 8px color-mix(in srgb, var(--weapon-color) 55%, transparent); transition: width .2s; }
-.planet-ability:disabled { opacity: .65; cursor: default; }
-.planet-ability.ready { border-color: color-mix(in srgb, var(--weapon-color) 75%, transparent); background: linear-gradient(145deg, color-mix(in srgb, var(--weapon-color) 22%, #081b2b), #071725); box-shadow: inset 0 1px rgba(255, 255, 255, .06), 0 0 12px color-mix(in srgb, var(--weapon-color) 12%, transparent); }
-.planet-ability.targeting { border-color: #e6faff; background: color-mix(in srgb, var(--weapon-color) 28%, #071725); box-shadow: inset 0 0 0 1px var(--weapon-color), 0 0 16px color-mix(in srgb, var(--weapon-color) 25%, transparent); }
-.planet-ability:not(:disabled):hover { border-color: currentColor; }
-.planet-ability-info { position: absolute; top: 4px; right: 4px; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border-radius: 6px; color: #91afbf; cursor: pointer; }
+.planet-ability:disabled { opacity: .72; cursor: default; }
+.planet-ability.targeting { border-color: currentColor; }
+.planet-ability:not(:disabled):hover { border-color: currentColor; filter: brightness(1.12); transform: translateY(-1px); }
+.planet-ability-info { position: absolute; bottom: 4px; right: 4px; display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border-radius: 6px; color: #638395; cursor: pointer; }
+.planet-ability-info svg { width: 12px; height: 12px; }
 .planet-ability-info:hover { color: #e6faff; background: #ffffff12; }
 .planet-ability-details { width: min(320px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; margin: auto; padding: 18px; border: 1px solid var(--weapon-color); border-radius: 12px; background: #071725; color: #d4f1fb; font: 12px/1.5 monospace; box-shadow: 0 12px 60px #000b; }
 .planet-ability-details::backdrop { background: #0006; }
@@ -118,6 +121,7 @@
   .planet-command-content { gap: 9px; }
   .planet-command-summary { padding-right: 12px; }
   .planet-command-count { font-size: 28px; }
+  .planet-ability { gap: 7px; padding: 9px; }
 }
 
 @media (max-width: 760px) {
@@ -156,13 +160,15 @@
   .planet-command-normal:has(.planet-abilities) .planet-command-content { grid-template-columns: 120px minmax(0, 1fr); }
   .planet-command-normal.planet-command-without-selection .planet-command-content { grid-template-columns: minmax(0, 1fr); }
   .planet-command-normal .planet-abilities { grid-column: 1 / -1; gap: 6px; }
-  .planet-ability { flex-direction: column; gap: 4px; padding: 8px; border-radius: 9px; }
-  .planet-ability-icon { flex-basis: auto; }
-  .planet-ability-icon svg { width: 18px; height: 18px; }
-  .planet-ability-copy { flex: none; width: 100%; gap: 4px; }
-  .planet-ability-title { font-size: 10px; }
-  .planet-ability-meta strong { font-size: 8px; }
-  .planet-ability-meta small { font-size: 7px; }
+  .planet-ability { height: 72px; gap: 6px; padding: 8px; border-radius: 9px; }
+  .planet-ability-icon { flex-basis: 22px; }
+  .planet-ability-icon svg { width: 21px; height: 21px; }
+  .planet-ability-full, .planet-ability-status .planet-ability-full { display: none; }
+  .planet-ability-compact { display: inline; }
+  .planet-ability-title { font-size: 11px; }
+  .planet-ability-title strong { font-size: 10px; }
+  .planet-ability-status { height: 12px; font-size: 9px; line-height: 12px; }
+  .planet-ability-status .planet-ability-compact { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 }
 @media (max-width: 760px) {
   .planet-command-normal:not(:has(.planet-abilities)) { width: min(100%, 480px); }
@@ -171,17 +177,30 @@
 
 /* Compact superweapons only on phones held in portrait. */
 @media (max-width: 760px) and (orientation: portrait) {
-  .planet-ability { height: 64px; padding: 6px; border-radius: 7px; }
-  .planet-ability-icon svg { width: 16px; height: 16px; }
+  .planet-command-normal:has(.planet-abilities) { width: min(100%, 480px); }
+  .planet-ability { height: 60px; gap: 4px; padding: 6px; border-radius: 7px; }
+  .planet-ability-icon svg { width: 18px; height: 18px; }
   .planet-ability-copy { gap: 2px; }
-  .planet-ability-title { font-size: 8px; }
-  .planet-ability-meta { gap: 4px; }
-  .planet-ability-meta strong { font-size: 7px; }
+  .planet-ability-title { height: 24px; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px; font-size: 9px; line-height: 11px; }
+  .planet-ability-title strong { font-size: 8px; line-height: 10px; }
+  .planet-ability-name { -webkit-line-clamp: 1; }
   .planet-ability-track { height: 2px; }
-  .planet-ability-meta small { font-size: 6px; }
+  .planet-ability-status { height: 10px; font-size: 7px; line-height: 10px; }
+}
+@media (max-width: 480px) {
+  .planet-ability { height: 84px; flex-direction: column; gap: 4px; }
+  .planet-ability-icon { flex-basis: auto; }
+  .planet-ability-copy { flex: none; width: 100%; gap: 2px; }
+  .planet-ability-title { height: 24px; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px; font-size: 9px; line-height: 11px; }
+  .planet-ability-title strong { font-size: 8px; line-height: 10px; }
+  .planet-ability-name { -webkit-line-clamp: 1; }
+  .planet-ability-status { height: 10px; font-size: 7px; line-height: 10px; }
+}
+@media (max-width: 480px) and (orientation: portrait) {
+  .planet-ability { height: 76px; }
 }
 @media (pointer: coarse) {
-  .planet-ability-info { top: 0; right: 0; width: 32px; height: 32px; }
+  .planet-ability-info { bottom: 0; right: 0; width: 32px; height: 32px; }
 }
 
 html, body {
