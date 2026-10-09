@@ -57,12 +57,33 @@ export function SuperweaponButton({ weapon, label, description, chargeLabel, sta
     </button>
     <button type="button" className="planet-ability-info" popoverTarget={infoId} title={`${label}: ${explanation}`}
       aria-label={`About ${label}`}><Info aria-hidden="true" size={14} /></button>
-    <div id={infoId} className="planet-ability-details" popover="auto" role="dialog" aria-labelledby={headingId}>
-      <button type="button" className="planet-ability-details-close" popoverTarget={infoId} popoverTargetAction="hide"
-        aria-label={`Close ${label} information`}><X aria-hidden="true" size={16} /></button>
-      <h3 id={headingId}>{label}</h3>
-      <p>{description}.</p>
-      <p className="planet-ability-details-status">{status}</p>
+    <div id={infoId} className="planet-ability-details" popover="auto" role="dialog" aria-labelledby={headingId}
+      aria-describedby={`${infoId}-effect`}>
+      <header className="planet-ability-details-header">
+        <span className="planet-ability-details-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            {visual.paths.map(({ d, fill }, index) => <path key={index} d={d} fill={fill ? 'currentColor' : 'none'} stroke={fill ? 'none' : 'currentColor'} />)}
+          </svg>
+        </span>
+        <div>
+          <span className="planet-ability-details-kicker">Superweapon</span>
+          <h3 id={headingId}>{label}</h3>
+        </div>
+      </header>
+      <div className="planet-ability-details-body">
+        <section className="planet-ability-details-effect" aria-label="Weapon effect">
+          <h4>Effect</h4>
+          <p id={`${infoId}-effect`}>{description}.</p>
+        </section>
+        <section className="planet-ability-details-state" aria-label="Weapon status">
+          <div className="planet-ability-details-state-heading"><h4>Status</h4><strong>{chargeLabel}</strong></div>
+          <p className="planet-ability-details-status">{status}</p>
+        </section>
+      </div>
+      <footer className="planet-ability-details-footer">
+        <button type="button" className="planet-ability-details-close" popoverTarget={infoId} popoverTargetAction="hide"
+          aria-label={`Close ${label} information`} autoFocus><X aria-hidden="true" size={18} /><span>Close</span></button>
+      </footer>
     </div>
   </div>;
 }
