@@ -220,6 +220,7 @@
   .planet-ability-compact { display: inline; }
   .planet-ability-copy { flex: none; width: 100%; gap: 3px; }
   .planet-ability-title { height: 26px; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px; font-size: 10px; line-height: 12px; }
+  .planet-ability-name { align-self: center; max-width: 100%; text-align: center; }
   .planet-ability-title strong { display: block; font-size: 9px; line-height: 12px; }
   .planet-ability-track { display: block; visibility: hidden; margin-right: 18px; }
   .planet-ability-track.charging { visibility: visible; }
