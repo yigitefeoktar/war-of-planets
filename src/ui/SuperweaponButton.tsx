@@ -34,7 +34,6 @@ export function SuperweaponButton({ weapon, label, description, chargeLabel, sta
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           {visual.paths.map(({ d, fill }, index) => <path key={index} d={d} fill={fill ? 'currentColor' : 'none'} stroke={fill ? 'none' : 'currentColor'} />)}
         </svg>
-        <strong className="planet-ability-icon-charge" aria-hidden="true">{chargeLabel}</strong>
       </span>
       <span className="planet-ability-copy">
         <span className="planet-ability-title">
@@ -44,16 +43,16 @@ export function SuperweaponButton({ weapon, label, description, chargeLabel, sta
           </span>
           <strong>{chargeLabel}</strong>
         </span>
-        <small className="planet-ability-status">
-          <span className="planet-ability-full">{targeting ? 'Choose a target world' : status}</span>
-          <span className="planet-ability-compact">{targeting ? 'Targeting' : compactStatus}</span>
-        </small>
         <span className={`planet-ability-track${charging ? ' charging' : ''}`} role={charging ? 'progressbar' : undefined}
           aria-hidden={!charging} aria-label={charging ? `${label} charge` : undefined}
           aria-valuemin={charging ? 0 : undefined} aria-valuemax={charging ? 100 : undefined}
           aria-valuenow={charging ? Math.floor(progress * 100) : undefined}>
           <span style={{ width: `${progress * 100}%` }} />
         </span>
+        <small className="planet-ability-status">
+          <span className="planet-ability-full">{targeting ? 'Choose a target world' : status}</span>
+          <span className="planet-ability-compact">{targeting ? 'Targeting' : compactStatus}</span>
+        </small>
       </span>
     </button>
     <button type="button" className="planet-ability-info" popoverTarget={infoId} title={`${label}: ${explanation}`}
