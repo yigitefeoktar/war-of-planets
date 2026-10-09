@@ -208,8 +208,8 @@
 }
 .empire-hint { grid-column: 1 / -1; min-width: 0; }
 .empire-hint button { color: #c4ebf5; text-decoration: underline; padding: 5px; }
-/* Two fixed layouts: original Level 5 height on PC; taller cards on small/portrait screens. */
-@media (max-width: 1100px), (orientation: portrait) {
+/* Two orientation-based layouts: full cards in landscape; taller compact cards in portrait. */
+@media (orientation: portrait) {
   .planet-command-normal:has(.planet-abilities) { width: min(100%, 600px); }
   .planet-command-normal:has(.planet-abilities) .planet-command-content { grid-template-columns: 120px minmax(0, 1fr); }
   .planet-command-normal.planet-command-without-selection .planet-command-content { grid-template-columns: minmax(0, 1fr); }
