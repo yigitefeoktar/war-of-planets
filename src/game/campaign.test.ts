@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { FIRST_STRIKE, BREACH_LINE, TURNING_TIDE, THE_PINCER, SIEGE_OF_HELIOS, CHAPTERS, CHAPTER_ONE_TEST_MODE_IDS, PLAYER, completeMission, emptyProgress, followingMission, getOutcome, isChapterOneTestMode, launchMission, nextMission, parseProgress, progressLabel, validateMap, type Chapter } from './campaign';
 import { createMatch } from './mapLoader';
+import { CLASSIC_BATTLEFIELD } from './classicMap';
 
 test('authored map loads exact planets, ships, factions, dimensions and range', () => {
   const engine = createMatch(FIRST_STRIKE);
@@ -23,12 +24,53 @@ test('retry produces a fresh map without carrying combat state', () => {
   assert.ok(retry.bases.has('ai_1')); assert.ok(retry.pixels.length > 0);
   assert.equal(retry.shakeAmount, 0);
 });
-test('Quick Match keeps random map and four capitals', () => {
-  const a = createMatch(), b = createMatch();
-  assert.equal(a.width, 3000);
-  assert.equal([...a.bases.values()].filter(p => p.isCapital).length, 4);
-  assert.ok(a.bases.size > FIRST_STRIKE.planets.length);
-  assert.notDeepEqual([...a.bases.values()], [...b.bases.values()]);
+test('Quick Match and Hard Mode load the same fixed classic battlefield and historical fleets', () => {
+  const quick = createMatch(), retry = createMatch(), hard = createMatch(undefined, { hardMode: true });
+  assert.equal(CLASSIC_BATTLEFIELD.tutorial, undefined);
+  for (const engine of [quick, retry, hard]) {
+    assert.equal(engine.width, 3000);
+    assert.equal(engine.height, 3000);
+    assert.equal(engine.MAX_ATTACK_RANGE, 600);
+    assert.equal(engine.bases.size, 34);
+    assert.equal([...engine.bases.values()].filter(p => p.isCapital).length, 4);
+    for (const planet of CLASSIC_BATTLEFIELD.planets) {
+      const base = engine.bases.get(planet.id)!;
+      assert.deepEqual([base.x, base.y, base.color, base.pixelCount, !!base.isCapital], [planet.x, planet.y, planet.owner, planet.ships, !!planet.capital]);
+      assert.equal(engine.pixels.filter(p => p.baseId === planet.id).length, planet.ships);
+    }
+    assert.equal(engine.bases.get('player_1')!.pixelCount, 200);
+    for (const id of ['ai_1', 'ai_2', 'ai_3']) assert.equal(engine.bases.get(id)!.pixelCount, 90);
+    assert.deepEqual([engine.bases.get('west-landing')!.color, engine.bases.get('west-landing')!.pixelCount], ['#ef4444', 10]);
+    assert.equal(getOutcome(engine.bases.values()), null);
+    assert.equal(engine.multiSelectEnabled, true);
+  }
+  assert.deepEqual([...quick.bases.values()], [...retry.bases.values()]);
+  assert.deepEqual([...quick.bases.values()], [...hard.bases.values()]);
+  assert.equal(quick.isHardMode, false);
+  assert.equal(hard.isHardMode, true);
+  assert.notEqual(quick.backgroundColor, hard.backgroundColor);
+});
+
+test('classic matches retain four fixed weapon sites and restart without combat state', () => {
+  const first = createMatch();
+  assert.equal(first.superweaponUnlocksEnabled, true);
+  const sites = [...first.bases.values()].filter(base => base.superweaponUnlocks?.length);
+  assert.equal(sites.length, 4);
+  assert.ok(sites.every(base => base.color === '#6b7280' && !base.isCapital));
+  assert.equal(sites.filter(base => base.superweaponUnlocks?.length === 3).length, 1);
+  for (const weapon of ['omni', 'overdrive', 'repulse'] as const) {
+    assert.equal(sites.filter(base => base.superweaponUnlocks?.includes(weapon)).length, 2);
+  }
+  first.bases.get('ai_1')!.color = PLAYER;
+  first.bases.get('ai_1')!.isCapital = false;
+  first.pixels.length = 0;
+  first.setSuperweaponCharge(PLAYER, 'omni', 1);
+  const retry = createMatch();
+  assert.equal(retry.bases.get('ai_1')!.color, '#ef4444');
+  assert.equal(retry.bases.get('ai_1')!.isCapital, true);
+  assert.ok(retry.pixels.length > 0);
+  assert.equal(retry.getSuperweaponCharge(PLAYER, 'omni'), 0);
+  assert.deepEqual([...retry.bases.values()].filter(base => base.superweaponUnlocks?.length), sites);
 });
 test('victory and defeat are resolved with defeat precedence', () => {
   const engine = createMatch(FIRST_STRIKE);

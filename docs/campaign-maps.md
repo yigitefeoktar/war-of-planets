@@ -1,6 +1,8 @@
 # Campaign maps
 
-Map data and chapter ordering live in `src/game/campaign.ts`. `createMatch` loads an authored map or uses the existing random generator when no map is supplied. The gameplay engine remains shared.
+Campaign map data and chapter ordering live in `src/game/campaign.ts`. When no campaign map is supplied, `createMatch` loads `src/game/classicMap.ts` for Quick Match and Hard Mode. The gameplay engine remains shared.
+
+Both standalone modes use the fixed 34-planet classic battlefield restored from commit `770c716`: a 3000 × 3000 world, a southern blue capital with 200 ships, three northern enemy capitals with 90 ships each, a 10-ship red outpost above blue, and 29 neutral planets with their original positions and garrisons. New matches restore that same arrangement without campaign tutorial or progress. Four neutral worlds receive the current superweapon sites (three specialists and one combined arsenal), consistently on every run. Hard Mode retains its current AI difficulty and redder galaxy theme; combat, faction bonuses, weapon charging, production limits, and Select Mode rules are shared.
 
 Each map defines a stable ID, title, briefing, world size, attack range, objective, and planets. Planet coordinates are world units; ships are non-negative integers. Supported owners are the four existing faction colors and neutral gray. Planets can optionally list the superweapons they produce while owned. The current objective is enemy-capital elimination; the player's capital must survive. Validation rejects duplicate IDs, invalid dimensions or owners, invalid weapon lists, missing capitals, and unreachable planets.
 
@@ -30,7 +32,7 @@ Button and right-click selection share the ownership requirement. After a succes
 
 Authored maps choose a `galaxyTheme`: First Strike has one faint blue cloud, The Breach Line uses muted violet and rose, The Turning Tide uses teal and violet, The Pincer uses indigo and warm amber, and The Battle for Helios adds a deeper red and amber palette around the central star. Cloud and star counts grow with battlefield area. Quick Match keeps the original palette; Hard Mode uses a slightly redder backdrop and more red clouds. These are visual settings and do not affect combat.
 
-The camera's minimum zoom follows the viewport size relative to the map, so an overview remains available without pulling far beyond a small battlefield. Maximum zoom grows from 1.8 on the tutorial map to 3 on the 3000-unit random maps. Wheel, pinch, double tap, intro, camera shortcuts, and the end-of-battle camera use those limits.
+The camera's minimum zoom follows the viewport size relative to the map, so an overview remains available without pulling far beyond a small battlefield. Maximum zoom grows from 1.8 on the tutorial map to 3 on the 3000-unit classic battlefield. Wheel, pinch, double tap, intro, camera shortcuts, and the end-of-battle camera use those limits.
 
 ## First Strike tutorial
 
