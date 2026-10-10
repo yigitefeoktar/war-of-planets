@@ -1,47 +1,40 @@
-import { NEUTRAL, PLAYER, type MapDefinition } from './campaign';
+import { NEUTRAL, PLAYER, type MapDefinition, type PlanetDefinition } from './campaign';
 
-// Restore the classic geography and starting fleets from commit 770c716,
-// excluding the tutorial's weak red outpost.
-// This standalone battlefield does not opt into the campaign tutorial.
+// Rotate one sector to keep openings, routes, and weapon access identical.
+const sector: Omit<PlanetDefinition, 'owner'>[] = [
+  { id: 'opening-west', x: 450, y: 850, ships: 16 },
+  { id: 'opening-north', x: 850, y: 450, ships: 16 },
+  { id: 'opening-inner', x: 850, y: 850, ships: 16 },
+  { id: 'outer-west', x: 450, y: 1250, ships: 24 },
+  { id: 'outer-north', x: 1250, y: 450, ships: 24 },
+  { id: 'inner-gate', x: 1150, y: 1150, ships: 28, superweaponUnlocks: ['overdrive'] },
+  { id: 'crossing', x: 1500, y: 1000, ships: 40, superweaponUnlocks: ['repulse'] },
+  { id: 'centre', x: 1500, y: 1350, ships: 45, superweaponUnlocks: ['omni'] },
+];
+
+function rotate(x: number, y: number, turns: number): { x: number; y: number } {
+  for (let turn = 0; turn < turns; turn++) [x, y] = [3000 - y, x];
+  return { x, y };
+}
+
+// Keep the existing standalone ID and shuffle storage contract.
 export const CLASSIC_BATTLEFIELD: MapDefinition = {
-  id: 'classic-battlefield', title: 'Classic Battlefield',
+  id: 'classic-battlefield', title: 'Balanced Battlefield',
   briefing: 'Expand across the neutral worlds from your assigned capital. Capture all three enemy capitals while protecting your own.',
   width: 3000, height: 3000, attackRange: 600,
   objective: { type: 'eliminate-capitals', description: 'Capture all enemy capitals. Keep your blue capital alive.' },
   planets: [
-    { id: 'player_1', x: 1500, y: 2400, owner: PLAYER, ships: 200, capital: true },
-    { id: 'ai_1', x: 600, y: 600, owner: '#ef4444', ships: 90, capital: true },
-    { id: 'ai_2', x: 2400, y: 600, owner: '#22c55e', ships: 90, capital: true },
-    { id: 'ai_3', x: 1500, y: 600, owner: '#eab308', ships: 90, capital: true },
-    { id: 'southwest-edge', x: 350, y: 2600, owner: NEUTRAL, ships: 20 },
-    { id: 'southwest-reserve', x: 900, y: 2600, owner: NEUTRAL, ships: 12 },
-    { id: 'home-reserve', x: 1500, y: 2800, owner: NEUTRAL, ships: 10 },
-    { id: 'southeast-reserve', x: 2100, y: 2600, owner: NEUTRAL, ships: 12 },
-    { id: 'southeast-edge', x: 2650, y: 2600, owner: NEUTRAL, ships: 20 },
-    { id: 'west-landing-route', x: 550, y: 2200, owner: NEUTRAL, ships: 18 },
-    { id: 'west-expansion', x: 1000, y: 2250, owner: NEUTRAL, ships: 10 },
-    { id: 'east-expansion', x: 2000, y: 2250, owner: NEUTRAL, ships: 10 },
-    { id: 'east-landing-route', x: 2450, y: 2200, owner: NEUTRAL, ships: 18 },
-    { id: 'west-rim', x: 350, y: 1800, owner: NEUTRAL, ships: 24 },
-    { id: 'west-route', x: 800, y: 1800, owner: NEUTRAL, ships: 18 },
-    { id: 'midway-west', x: 1250, y: 1600, owner: NEUTRAL, ships: 20 },
-    { id: 'midway-east', x: 1750, y: 1700, owner: NEUTRAL, ships: 20 },
-    { id: 'east-route', x: 2200, y: 1800, owner: NEUTRAL, ships: 18 },
-    { id: 'east-rim', x: 2650, y: 1800, owner: NEUTRAL, ships: 24 },
-    { id: 'west-crossing', x: 350, y: 1300, owner: NEUTRAL, ships: 28 },
-    { id: 'west-bridge', x: 800, y: 1350, owner: NEUTRAL, ships: 24 },
-    { id: 'central-west', x: 1300, y: 1200, owner: NEUTRAL, ships: 28 },
-    { id: 'central-east', x: 1800, y: 1250, owner: NEUTRAL, ships: 28 },
-    { id: 'east-bridge', x: 2250, y: 1300, owner: NEUTRAL, ships: 24 },
-    { id: 'east-crossing', x: 2650, y: 1300, owner: NEUTRAL, ships: 28 },
-    { id: 'northwest-flank', x: 400, y: 900, owner: NEUTRAL, ships: 30 },
-    { id: 'red-front', x: 900, y: 900, owner: NEUTRAL, ships: 28 },
-    { id: 'north-centre-west', x: 1300, y: 850, owner: NEUTRAL, ships: 30 },
-    { id: 'north-centre-east', x: 1750, y: 850, owner: NEUTRAL, ships: 30 },
-    { id: 'green-front', x: 2150, y: 900, owner: NEUTRAL, ships: 28 },
-    { id: 'northeast-flank', x: 2600, y: 900, owner: NEUTRAL, ships: 30 },
-    { id: 'northwest-backroute', x: 950, y: 350, owner: NEUTRAL, ships: 35 },
-    { id: 'northeast-backroute', x: 2000, y: 350, owner: NEUTRAL, ships: 35 },
+    { id: 'player_1', x: 450, y: 450, owner: PLAYER, ships: 200, capital: true },
+    { id: 'ai_1', x: 2550, y: 450, owner: '#ef4444', ships: 90, capital: true },
+    { id: 'ai_2', x: 2550, y: 2550, owner: '#22c55e', ships: 90, capital: true },
+    { id: 'ai_3', x: 450, y: 2550, owner: '#eab308', ships: 90, capital: true },
+    ...['northwest', 'northeast', 'southeast', 'southwest'].flatMap((name, turns) =>
+      sector.map((planet): PlanetDefinition => ({
+        ...planet,
+        id: `${name}-${planet.id}`,
+        ...rotate(planet.x, planet.y, turns),
+        owner: NEUTRAL,
+      }))),
   ],
 };
 
@@ -83,7 +76,10 @@ export function createClassicBattlefield(random: () => number = Math.random): Ma
   return {
     ...CLASSIC_BATTLEFIELD,
     planets: CLASSIC_BATTLEFIELD.planets.map(planet => {
-      if (!planet.capital) return { ...planet };
+      if (!planet.capital) return {
+        ...planet,
+        ...(planet.superweaponUnlocks ? { superweaponUnlocks: [...planet.superweaponUnlocks] } : {}),
+      };
       const position = capitals[assignment[capitalIndex++]];
       return { ...planet, x: position.x, y: position.y };
     }),
