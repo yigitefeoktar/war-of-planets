@@ -24,28 +24,38 @@ test('retry produces a fresh map without carrying combat state', () => {
   assert.ok(retry.bases.has('ai_1')); assert.ok(retry.pixels.length > 0);
   assert.equal(retry.shakeAmount, 0);
 });
-test('Quick Match and Hard Mode load the same fixed classic battlefield and historical fleets', () => {
+test('Quick Match and Hard Mode shuffle capital slots while retaining classic geography and fleets', () => {
   const quick = createMatch(), retry = createMatch(), hard = createMatch(undefined, { hardMode: true });
+  const slots = CLASSIC_BATTLEFIELD.planets.filter(planet => planet.capital).map(planet => `${planet.x},${planet.y}`).sort();
   assert.equal(CLASSIC_BATTLEFIELD.tutorial, undefined);
   for (const engine of [quick, retry, hard]) {
     assert.equal(engine.width, 3000);
     assert.equal(engine.height, 3000);
     assert.equal(engine.MAX_ATTACK_RANGE, 600);
-    assert.equal(engine.bases.size, 34);
+    assert.equal(engine.bases.size, 33);
+    assert.equal(engine.bases.has('west-landing'), false);
     assert.equal([...engine.bases.values()].filter(p => p.isCapital).length, 4);
     for (const planet of CLASSIC_BATTLEFIELD.planets) {
       const base = engine.bases.get(planet.id)!;
-      assert.deepEqual([base.x, base.y, base.color, base.pixelCount, !!base.isCapital], [planet.x, planet.y, planet.owner, planet.ships, !!planet.capital]);
+      assert.deepEqual([base.color, base.pixelCount, !!base.isCapital], [planet.owner, planet.ships, !!planet.capital]);
+      if (!planet.capital) assert.deepEqual([base.x, base.y], [planet.x, planet.y]);
       assert.equal(engine.pixels.filter(p => p.baseId === planet.id).length, planet.ships);
+      assert.ok(engine.pixels.filter(p => p.baseId === planet.id).every(p => p.color === base.color));
+      if (planet.capital) assert.ok(engine.pixels.filter(p => p.baseId === planet.id)
+        .every(p => Math.hypot(p.x - base.x, p.y - base.y) < 80));
     }
     assert.equal(engine.bases.get('player_1')!.pixelCount, 200);
     for (const id of ['ai_1', 'ai_2', 'ai_3']) assert.equal(engine.bases.get(id)!.pixelCount, 90);
-    assert.deepEqual([engine.bases.get('west-landing')!.color, engine.bases.get('west-landing')!.pixelCount], ['#ef4444', 10]);
+    assert.deepEqual([...engine.bases.values()].filter(base => base.isCapital).map(base => `${base.x},${base.y}`).sort(), slots);
     assert.equal(getOutcome(engine.bases.values()), null);
     assert.equal(engine.multiSelectEnabled, true);
   }
-  assert.deepEqual([...quick.bases.values()], [...retry.bases.values()]);
-  assert.deepEqual([...quick.bases.values()], [...hard.bases.values()]);
+  for (const [previous, next] of [[quick, retry], [retry, hard]]) {
+    for (const id of ['player_1', 'ai_1', 'ai_2', 'ai_3']) {
+      const before = previous.bases.get(id)!, after = next.bases.get(id)!;
+      assert.notDeepEqual([before.x, before.y], [after.x, after.y]);
+    }
+  }
   assert.equal(quick.isHardMode, false);
   assert.equal(hard.isHardMode, true);
   assert.notEqual(quick.backgroundColor, hard.backgroundColor);

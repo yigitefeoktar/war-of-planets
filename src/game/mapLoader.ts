@@ -1,13 +1,13 @@
 import { GameEngine } from './engine';
 import { OrbitingGameEngine } from './orbitingEngine';
 import { DYSON_SPHERE_ID, SIEGE_OF_HELIOS, mapOrbits, validateMap, type MapDefinition } from './campaign';
-import { CLASSIC_BATTLEFIELD } from './classicMap';
+import { createClassicBattlefield } from './classicMap';
 import { assignQuickMatchSuperweaponPlanets } from './superweapons';
 
-// Standalone matches use the fixed classic battlefield. Authored games replace
+// Standalone matches use classic geography with shuffled capitals. Authored games replace
 // only the initial planets and ships; stars, combat, AI, and controls are shared.
 export function createMatch(map?: MapDefinition, options: { hardMode?: boolean } = {}): GameEngine {
-  const battlefield = map ?? CLASSIC_BATTLEFIELD;
+  const battlefield = map ?? createClassicBattlefield();
   validateMap(battlefield);
   const multiSelectEnabled = !map || battlefield.id === SIEGE_OF_HELIOS.id;
   const hasWeaponPlanets = !map || battlefield.planets.some(planet => planet.superweaponUnlocks?.length);
