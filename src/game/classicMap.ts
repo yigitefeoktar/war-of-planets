@@ -17,6 +17,8 @@ function rotate(x: number, y: number, turns: number): { x: number; y: number } {
   return { x, y };
 }
 
+const sectorNames = ['northwest', 'northeast', 'southeast', 'southwest'];
+
 // Keep the existing standalone ID and shuffle storage contract.
 export const CLASSIC_BATTLEFIELD: MapDefinition = {
   id: 'classic-battlefield', title: 'Balanced Battlefield',
@@ -28,7 +30,7 @@ export const CLASSIC_BATTLEFIELD: MapDefinition = {
     { id: 'ai_1', x: 2550, y: 450, owner: '#ef4444', ships: 90, capital: true },
     { id: 'ai_2', x: 2550, y: 2550, owner: '#22c55e', ships: 90, capital: true },
     { id: 'ai_3', x: 450, y: 2550, owner: '#eab308', ships: 90, capital: true },
-    ...['northwest', 'northeast', 'southeast', 'southwest'].flatMap((name, turns) =>
+    ...sectorNames.flatMap((name, turns) =>
       sector.map((planet): PlanetDefinition => ({
         ...planet,
         id: `${name}-${planet.id}`,
@@ -36,6 +38,12 @@ export const CLASSIC_BATTLEFIELD: MapDefinition = {
         owner: NEUTRAL,
       }))),
   ],
+  // All twelve central weapon worlds turn together; the perimeter stays fixed.
+  orbit: {
+    x: 1500, y: 1500, periodSeconds: 240,
+    planetIds: sectorNames.flatMap(name => sector.filter(planet => planet.superweaponUnlocks)
+      .map(planet => `${name}-${planet.id}`)),
+  },
 };
 
 const CAPITAL_POSITION_KEY = 'war-of-planets.classic-capital-positions.v1';

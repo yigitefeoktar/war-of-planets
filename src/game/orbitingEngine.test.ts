@@ -125,12 +125,13 @@ for (const warp of [false, true]) test(`${warp ? 'Omni-Strike' : 'normal attack'
   assert.equal(getOutcome(engine.bases.values()), 'victory');
 });
 
-test('Quick Match and non-member planets stay fixed', () => {
+test('non-member planets stay fixed in standalone and authored matches', () => {
   const quick = quietEngine();
-  assert.ok(!(quick instanceof OrbitingGameEngine));
-  const before = [...quick.bases.values()].map(p => [p.x, p.y]);
+  assert.ok(quick instanceof OrbitingGameEngine);
+  const fixed = [...quick.bases.values()].filter(p => !p.superweaponUnlocks?.length);
+  const before = fixed.map(p => [p.x, p.y]);
   quick.update(1 / 60);
-  assert.deepEqual([...quick.bases.values()].map(p => [p.x, p.y]), before);
+  assert.deepEqual(fixed.map(p => [p.x, p.y]), before);
   const partial = quietEngine({ ...ORBIT_FIXTURE, orbit: { ...ORBIT_FIXTURE.orbit!, planetIds: ['midway'] } });
   partial.update(1);
   near(partial.bases.get('player_1')!.x, ORBIT_FIXTURE.planets[0].x);

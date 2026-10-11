@@ -1,8 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { CLASSIC_BATTLEFIELD, createClassicBattlefield } from './classicMap';
-import { PLAYER, validateMap, type MapDefinition, type PlanetDefinition } from './campaign';
+import { DYSON_SPHERE_ID, PLAYER, validateMap, type MapDefinition, type PlanetDefinition } from './campaign';
 import { openingFrame } from './camera';
+import { createMatch } from './mapLoader';
+import { OrbitingGameEngine } from './orbitingEngine';
 
 const capitalPositions = (map: MapDefinition) => map.planets.filter(planet => planet.capital).map(planet => [planet.x, planet.y]);
 const neutralPlanets = (map: MapDefinition) => map.planets.filter(planet => !planet.capital);
@@ -30,7 +32,7 @@ function distances(start: PlanetDefinition, planets: PlanetDefinition[], capture
 test('all four starts have equal openings, weapon travel, capture costs and capital pressure', () => {
   const planets = CLASSIC_BATTLEFIELD.planets;
   assert.doesNotThrow(() => validateMap(CLASSIC_BATTLEFIELD));
-  assert.equal(CLASSIC_BATTLEFIELD.orbit, undefined);
+  assert.equal(CLASSIC_BATTLEFIELD.orbit?.planetIds.length, 12);
   assert.equal(CLASSIC_BATTLEFIELD.orbits, undefined);
   const capitals = planets.filter(planet => planet.capital);
   const signatures = capitals.map(capital => {
@@ -67,6 +69,89 @@ test('outer routes connect all starts without weapons and no single neutral plan
   for (const removed of neutralPlanets(CLASSIC_BATTLEFIELD)) {
     const remaining = planets.filter(planet => planet !== removed);
     assert.equal(distances(remaining[0], remaining).size, remaining.length, removed.id);
+  }
+});
+
+test('the complete orbit preserves connected routes, equal access and clear space around the star', () => {
+  const map = CLASSIC_BATTLEFIELD;
+  const orbit = map.orbit!;
+  const moving = map.planets.filter(planet => orbit.planetIds.includes(planet.id));
+  const fixed = map.planets.filter(planet => !orbit.planetIds.includes(planet.id));
+  assert.deepEqual(moving.map(planet => planet.id).sort(), map.planets.filter(planet => planet.superweaponUnlocks?.length).map(planet => planet.id).sort());
+  assert.equal(moving.length, 12);
+  assert.equal(fixed.length, 24);
+  assert.equal(orbit.dysonSphere, undefined);
+  for (const planet of moving) {
+    const radius = Math.hypot(planet.x - orbit.x, planet.y - orbit.y);
+    assert.ok(radius >= 110);
+    assert.ok(radius + 50 < Math.min(orbit.x, orbit.y, map.width - orbit.x, map.height - orbit.y));
+    for (const outer of fixed) {
+      // Exact closest separation over a full revolution.
+      assert.ok(Math.abs(Math.hypot(outer.x - orbit.x, outer.y - orbit.y) - radius) > 150);
+    }
+  }
+  for (const [index, planet] of moving.entries()) {
+    for (const other of moving.slice(index + 1)) assert.ok(Math.hypot(planet.x - other.x, planet.y - other.y) > 150);
+  }
+
+  const engine = createMatch();
+  engine.lastAITime = engine.lastSpawnTime = Number.MAX_SAFE_INTEGER;
+  engine.pixels = [];
+  const opening = [...engine.bases.values()].filter(base => base.isCapital).map(base => ({ x: base.x, y: base.y }));
+  for (let step = 0; step <= 720; step++) {
+    const planets = map.planets.map(planet => {
+      const actual = engine.bases.get(planet.id)!;
+      return { ...planet, x: actual.x, y: actual.y };
+    });
+    assert.equal(distances(planets[0], planets).size, planets.length, `disconnected at step ${step}`);
+    const capitals = planets.filter(planet => planet.capital);
+    const costs = capitals.map(capital => {
+      const neighbors = planets.filter(planet => planet !== capital && inRange(capital, planet));
+      assert.equal(neighbors.length, 3);
+      assert.ok(neighbors.every(planet => planet.ships === 16 && !planet.superweaponUnlocks));
+      const reachable = distances(capital, planets.filter(planet => !planet.capital || planet === capital), true);
+      return (['overdrive', 'repulse', 'omni'] as const).map(weapon =>
+        Math.min(...planets.filter(planet => planet.superweaponUnlocks?.includes(weapon)).map(planet => reachable.get(planet.id)!)));
+    });
+    costs.forEach(cost => assert.deepEqual(cost, costs[0]));
+    // Sample neutral removals every five degrees as the core turns.
+    if (step % 10 === 0) for (const removed of planets.filter(planet => !planet.capital)) {
+      const remaining = planets.filter(planet => planet !== removed);
+      assert.equal(distances(remaining[0], remaining).size, remaining.length, `${removed.id} at step ${step}`);
+    }
+    if (step < 720) engine.update(orbit.periodSeconds / 720);
+  }
+  assert.deepEqual([...engine.bases.values()].filter(base => base.isCapital).map(base => ({ x: base.x, y: base.y })), opening);
+});
+
+test('both modes rotate all twelve central worlds clockwise in four minutes and reset on retry', () => {
+  for (const hardMode of [false, true]) {
+    const engine = createMatch(undefined, { hardMode });
+    assert.ok(engine instanceof OrbitingGameEngine);
+    assert.equal(engine.isHardMode, hardMode);
+    assert.equal(engine.bases.has(DYSON_SPHERE_ID), false);
+    engine.lastAITime = engine.lastSpawnTime = Number.MAX_SAFE_INTEGER;
+    engine.pixels = [];
+    const start = [...engine.bases.values()].map(base => ({ ...base }));
+    engine.update(60);
+    for (const planet of start) {
+      const actual = engine.bases.get(planet.id)!;
+      if (planet.superweaponUnlocks?.length) {
+        assert.ok(Math.abs(actual.x - (3000 - planet.y)) < 1e-6);
+        assert.ok(Math.abs(actual.y - planet.x) < 1e-6);
+      } else assert.deepEqual([actual.x, actual.y], [planet.x, planet.y]);
+      assert.deepEqual(actual.superweaponUnlocks, planet.superweaponUnlocks);
+    }
+    engine.update(180);
+    for (const planet of start) {
+      const actual = engine.bases.get(planet.id)!;
+      assert.ok(Math.hypot(actual.x - planet.x, actual.y - planet.y) < 1e-6);
+    }
+    const retry = createMatch(undefined, { hardMode });
+    for (const planet of neutralPlanets(CLASSIC_BATTLEFIELD)) {
+      const actual = retry.bases.get(planet.id)!;
+      assert.deepEqual([actual.x, actual.y], [planet.x, planet.y]);
+    }
   }
 });
 

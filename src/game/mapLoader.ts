@@ -3,7 +3,7 @@ import { OrbitingGameEngine } from './orbitingEngine';
 import { DYSON_SPHERE_ID, SIEGE_OF_HELIOS, mapOrbits, validateMap, type MapDefinition } from './campaign';
 import { createClassicBattlefield } from './classicMap';
 
-// Standalone matches use balanced fixed geography with shuffled capitals. Authored games replace
+// Standalone matches use a balanced orbiting core with shuffled capitals. Authored games replace
 // only the initial planets and ships; stars, combat, AI, and controls are shared.
 export function createMatch(map?: MapDefinition, options: { hardMode?: boolean } = {}): GameEngine {
   const battlefield = map ?? createClassicBattlefield();
