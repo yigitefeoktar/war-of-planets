@@ -59,7 +59,7 @@ test('all four starts have equal openings, weapon travel, capture costs and capi
   signatures.forEach(signature => assert.deepEqual(signature, signatures[0]));
   assert.deepEqual(signatures[0].rivalHops, [5, 5, 7]);
   assert.deepEqual(signatures[0].weapons.map(weapon => weapon.hops[0]), [2, 3, 3]);
-  assert.deepEqual(signatures[0].weapons.map(weapon => weapon.cheapestCapture), [44, 84, 89]);
+  assert.deepEqual(signatures[0].weapons.map(weapon => weapon.cheapestCapture), [44, 80, 89]);
 });
 
 test('outer routes connect all starts without weapons and no single neutral planet disconnects the map', () => {
@@ -83,7 +83,7 @@ test('the complete orbit preserves connected routes, equal access and clear spac
   assert.equal(orbit.dysonSphere, undefined);
   for (const planet of moving) {
     const radius = Math.hypot(planet.x - orbit.x, planet.y - orbit.y);
-    assert.ok(radius >= 110);
+    assert.ok(radius >= 200);
     assert.ok(radius + 50 < Math.min(orbit.x, orbit.y, map.width - orbit.x, map.height - orbit.y));
     for (const outer of fixed) {
       // Exact closest separation over a full revolution.

@@ -1,15 +1,16 @@
 import { NEUTRAL, PLAYER, type MapDefinition, type PlanetDefinition } from './campaign';
 
 // Rotate one sector to keep openings, routes, and weapon access identical.
+const orbitPadding = 50;
 const sector: Omit<PlanetDefinition, 'owner'>[] = [
   { id: 'opening-west', x: 450, y: 850, ships: 16 },
   { id: 'opening-north', x: 850, y: 450, ships: 16 },
   { id: 'opening-inner', x: 850, y: 850, ships: 16 },
   { id: 'outer-west', x: 450, y: 1250, ships: 24 },
   { id: 'outer-north', x: 1250, y: 450, ships: 24 },
-  { id: 'inner-gate', x: 1150, y: 1150, ships: 28, superweaponUnlocks: ['overdrive'] },
-  { id: 'crossing', x: 1500, y: 1000, ships: 40, superweaponUnlocks: ['repulse'] },
-  { id: 'centre', x: 1500, y: 1350, ships: 45, superweaponUnlocks: ['omni'] },
+  { id: 'inner-gate', x: 1150 - orbitPadding / Math.SQRT2, y: 1150 - orbitPadding / Math.SQRT2, ships: 28, superweaponUnlocks: ['overdrive'] },
+  { id: 'crossing', x: 1500, y: 1000 - orbitPadding, ships: 40, superweaponUnlocks: ['repulse'] },
+  { id: 'centre', x: 1500, y: 1350 - orbitPadding, ships: 45, superweaponUnlocks: ['omni'] },
 ];
 
 function rotate(x: number, y: number, turns: number): { x: number; y: number } {
