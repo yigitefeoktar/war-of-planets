@@ -129,7 +129,7 @@ test('Overdrive cannot extend the low-garrison exception above 41', () => {
   assert.equal(stationed('boosted'), 41);
 });
 
-test('green bonus production cannot overshoot the ordinary cap', () => {
+test('ordinary production cannot overshoot the faction cap', () => {
   const { engine, tick, count } = match();
   engine.addBase('green', 1000, 1000, GREEN, 100);
   for (let i = 0; i < 9; i++) tick();

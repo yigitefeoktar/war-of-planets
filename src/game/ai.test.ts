@@ -48,6 +48,33 @@ test('does not attack friendly planets or a hopeless fortress', () => {
   assert.deepEqual(new TacticalAI().plan(w).get(RED)!.orders, []);
 });
 
+test('attack estimates use the same defender counts for every enemy color', () => {
+  for (const color of [RED, '#22c55e', '#eab308']) {
+    for (const defender of [BLUE, RED, '#22c55e', '#eab308']) {
+      if (color === defender) continue;
+      const w = world([base('source', 0, color, 200), base('target', 400, defender, 265)]);
+      assert.deepEqual(new TacticalAI().plan(w).get(color)!.orders, [{ from: 'source', to: 'target', count: 180 }]);
+      const fortress = world([base('source', 0, color, 200), base('target', 400, defender, 275)]);
+      assert.deepEqual(new TacticalAI().plan(fortress).get(color)!.orders, []);
+    }
+  }
+});
+
+test('capital reinforcement estimates count incoming ships equally across colors', () => {
+  for (const color of [RED, '#22c55e', '#eab308']) {
+    for (const attacker of [BLUE, RED, '#22c55e', '#eab308']) {
+      if (color === attacker) continue;
+      const w = world([base('capital', 0, color, 150, true), base('donor', 200, color, 140), base('enemy', 500, attacker, 200)]);
+      for (const ship of w.pixels.filter(ship => ship.color === attacker).slice(0, 180)) {
+        ship.state = 'moving'; ship.targetBaseId = 'capital';
+      }
+      const orders = new TacticalAI().plan(w).get(color)!.orders;
+      assert.ok(orders.some(order => order.from === 'donor' && order.to === 'capital' && order.count === 42));
+      assert.ok(!orders.some(order => order.from === 'capital'));
+    }
+  }
+});
+
 test('does not pile on when enough friendly ships are already incoming', () => {
   const w = world([base('a', 0, RED, 200), base('target', 400, GREY, 10)]);
   for (const p of w.pixels.filter(p => p.color === RED).slice(0, 30)) { p.state = 'moving'; p.targetBaseId = 'target'; }

@@ -1,5 +1,4 @@
 import { connectedFriendlyIds } from './logistics';
-import { attackMultiplier, defenceMultiplier } from './factions';
 import type { Base, Pixel } from './types';
 
 const NEUTRAL = '#6b7280';
@@ -54,7 +53,7 @@ export class TacticalAI {
       const targets = world.bases.filter(base => base.color !== color);
       const capitals = owned.filter(base => base.isCapital);
       const threat = (base: Base) => [...(incoming.get(base.id) ?? [])]
-        .reduce((sum, [attacker, count]) => sum + (attacker === color ? 0 : count * attackMultiplier(attacker) / defenceMultiplier(color)), 0);
+        .reduce((sum, [attacker, count]) => sum + (attacker === color ? 0 : count), 0);
       const reserve = (base: Base) => base.isCapital ? Math.max(45, Math.ceil(threat(base) + 12 - arriving(base, color))) : 0;
       const available = new Map(owned.map(base => [base.id, Math.max(0, ships(base) - reserve(base))]));
       const order = (from: Base, to: Base, count: number) => {
@@ -120,7 +119,7 @@ export class TacticalAI {
         if (count <= 0) continue;
         const reachable = targets.filter(target => {
           if (distance(source, target) > world.range) return false;
-          const defenders = ships(target) * defenceMultiplier(target.color) / attackMultiplier(color);
+          const defenders = ships(target);
           // Some risky attacks are welcome; overwhelming defences only waste a fleet.
           if (defenders > count * 1.5) return false;
           return arriving(target, color) < Math.max(12, defenders + 8);
@@ -139,7 +138,7 @@ export class TacticalAI {
         const viable = targets.filter(target => owned.some(base => distance(base, target) <= world.range)
           && arriving(target, color) < 12
           && owned.reduce((sum, base) => sum + Math.floor(ships(base) * 0.3), 0)
-            >= ships(target) * defenceMultiplier(target.color) / attackMultiplier(color) + 10);
+            >= ships(target) + 10);
         const revenge = viable.find(target => target.id === world.recentOmniCaptureId);
         const revengeKey = revenge ? `${revenge.id}:${world.recentOmniCaptureTime ?? 0}` : undefined;
         let chosen: Base | undefined;

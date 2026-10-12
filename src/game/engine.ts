@@ -2,7 +2,6 @@ import { Base, Pixel, type SuperweaponId } from './types';
 import { drawPlanetEffects, drawRepelledShips, type RepelledShip } from './planetEffects';
 import { canIssueFleetOrder } from './logistics';
 import { TacticalAI } from './ai';
-import { FactionBonuses, superweaponChargeMultiplier } from './factions';
 import { assignQuickMatchSuperweaponPlanets, isPointAccessible, SUPERWEAPON_CHARGE_INTERVAL_SECONDS, SUPERWEAPON_IDS, SUPERWEAPON_MAX_CHARGES, OVERDRIVE_DURATION, OVERDRIVE_MULTIPLIER, REPULSE_DURATION, type SuperweaponTargetMode } from './superweapons';
 import { SUPERWEAPON_VISUALS, superweaponIconLayout } from './superweaponVisuals';
 import { galaxyAppearance, type GalaxyTheme } from './galaxy';
@@ -134,7 +133,6 @@ export class GameEngine {
   shakeDuration: number = 0;
   aiOmniCooldowns: Map<string, number> = new Map();
   private tacticalAI = new TacticalAI();
-  private factionBonuses = new FactionBonuses();
   private aiSeconds = 0;
   lastOmniCaptureBaseId: string | null = null;
   lastOmniCaptureTime: number = 0;
@@ -382,22 +380,20 @@ export class GameEngine {
 
   getSuperweaponSecondsRemaining(color: string, weapon: SuperweaponId) {
     if (this.hasSuperweaponCharge(color, weapon)) return 0;
-    const multiplier = superweaponChargeMultiplier(color);
     const sourceCount = this.getSuperweaponSourceCount(color, weapon);
     const specialistSeconds = sourceCount > 0
-      ? (1 - this.getSuperweaponProgress(color, weapon)) * SUPERWEAPON_CHARGE_INTERVAL_SECONDS / (sourceCount * multiplier)
+      ? (1 - this.getSuperweaponProgress(color, weapon)) * SUPERWEAPON_CHARGE_INTERVAL_SECONDS / sourceCount
       : Number.POSITIVE_INFINITY;
     const canChargeDyson = this.ownsDysonSphere(color) && this.dysonChargeIntervalSeconds
       && Array.from(this.bases.values()).some(base => base.isCapital && base.color === color);
     const dysonSeconds = canChargeDyson
-      ? (1 - this.getUniversalProgress(color)) * this.dysonChargeIntervalSeconds! / multiplier
+      ? (1 - this.getUniversalProgress(color)) * this.dysonChargeIntervalSeconds!
       : Number.POSITIVE_INFINITY;
     const remaining = Math.min(specialistSeconds, dysonSeconds);
     return Number.isFinite(remaining) ? remaining : null;
   }
 
   recordPlanetCapture(baseId: string, color: string) {
-    this.factionBonuses.reset(baseId);
     const captured = this.bases.get(baseId);
     if (captured) { captured.overdrive = undefined; captured.repulse = undefined; }
     if (!this.superweaponUnlocksEnabled) return [];
@@ -435,11 +431,10 @@ export class GameEngine {
     }
 
     for (const [color, counts] of sourceCounts) {
-      const multiplier = superweaponChargeMultiplier(color);
       for (const [weapon, count] of counts) {
         if (this.getSuperweaponCharge(color, weapon) >= SUPERWEAPON_MAX_CHARGES) continue;
         const progress = this.getSuperweaponProgress(color, weapon)
-          + dt * count * multiplier / SUPERWEAPON_CHARGE_INTERVAL_SECONDS;
+          + dt * count / SUPERWEAPON_CHARGE_INTERVAL_SECONDS;
         if (progress >= 1 - Number.EPSILON * 8) {
           this.setSuperweaponCharge(color, weapon, SUPERWEAPON_MAX_CHARGES);
           this.weaponMap(this.factionSuperweaponProgress, color).set(weapon, 0);
@@ -453,7 +448,7 @@ export class GameEngine {
     for (const color of dysonOwners) {
       if (!capitalOwners.has(color) || this.getUniversalCharge(color) >= SUPERWEAPON_MAX_CHARGES) continue;
       const progress = this.getUniversalProgress(color)
-        + dt * superweaponChargeMultiplier(color) / this.dysonChargeIntervalSeconds;
+        + dt / this.dysonChargeIntervalSeconds;
       if (progress >= 1 - Number.EPSILON * 8) {
         this.setUniversalCharge(color, SUPERWEAPON_MAX_CHARGES);
         this.factionUniversalProgress.set(color, 0);
@@ -695,7 +690,7 @@ export class GameEngine {
           // preserves the inclusive exception: a garrison of 40 can still grow.
           const allowance = Math.max(FACTION_SHIP_LIMIT - factionCount, LOW_GARRISON_THRESHOLD + 1 - garrisonCount, 0);
           if (allowance === 0) continue;
-          const count = Math.min(allowance, this.factionBonuses.production(base.id, base.color) * (base.overdrive ? OVERDRIVE_MULTIPLIER : 1));
+          const count = Math.min(allowance, base.overdrive ? OVERDRIVE_MULTIPLIER : 1);
           if (base.overdrive) {
             base.overdrive.pulse = 1;
             this.createExplosion(base.x, base.y, '#ffbd59', 8);
@@ -822,14 +817,8 @@ export class GameEngine {
             const defender = defenders?.pop();
             
             if (defender) {
-              const bonus = this.factionBonuses.clash(targetBase.id, targetBase.color, p.color);
               p.dead = true;
-              defender.dead = !bonus.saveDefender;
-              if (bonus.saveDefender) defenders!.push(defender);
-              if (bonus.extraDefender) {
-                const extra = defenders?.pop();
-                if (extra) extra.dead = true;
-              }
+              defender.dead = true;
               targetBase.lastAttackedTime = this.now();
               this.createExplosion(p.x, p.y, targetBase.color, 2);
               this.createExplosion(defender.x, defender.y, targetBase.color, 2);

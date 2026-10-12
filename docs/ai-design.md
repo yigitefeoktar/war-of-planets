@@ -33,14 +33,13 @@ Every cast uses the same stored charge, target rules, strength and duration as t
 player. Enemy activations are announced on screen. There are no hidden resources
 or adjustments based on the player's win/loss history.
 
-# Colour specialties
+# Faction mechanics
 
-Blue Guardians (the player) prevent one defending loss every tenth clash.
-Red Raiders kill one extra defender, if available, every tenth attacking clash.
-These bonuses roughly cancel in red-versus-blue combat. Green Industrialists
-produce eleven ships per ten normal production cycles. Yellow Engineers charge
-superweapons 10% faster while a weapon site or Dyson sphere is held. Bonuses follow the
-current owner. Faction specialties are gameplay rules; no menu legend is shown.
+All four faction colors use the same combat, ship production, and weapon charging
+rules. Ordinary combat exchanges one attacking ship for one defending ship.
+Colors identify ownership; starting positions, fleets, expansion, and weapon
+access determine each faction's advantages. The AI evaluates fleets using their
+actual ship counts, without color-based strength adjustments.
 
 This version restores movement and opportunities for counterattacks. Match
 playtesting is still needed to determine whether it is more fun than either
