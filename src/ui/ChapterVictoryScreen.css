@@ -1,0 +1,165 @@
+.chapter-victory {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  isolation: isolate;
+  padding: 32px 24px;
+  background: #02070d;
+  color: #cffafe;
+  font-family: Arial, Helvetica, sans-serif;
+  animation: chapter-victory-reveal .65s ease-out both;
+}
+
+.chapter-victory-background {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.chapter-victory-art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 60%;
+  opacity: .46;
+  animation: chapter-victory-art-arrive 1.6s cubic-bezier(.2, .7, .2, 1) both;
+}
+
+.chapter-victory-shade,
+.chapter-victory-grid,
+.chapter-victory-scanlines { position: absolute; inset: 0; }
+
+.chapter-victory-shade {
+  background: linear-gradient(180deg, #02070d0a 0%, #02070d25 45%, #02070dbf 100%),
+    radial-gradient(ellipse at center, #02070d30 15%, transparent 60%, #02070d40 100%);
+}
+
+.chapter-victory-grid {
+  background-image: linear-gradient(#22d3ee0b 1px, transparent 1px), linear-gradient(90deg, #22d3ee0b 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.chapter-victory-scanlines {
+  background: repeating-linear-gradient(0deg, transparent 0 3px, #00000026 3px 4px);
+  opacity: .5;
+}
+
+.chapter-victory-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 560px;
+  margin: auto 0;
+  text-align: center;
+}
+
+.chapter-victory-emblem {
+  position: relative;
+  width: 62px;
+  height: 64px;
+  margin-bottom: 20px;
+  animation: chapter-victory-rise .6s .12s cubic-bezier(.2, .7, .2, 1) both;
+}
+
+.chapter-victory-hexagon {
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background: linear-gradient(145deg, #5599ff, #3b82f6 50%, #2870e7);
+}
+
+.chapter-victory-halo {
+  position: absolute;
+  inset: -24px;
+  background: radial-gradient(ellipse, #3b82f65c, transparent 68%);
+  opacity: .4;
+  animation: chapter-victory-pulse 4s 1s ease-in-out infinite;
+}
+
+.chapter-victory-label {
+  margin: 0 0 18px;
+  color: #67e8f9;
+  font: 600 12px/1.4 monospace;
+  letter-spacing: .3em;
+  text-transform: uppercase;
+  animation: chapter-victory-rise .6s .22s cubic-bezier(.2, .7, .2, 1) both;
+}
+
+.chapter-victory-title {
+  margin: 0 0 54px;
+  background: linear-gradient(180deg, #fff 12%, #d6faff 45%, #22d3ee 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  font-size: clamp(30px, 3.1vw, 48px);
+  line-height: 1.08;
+  font-weight: 900;
+  letter-spacing: -.045em;
+  animation: chapter-victory-rise .65s .32s cubic-bezier(.2, .7, .2, 1) both;
+}
+
+.chapter-victory-action {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: min(100%, 444px);
+  min-height: 62px;
+  padding: 16px 24px;
+  border: 1px solid #22d3ee;
+  border-radius: 3px;
+  background: #08334480;
+  color: #a5f3fc;
+  box-shadow: 0 0 24px #06b6d414, inset 0 0 20px #06b6d40a;
+  font: 800 15px/1.4 Arial, Helvetica, sans-serif;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color .2s, box-shadow .2s, color .2s;
+  animation: chapter-victory-rise .65s .46s cubic-bezier(.2, .7, .2, 1) both;
+}
+
+.chapter-victory-action svg { flex-shrink: 0; transition: transform .2s; }
+.chapter-victory-action:hover { background: #0e74904d; color: #fff; box-shadow: 0 0 28px #06b6d42e; }
+.chapter-victory-action:hover svg { transform: translateX(-4px); }
+.chapter-victory-action:active { background: #0e749070; }
+.chapter-victory-action:focus-visible { outline: 2px solid #cffafe; outline-offset: 5px; }
+
+@keyframes chapter-victory-reveal { from { opacity: 0; } to { opacity: 1; } }
+@keyframes chapter-victory-art-arrive { from { transform: scale(1.025); opacity: 0; } to { transform: scale(1); opacity: .46; } }
+@keyframes chapter-victory-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes chapter-victory-pulse { 0%, 100% { opacity: .25; } 50% { opacity: .55; } }
+
+@media (max-width: 500px) {
+  .chapter-victory { padding: 24px 20px; }
+  .chapter-victory-art { object-position: 58% center; }
+  .chapter-victory-emblem { width: 52px; height: 54px; }
+  .chapter-victory-label { font-size: 10px; letter-spacing: .25em; }
+  .chapter-victory-title { margin-bottom: 38px; font-size: clamp(26px, 7.7vw, 38px); }
+  .chapter-victory-action { min-height: 54px; padding: 14px 16px; font-size: 12px; letter-spacing: .15em; gap: 12px; }
+}
+
+@media (max-height: 500px) {
+  .chapter-victory { padding: 16px 24px; }
+  .chapter-victory-emblem { width: 40px; height: 42px; margin-bottom: 12px; }
+  .chapter-victory-label { margin-bottom: 12px; font-size: 10px; }
+  .chapter-victory-title { margin-bottom: 26px; font-size: 32px; }
+  .chapter-victory-action { min-height: 46px; padding: 12px 20px; font-size: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chapter-victory, .chapter-victory-art, .chapter-victory-emblem, .chapter-victory-halo,
+  .chapter-victory-label, .chapter-victory-title, .chapter-victory-action { animation: none; }
+  .chapter-victory-action, .chapter-victory-action svg { transition: none; }
+  .chapter-victory-action:hover svg { transform: none; }
+}

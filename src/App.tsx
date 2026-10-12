@@ -8,6 +8,7 @@ import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAud
 import { ModeCard } from './ui/ModeCard';
 import { SuperweaponButton } from './ui/SuperweaponButton';
 import { AnimatedGamePopup } from './ui/AnimatedGamePopup';
+import { ChapterVictoryScreen, preloadChapterVictoryArtwork } from './ui/ChapterVictoryScreen';
 import { advanceTutorial, drawTutorialHighlights, tutorialTargets, type TutorialState, type TutorialEvent } from './game/tutorial';
 import { hasIncomingHostile, issueFleetOrder, issueFriendlyGroupOrder } from './game/logistics';
 import { MIN_MULTI_SELECT_PLANETS, canUseMultiSelect, countOwnedPlanets, friendlyPlanetsInRectangle, type SelectionPoint } from './game/selection';
@@ -267,6 +268,9 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   const updateCameraLayoutRef = useRef<() => void>(() => {});
   const [factions, setFactions] = useState<{ color: string; isAlive: boolean; isPlayer: boolean; shipCount: number; name: string }[]>([]);
   const [winner, setWinner] = useState<{ color: string } | null>(null);
+  useEffect(() => {
+    if (victoryTitle) void preloadChapterVictoryArtwork();
+  }, [victoryTitle]);
   const [showUI, setShowUI] = useState(false);
   const [tutorial, setTutorial] = useState<TutorialState>(() => ({
     step: map?.tutorial ? 'select' : 'done',
@@ -1761,7 +1765,11 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       </div>
 
       {/* Game Over Overlay */}
-      {winner && (
+      {winner?.color === '#3b82f6' && victoryTitle && isChapterComplete ? (
+        <ChapterVictoryScreen title={victoryTitle}
+          onHover={() => playSound('hover', isSoundEnabled)}
+          onMenu={() => { playSound('select', isSoundEnabled); onMenu(); }} />
+      ) : winner && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
