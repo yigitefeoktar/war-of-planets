@@ -1,8 +1,9 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createMatch } from './game/mapLoader';
-import { CHAPTERS, DYSON_SPHERE_ID, SIEGE_OF_HELIOS, completeMission, followingMission, getOutcome, isChapterOneTestMode, launchMission, loadProgress, mapOrbits, nextMission, saveProgress, testLevelForMode, type MapDefinition, type ModeId, type Progress } from './game/campaign';
+import { createGeneratedMap } from './game/generatedMaps';
+import { CHAPTERS, DYSON_SPHERE_ID, SIEGE_OF_HELIOS, completeMission, followingMission, getOutcome, isChapterOneTestMode, isGeneratedMode, launchMission, loadProgress, mapOrbits, nextMission, saveProgress, testLevelForMode, type MapDefinition, type ModeId, type Progress } from './game/campaign';
 import { motion } from 'motion/react';
-import { Maximize, Minimize, Volume2, VolumeX, Music, Pause, Play, Flag, Shield } from 'lucide-react';
+import { Maximize, Minimize, Volume2, VolumeX, Music, Pause, Play, Flag, Shield, Skull } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
 import { ModeCard } from './ui/ModeCard';
 import { SuperweaponButton } from './ui/SuperweaponButton';
@@ -26,7 +27,7 @@ const SUPERWEAPON_LABELS: Record<SuperweaponId, string> = {
   omni: 'Omni Strike', overdrive: 'Production Overdrive', repulse: 'Repulse Shield',
 };
 
-function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled }: { selectedMode: ModeId, onSelectMode: (mode: ModeId) => void, progress: Progress, saveWarning: boolean, onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void }) {
+function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled, isHardMode, setIsHardMode }: { selectedMode: ModeId, onSelectMode: (mode: ModeId) => void, progress: Progress, saveWarning: boolean, onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void, isHardMode: boolean, setIsHardMode: (val: boolean) => void }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [scale, setScale] = useState(1);
 
@@ -160,7 +161,7 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
           whileTap={{ scale: 0.95 }}
           onMouseEnter={() => playSound('hover', isSoundEnabled)}
           onClick={handlePlay}
-          disabled={selectedMode !== 'quick-match' && selectedMode !== 'hard-mode' && CHAPTERS[selectedMode].maps.length === 0}
+          disabled={!isGeneratedMode(selectedMode) && CHAPTERS[selectedMode].maps.length === 0}
           className="mt-12 group relative px-12 py-5 bg-cyan-950/60 border border-cyan-400 text-cyan-300 font-bold tracking-[0.3em] uppercase transition-colors transition-shadow duration-300 overflow-hidden shadow-[0_0_20px_rgba(6,182,212,0.2)] hover:shadow-[0_0_40px_rgba(6,182,212,0.4)] hover:text-white cursor-pointer rounded-sm"
         >
           <div className="absolute inset-0 bg-cyan-400/20 translate-y-[100%] group-hover:translate-y-0 transition-transform duration-300 ease-out" />
@@ -170,7 +171,7 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
           <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <span className="relative z-10 flex items-center gap-3">
-            {selectedMode !== 'quick-match' && selectedMode !== 'hard-mode' && CHAPTERS[selectedMode].maps.length === 0 ? 'Coming soon' : selectedMode === 'hard-mode' ? 'Launch Hard Mode' : selectedMode === 'quick-match' ? 'Initialize Launch' : selectedMode === 'chapter-1' ? 'Start Chapter 1' : isChapterOneTestMode(selectedMode) ? `Start Level ${testLevelForMode(selectedMode)}` : nextMission(CHAPTERS[selectedMode], progress.completed) ? 'Continue Campaign' : 'Replay Mission'}
+            {!isGeneratedMode(selectedMode) && CHAPTERS[selectedMode].maps.length === 0 ? 'Coming soon' : selectedMode === 'chaos-mode' ? 'Launch Chaos Mode' : selectedMode === 'quick-match' ? 'Initialize Launch' : selectedMode === 'chapter-1' ? 'Start Chapter 1' : isChapterOneTestMode(selectedMode) ? `Start Level ${testLevelForMode(selectedMode)}` : nextMission(CHAPTERS[selectedMode], progress.completed) ? 'Continue Campaign' : 'Replay Mission'}
             <svg className="w-5 h-5 group-hover:translate-x-2 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="square" strokeLinejoin="miter" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
             </svg>
@@ -230,6 +231,25 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
             {isSoundEnabled ? 'Sound: On' : 'Sound: Off'}
           </button>
 
+          <button
+            type="button"
+            aria-pressed={isHardMode}
+            onMouseEnter={() => playSound('hover', isSoundEnabled)}
+            onClick={() => {
+              const newState = !isHardMode;
+              setIsHardMode(newState);
+              if (newState) playSound('click', isSoundEnabled);
+            }}
+            className={`flex items-center gap-2 px-4 py-2 border transition-all rounded-sm font-mono text-xs tracking-widest uppercase group ${
+              isHardMode
+                ? 'bg-red-900/30 border-red-500/50 text-red-400'
+                : 'bg-cyan-950/40 border-cyan-500/30 text-cyan-500/60 hover:text-cyan-400 hover:border-cyan-400/50 hover:bg-cyan-900/30'
+            }`}
+          >
+            <Skull size={14} className={`group-hover:scale-110 transition-transform ${!isHardMode && 'opacity-50'}`} />
+            {isHardMode ? 'Hard Mode: On' : 'Hard Mode: Off'}
+          </button>
+
         </motion.div>
         </div>
       </div>
@@ -237,7 +257,7 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
   );
 }
 
-function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRetry, onMenu, resultDetail, victoryTitle, actionLabel, isChapterComplete }: { isSoundEnabled: boolean, isMusicEnabled: boolean, isHardMode: boolean, map?: MapDefinition, onResult: (won: boolean) => void, onRetry: () => void, onMenu: () => void, resultDetail: string, victoryTitle?: string, actionLabel: string, isChapterComplete: boolean }) {
+function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRetry, onNewMap, onMenu, resultDetail, victoryTitle, actionLabel, isChapterComplete }: { isSoundEnabled: boolean, isMusicEnabled: boolean, isHardMode: boolean, map?: MapDefinition, onResult: (won: boolean) => void, onRetry: () => void, onNewMap?: () => void, onMenu: () => void, resultDetail: string, victoryTitle?: string, actionLabel: string, isChapterComplete: boolean }) {
   const onResultRef = useRef(onResult);
   onResultRef.current = onResult;
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1790,6 +1810,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
               onClick={() => {
                 playSound('select', isSoundEnabled);
                 if (isChapterComplete) onMenu();
+                else if (onNewMap) onNewMap();
                 else onRetry();
               }}
               className="classic-result-action group relative flex min-h-14 w-full max-w-sm cursor-pointer items-center justify-center overflow-hidden rounded-sm border border-cyan-400 bg-cyan-950/60 px-7 py-4 font-bold uppercase tracking-[0.22em] text-cyan-200 shadow-[0_0_20px_rgba(6,182,212,0.2)] transition-all hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300 max-[500px]:min-h-11 max-[500px]:py-3 max-[500px]:text-xs"
@@ -1801,6 +1822,13 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
                 </svg>
               </span>
             </motion.button>
+
+            {onNewMap && winner.color !== '#3b82f6' && <button
+              type="button"
+              onMouseEnter={() => playSound('hover', isSoundEnabled)}
+              onClick={() => { playSound('select', isSoundEnabled); onRetry(); }}
+              className="classic-result-replay mt-3 min-h-11 w-full max-w-sm rounded-sm border border-cyan-500/40 bg-cyan-950/40 px-6 py-3 text-sm font-bold uppercase tracking-widest text-cyan-200 transition-colors hover:bg-cyan-900/40 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300"
+            >Play Again</button>}
 
             {!isChapterComplete && <button
               type="button"
@@ -1837,19 +1865,21 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 export default function App() {
   const [progress, setProgress] = useState(loadProgress);
   const [saveWarning, setSaveWarning] = useState(false);
-  const [session, setSession] = useState<{ mode: ModeId; map?: MapDefinition; attempt: number } | null>(null);
+  const [session, setSession] = useState<{ mode: ModeId; map?: MapDefinition; hardMode: boolean; attempt: number } | null>(null);
+  const [isHardMode, setIsHardMode] = useState(false);
   const [result, setResult] = useState<boolean | null>(null);
   useEffect(() => { setSaveWarning(!saveProgress(progress)); }, [progress]);
-  const begin = (mode: ModeId, map?: MapDefinition) => {
+  const begin = (mode: ModeId, map?: MapDefinition, hardMode = isHardMode) => {
+    const battlefield = map ?? (isGeneratedMode(mode) ? createGeneratedMap(mode) : undefined);
     setResult(null);
-    setSession(previous => ({ mode, map, attempt: (previous?.attempt ?? 0) + 1 }));
+    setSession(previous => ({ mode, map: battlefield, hardMode, attempt: (previous?.attempt ?? 0) + 1 }));
   };
-  const followingMap = session && session.mode !== 'quick-match' && session.mode !== 'hard-mode'
+  const followingMap = session && !isGeneratedMode(session.mode)
     ? followingMission(CHAPTERS[session.mode], session.map?.id ?? '')
     : undefined;
   const onResult = (won: boolean) => {
     setResult(won);
-    if (won && session?.map && !isChapterOneTestMode(session.mode)) setProgress(previous => completeMission(previous, session.map!.id));
+    if (won && session?.map && !isGeneratedMode(session.mode) && !isChapterOneTestMode(session.mode)) setProgress(previous => completeMission(previous, session.map!.id));
   };
   const [isSoundEnabled, setIsSoundEnabled] = useState(true);
   const [isMusicEnabled, setIsMusicEnabled] = useState(false);
@@ -1897,19 +1927,21 @@ export default function App() {
         onPlay={() => {
           startMusic(MUSIC_SRC, isMusicEnabled);
           const mode = progress.selectedMode;
-          const map = mode === 'quick-match' || mode === 'hard-mode' ? undefined : launchMission(CHAPTERS[mode], progress.completed);
-          if (mode === 'quick-match' || mode === 'hard-mode' || map) begin(mode, map);
+          const map = isGeneratedMode(mode) ? undefined : launchMission(CHAPTERS[mode], progress.completed);
+          if (isGeneratedMode(mode) || map) begin(mode, map);
         }}
         isSoundEnabled={isSoundEnabled} 
         setIsSoundEnabled={setIsSoundEnabled}
         isMusicEnabled={isMusicEnabled}
         setIsMusicEnabled={handleToggleMusic}
+        isHardMode={isHardMode}
+        setIsHardMode={setIsHardMode}
       />
     );
   }
 
 
-  const chapter = session.mode === 'quick-match' || session.mode === 'hard-mode' ? undefined : CHAPTERS[session.mode];
+  const chapter = isGeneratedMode(session.mode) ? undefined : CHAPTERS[session.mode];
   const isLastChapterLevel = Boolean(chapter && session.map && chapter.maps.at(-1)?.id === session.map.id);
   const isChapterComplete = isLastChapterLevel && result === true;
   const isChapterFinale = session.map?.id === SIEGE_OF_HELIOS.id;
@@ -1918,10 +1950,11 @@ export default function App() {
     : chapter && chapter.maps.length < chapter.plannedLevels ? 'Mission complete. More chapter missions are coming soon.'
     : chapter ? 'Chapter complete. All missions secured.' : 'Sector secured.';
   return <React.Fragment key={session.attempt}><Game map={session.map}
-    isSoundEnabled={isSoundEnabled} isMusicEnabled={isMusicEnabled} isHardMode={session.mode === 'hard-mode'}
+    isSoundEnabled={isSoundEnabled} isMusicEnabled={isMusicEnabled} isHardMode={session.hardMode}
     onResult={onResult} resultDetail={resultDetail} victoryTitle={isChapterFinale ? 'HELIOS SECURED' : undefined}
     isChapterComplete={isChapterComplete}
-    actionLabel={isChapterComplete ? 'Back to Main Menu' : result && followingMap ? 'Next Mission' : session.map ? result ? 'Replay Mission' : 'Retry Mission' : session.mode === 'hard-mode' ? 'New Hard Match' : 'New Quick Match'}
-    onRetry={() => begin(session.mode, result && followingMap ? followingMap : session.map)}
+    actionLabel={isGeneratedMode(session.mode) ? 'New Map' : isChapterComplete ? 'Back to Main Menu' : result && followingMap ? 'Next Mission' : result ? 'Replay Mission' : 'Retry Mission'}
+    onRetry={() => begin(session.mode, result && followingMap ? followingMap : session.map, session.hardMode)}
+    onNewMap={isGeneratedMode(session.mode) ? () => begin(session.mode, undefined, session.hardMode) : undefined}
     onMenu={() => { setSession(null); setResult(null); setMusicEnabled(isMusicEnabled); }} /></React.Fragment>;
 }

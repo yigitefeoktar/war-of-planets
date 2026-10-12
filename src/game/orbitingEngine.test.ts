@@ -127,7 +127,7 @@ for (const warp of [false, true]) test(`${warp ? 'Omni-Strike' : 'normal attack'
 
 test('non-member planets stay fixed in standalone and authored matches', () => {
   const quick = quietEngine();
-  assert.ok(quick instanceof OrbitingGameEngine);
+  assert.ok(!(quick instanceof OrbitingGameEngine));
   const fixed = [...quick.bases.values()].filter(p => !p.superweaponUnlocks?.length);
   const before = fixed.map(p => [p.x, p.y]);
   quick.update(1 / 60);

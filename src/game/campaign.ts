@@ -10,8 +10,12 @@ export const CHAPTER_ONE_TEST_MODE_IDS = [
   'chapter-1-test-1', 'chapter-1-test-2', 'chapter-1-test-3', 'chapter-1-test-4', 'chapter-1-test-5',
 ] as const;
 export type ChapterOneTestModeId = typeof CHAPTER_ONE_TEST_MODE_IDS[number];
-export type ModeId = 'chapter-1' | ChapterOneTestModeId | 'chapter-2' | 'quick-match' | 'hard-mode';
-export type ChapterId = Exclude<ModeId, 'quick-match' | 'hard-mode'>;
+export type GeneratedMode = 'quick-match' | 'chaos-mode';
+export type ModeId = 'chapter-1' | ChapterOneTestModeId | 'chapter-2' | GeneratedMode;
+export type ChapterId = Exclude<ModeId, GeneratedMode>;
+export function isGeneratedMode(mode: ModeId): mode is GeneratedMode {
+  return mode === 'quick-match' || mode === 'chaos-mode';
+}
 export function isChapterOneTestMode(mode: ModeId): mode is ChapterOneTestModeId {
   return (CHAPTER_ONE_TEST_MODE_IDS as readonly string[]).includes(mode);
 }
@@ -37,6 +41,7 @@ export type MapDefinition = {
   orbits?: OrbitDefinition[];
   mobileFocus?: 'capital';
   tutorial?: { attackTargetId: string };
+  generated?: { mode: GeneratedMode; seed: number; layout: string };
 };
 export type Chapter = { id: ChapterId; plannedLevels: number; maps: MapDefinition[] };
 
@@ -330,7 +335,7 @@ export function followingMission(chapter: Chapter, currentId: string): MapDefini
 }
 export function progressLabel(mode: ModeId, progress: Progress): string {
   if (mode === 'quick-match') return 'Instant action';
-  if (mode === 'hard-mode') return 'Hard AI · Instant action';
+  if (mode === 'chaos-mode') return 'Orbiting worlds · Weapons everywhere';
   if (isChapterOneTestMode(mode)) return `Testing · starts at Level ${testLevelForMode(mode)}`;
   const chapter = CHAPTERS[mode];
   if (!chapter.maps.length) return 'Coming soon';
