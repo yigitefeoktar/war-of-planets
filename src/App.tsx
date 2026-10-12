@@ -258,7 +258,7 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
   );
 }
 
-function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRetry, onNewMap, onMenu, resultDetail, victoryTitle, actionLabel, isChapterComplete }: { isSoundEnabled: boolean, isMusicEnabled: boolean, isHardMode: boolean, map?: MapDefinition, onResult: (won: boolean) => void, onRetry: () => void, onNewMap?: () => void, onMenu: () => void, resultDetail: string, victoryTitle?: string, actionLabel: string, isChapterComplete: boolean }) {
+function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRetry, onNewMap, onMenu, onTryHardMode, resultDetail, victoryTitle, actionLabel, isChapterComplete }: { isSoundEnabled: boolean, isMusicEnabled: boolean, isHardMode: boolean, map?: MapDefinition, onResult: (won: boolean) => void, onRetry: () => void, onNewMap?: () => void, onMenu: () => void, onTryHardMode: () => void, resultDetail: string, victoryTitle?: string, actionLabel: string, isChapterComplete: boolean }) {
   const onResultRef = useRef(onResult);
   onResultRef.current = onResult;
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1768,6 +1768,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       {winner?.color === '#3b82f6' && victoryTitle && isChapterComplete ? (
         <ChapterVictoryScreen title={victoryTitle}
           onHover={() => playSound('hover', isSoundEnabled)}
+          onTryHardMode={() => { playSound('select', isSoundEnabled); onTryHardMode(); }}
           onMenu={() => { playSound('select', isSoundEnabled); onMenu(); }} />
       ) : winner && (
         <motion.div
@@ -1925,6 +1926,13 @@ export default function App() {
     setIsMusicEnabled(enabled);
   };
 
+  const restartChapterOneInHardMode = () => {
+    setIsHardMode(true);
+    setProgress(previous => ({ ...previous, selectedMode: 'chapter-1' }));
+    startMusic(MUSIC_SRC, isMusicEnabled);
+    begin('chapter-1', CHAPTERS['chapter-1'].maps[0], true);
+  };
+
   if (!session) {
     return (
       <LandingPage 
@@ -1964,5 +1972,6 @@ export default function App() {
     actionLabel={isGeneratedMode(session.mode) ? 'New Map' : isChapterComplete ? 'Back to Main Menu' : result && followingMap ? 'Next Mission' : result ? 'Replay Mission' : 'Retry Mission'}
     onRetry={() => begin(session.mode, result && followingMap ? followingMap : session.map, session.hardMode)}
     onNewMap={isGeneratedMode(session.mode) ? () => begin(session.mode, undefined, session.hardMode) : undefined}
+    onTryHardMode={restartChapterOneInHardMode}
     onMenu={() => { setSession(null); setResult(null); setMusicEnabled(isMusicEnabled); }} /></React.Fragment>;
 }

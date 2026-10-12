@@ -129,6 +129,7 @@
   animation: chapter-victory-rise .65s .46s cubic-bezier(.2, .7, .2, 1) both;
 }
 
+.chapter-victory-hard-mode { margin-top: 14px; animation-delay: .58s; }
 .chapter-victory-action svg { flex-shrink: 0; transition: transform .2s; }
 .chapter-victory-action:hover { background: #0e74904d; color: #fff; box-shadow: 0 0 28px #06b6d42e; }
 .chapter-victory-action:hover svg { transform: translateX(-4px); }

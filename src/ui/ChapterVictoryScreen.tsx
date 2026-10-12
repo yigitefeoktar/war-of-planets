@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { Skull } from 'lucide-react';
 import './ChapterVictoryScreen.css';
 
 const ARTWORK_SRC = '/images/modes/chapter-1.jpg';
@@ -27,11 +28,14 @@ export function preloadChapterVictoryArtwork(): Promise<void> {
   return artworkReady;
 }
 
-export function ChapterVictoryScreen({ title, onMenu, onHover }: {
+export function ChapterVictoryScreen({ title, onMenu, onTryHardMode, onHover }: {
   title: string;
   onMenu: () => void;
+  onTryHardMode: () => void;
   onHover: () => void;
 }) {
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const hardModeButton = useRef<HTMLButtonElement>(null);
   useEffect(() => { void preloadChapterVictoryArtwork(); }, []);
 
   return <section className="chapter-victory" role="dialog" aria-modal="true" aria-labelledby="chapter-victory-title">
@@ -49,12 +53,21 @@ export function ChapterVictoryScreen({ title, onMenu, onHover }: {
       </div>
       <p className="chapter-victory-label">Chapter 1 complete</p>
       <h2 id="chapter-victory-title" className="chapter-victory-title">{title}</h2>
-      <button className="chapter-victory-action" type="button" autoFocus onMouseEnter={onHover} onClick={onMenu}
-        onKeyDown={event => { if (event.key === 'Tab') event.preventDefault(); }}>
+      <button ref={menuButton} className="chapter-victory-action" type="button" autoFocus onMouseEnter={onHover} onClick={onMenu}
+        onKeyDown={event => {
+          if (event.key === 'Tab' && event.shiftKey) { event.preventDefault(); hardModeButton.current?.focus(); }
+        }}>
         <span>Back to Main Menu</span>
         <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path strokeLinecap="square" strokeLinejoin="miter" strokeWidth="2" d="M19 12H5m7-7-7 7 7 7" />
         </svg>
+      </button>
+      <button ref={hardModeButton} className="chapter-victory-action chapter-victory-hard-mode" type="button" onMouseEnter={onHover} onClick={onTryHardMode}
+        onKeyDown={event => {
+          if (event.key === 'Tab' && !event.shiftKey) { event.preventDefault(); menuButton.current?.focus(); }
+        }}>
+        <span>Try in Hard Mode</span>
+        <Skull size={20} aria-hidden="true" />
       </button>
     </div>
   </section>;
