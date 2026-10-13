@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CHAOS_LAYOUTS, QUICK_LAYOUTS, createGeneratedMap, generateMap, mapConnected, seededRandom, validateChaosGeometry } from './generatedMaps';
+import { CHAOS_LAYOUTS, QUICK_LAYOUTS, createGeneratedMap, generateMap, mapConnected, seededRandom, validateChaosGeometry, validateQuickGeometry } from './generatedMaps';
 import { FACTIONS, NEUTRAL, validateMap, type MapDefinition, type PlanetDefinition } from './campaign';
 import { createMatch } from './mapLoader';
 import { OrbitingGameEngine } from './orbitingEngine';
@@ -25,21 +25,33 @@ function captureCosts(capital: PlanetDefinition, planets: PlanetDefinition[]) {
     Math.min(...planets.filter(planet => planet.superweaponUnlocks?.includes(weapon)).map(planet => costs.get(planet.id) ?? Infinity)));
 }
 
-test('1000 Quick seeds give fair openings, equal weapon costs, safe spacing and multiple routes', t => {
+function routeSignature(map: MapDefinition): string {
+  const neighbors = map.planets.map(planet => map.planets.map((other, i) => other !== planet && distance(planet, other) <= map.attackRange ? i : -1).filter(i => i >= 0));
+  const hash = (value: string) => { let result = 2166136261; for (const char of value) result = Math.imul(result ^ char.charCodeAt(0), 16777619); return (result >>> 0).toString(36); };
+  let labels: string[] = map.planets.map(planet => planet.capital ? 'capital' : 'world');
+  // Ignore coordinates, IDs, colors, costs and weapon placements. This compares
+  // the route structure itself, rather than counting cosmetic seed changes.
+  for (let round = 0; round < 6; round++) labels = labels.map((label, i) => hash(`${label}:${neighbors[i].map(n => labels[n]).sort().join(',')}`));
+  return labels.sort().join(':');
+}
+
+test('1000 Quick seeds preserve frontlines, equal opening costs and substantially varied routes', t => {
   const fingerprints = new Set<string>(), counts = new Set<number>(), graphs = new Set<string>();
+  const families = QUICK_LAYOUTS.map(() => new Set<string>());
   const started = performance.now();
   for (let seed = 0; seed < 1000; seed++) {
     const map = generateMap('quick-match', seed);
     assert.doesNotThrow(() => validateMap(map));
+    assert.doesNotThrow(() => validateQuickGeometry(map));
     assert.ok(!map.orbit && !map.orbits);
-    assert.ok(map.planets.length >= 37 && map.planets.length <= 81);
+    assert.ok(map.planets.length >= 45 && map.planets.length <= 95);
     assert.equal(map.generated?.mode, 'quick-match');
     const capitals = map.planets.filter(planet => planet.capital);
     assert.deepEqual(capitals.map(planet => planet.owner).sort(), [...FACTIONS].sort());
     const costs = capitals.map(capital => {
       assert.equal(capital.ships, 200);
       const neighbors = map.planets.filter(planet => planet !== capital && distance(planet, capital) <= 600);
-      assert.equal(neighbors.length, 3);
+      assert.equal(neighbors.length, 2);
       assert.ok(neighbors.every(planet => planet.owner === NEUTRAL && planet.ships <= 18 && !planet.superweaponUnlocks));
       return captureCosts(capital, map.planets);
     });
@@ -47,27 +59,44 @@ test('1000 Quick seeds give fair openings, equal weapon costs, safe spacing and 
     assert.ok(costs[0].every(cost => Number.isFinite(cost) && cost > 18));
     for (let index = 0; index < map.planets.length; index++) {
       const planet = map.planets[index];
-      assert.ok(map.planets.filter(other => other !== planet && distance(planet, other) <= 600).length >= 2);
-      for (const other of map.planets.slice(index + 1)) assert.ok(distance(planet, other) > 300);
+      const neighbors = map.planets.filter(other => other !== planet && distance(planet, other) <= 600);
+      assert.ok(neighbors.length >= 1 && neighbors.length <= 4);
+      for (const other of map.planets.slice(index + 1)) {
+        const d = distance(planet, other);
+        assert.ok(d >= 500);
+        assert.ok(d <= 575 || d >= 650, 'An edge sits too close to the attack threshold');
+      }
+      // No triangles: enemies must advance along a route, rather than jumping
+      // diagonally across the planet being defended.
+      for (const a of neighbors) for (const b of neighbors) if (a !== b) assert.ok(distance(a, b) > 600);
     }
-    for (const removed of map.planets.filter(planet => !planet.capital)) assert.ok(mapConnected(map.planets.filter(planet => planet !== removed)));
+    for (const capital of capitals) {
+      const prefix = /^home-\d+-/.exec(capital.id)![0];
+      const gates = map.planets.filter(planet => planet.id.startsWith(prefix) && /-gate(?:-[ab])?$/.test(planet.id));
+      const remaining = map.planets.filter(planet => !gates.includes(planet));
+      assert.equal(mapConnected(remaining), false, 'Home worlds are reachable around their frontier');
+      assert.ok(mapConnected(map.planets.filter(planet => planet !== capital)), 'Capital elimination strands routes');
+    }
     fingerprints.add(fingerprint(map)); counts.add(map.planets.length);
-    graphs.add(JSON.stringify(map.planets.map(planet => map.planets.filter(other => other !== planet && distance(planet, other) <= 600).length).sort((a, b) => a - b)));
+    const signature = routeSignature(map);
+    graphs.add(signature); families[seed % QUICK_LAYOUTS.length].add(signature);
   }
   assert.equal(fingerprints.size, 1000);
   assert.ok(counts.size >= 8);
-  assert.ok(graphs.size >= 80, `Only ${graphs.size} different connection patterns`);
-  t.diagnostic(`1000 Quick maps: ${Math.round(performance.now() - started)}ms; ${counts.size} planet counts, ${graphs.size} connection patterns.`);
+  assert.ok(graphs.size >= 200, `Only ${graphs.size} different route structures`);
+  families.forEach((signatures, index) => assert.ok(signatures.size >= 40, `${QUICK_LAYOUTS[index]} has only ${signatures.size} route structures`));
+  t.diagnostic(`1000 Quick maps: ${Math.round(performance.now() - started)}ms; ${counts.size} planet counts, ${graphs.size} route structures; per family ${families.map(f => f.size).join(', ')}.`);
 });
 
 test('1000 Chaos seeds have weapons on every world and certified non-overlapping orbit networks', t => {
   const fingerprints = new Set<string>(), starCounts = new Set<number>(), planetCounts = new Set<number>();
+  const families = CHAOS_LAYOUTS.map(() => new Set<string>());
   const started = performance.now();
   for (let seed = 0; seed < 1000; seed++) {
     const map = generateMap('chaos-mode', seed);
     assert.doesNotThrow(() => validateMap(map));
     assert.doesNotThrow(() => validateChaosGeometry(map));
-    assert.ok(map.planets.length >= 64 && map.planets.length <= 198);
+    assert.ok(map.planets.length >= 56 && map.planets.length <= 144);
     assert.equal(new Set(map.orbits!.flatMap(orbit => orbit.planetIds)).size, map.planets.length);
     const capitals = map.planets.filter(planet => planet.capital);
     assert.deepEqual(capitals.map(planet => planet.owner).sort(), [...FACTIONS].sort());
@@ -83,21 +112,26 @@ test('1000 Chaos seeds have weapons on every world and certified non-overlapping
     }
     for (const orbit of map.orbits!) {
       const members = map.planets.filter(planet => orbit.planetIds.includes(planet.id));
-      assert.ok(orbit.periodSeconds >= 160 && orbit.periodSeconds <= 320);
+      assert.ok(orbit.periodSeconds >= 220 && orbit.periodSeconds <= 360);
       assert.equal(orbit.dysonSphere, undefined);
       for (let index = 0; index < members.length; index++) {
         const planet = members[index], radius = distance(planet, orbit);
         assert.ok(radius >= 200);
         assert.ok(radius + 80 <= Math.min(orbit.x, orbit.y, map.width - orbit.x, map.height - orbit.y));
-        for (const other of members.slice(index + 1)) assert.ok(distance(planet, other) > 150);
+        for (const other of members.slice(index + 1)) assert.ok(distance(planet, other) >= 450);
       }
     }
+    const first = map.orbits![0];
+    const radius = Math.max(...map.planets.filter(planet => first.planetIds.includes(planet.id)).map(planet => distance(planet, first)));
+    const starMap: MapDefinition = { ...map, attackRange: radius * 2 + map.attackRange, planets: map.orbits!.map((orbit, index) => ({ id: `star-${index}`, x: orbit.x, y: orbit.y, owner: NEUTRAL, ships: 0, capital: map.planets.some(planet => planet.capital && orbit.planetIds.includes(planet.id)) })) };
+    families[seed % CHAOS_LAYOUTS.length].add(routeSignature(starMap));
     fingerprints.add(fingerprint(map)); starCounts.add(map.orbits!.length); planetCounts.add(map.planets.length);
   }
   assert.equal(fingerprints.size, 1000);
-  assert.deepEqual([...starCounts].sort((a, b) => a - b), [4, 5, 6, 8, 9]);
+  assert.deepEqual([...starCounts].sort((a, b) => a - b), [4, 5, 6, 7, 8]);
   assert.ok(planetCounts.size > 60);
-  t.diagnostic(`1000 Chaos maps: ${Math.round(performance.now() - started)}ms; ${planetCounts.size} planet counts, all five star layouts.`);
+  families.forEach((structures, i) => assert.ok(structures.size >= 10, `${CHAOS_LAYOUTS[i]} has only ${structures.size} star route structures`));
+  t.diagnostic(`1000 Chaos maps: ${Math.round(performance.now() - started)}ms; ${planetCounts.size} planet counts; star route structures per family ${families.map(f => f.size).join(', ')}.`);
 });
 
 test('Chaos connects through independently varied orbit phases even after all rival capitals disappear', () => {
@@ -113,6 +147,15 @@ test('Chaos connects through independently varied orbit phases even after all ri
       });
       assert.ok(mapConnected(planets), `Seed ${seed}, phase ${sample}`);
       assert.ok(mapConnected(planets.filter(planet => !planet.capital || planet.owner === FACTIONS[0])), `Elimination strands seed ${seed}, phase ${sample}`);
+      for (let i = 0; i < planets.length; i++) {
+        const neighbors = planets.filter(other => other !== planets[i] && distance(planets[i], other) <= 600);
+        assert.ok(neighbors.length <= 6, `Crowded orbital front, seed ${seed}, phase ${sample}`);
+        for (const other of planets.slice(i + 1)) assert.ok(distance(planets[i], other) >= 450 - 1e-5, `Orbit spacing, seed ${seed}, phase ${sample}`);
+      }
+      for (const capital of planets.filter(planet => planet.capital)) {
+        const orbit = phases.find(orbit => orbit.planetIds.includes(capital.id))!;
+        assert.ok(planets.filter(planet => !orbit.planetIds.includes(planet.id)).every(other => distance(capital, other) > 600), 'An enemy system can attack past the outer frontier');
+      }
     }
   }
 });
@@ -176,6 +219,37 @@ test('New Map varies geometry and family on every launch, with corrupt or blocke
   }
 });
 
+test('New Map consumes all four families before refilling its shuffled bag', () => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  let saved = '{}';
+  try {
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: () => saved, setItem: (_key: string, value: string) => { saved = value; } } });
+    for (const mode of ['quick-match', 'chaos-mode'] as const) {
+      let previous = createGeneratedMap(mode);
+      for (let i = 0; i < 20; i++) {
+        const before = JSON.parse(saved)[mode] as { layout: number; remaining: number[] };
+        const next = createGeneratedMap(mode);
+        const after = JSON.parse(saved)[mode] as { layout: number; remaining: number[] };
+        assert.notEqual(next.generated!.layout, previous.generated!.layout);
+        if (before.remaining.length) {
+          assert.equal(after.layout, before.remaining[0]);
+          assert.deepEqual(after.remaining, before.remaining.slice(1));
+        } else assert.equal(new Set([after.layout, ...after.remaining]).size, 4);
+        previous = next;
+      }
+    }
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, 'localStorage', descriptor);
+    else Reflect.deleteProperty(globalThis, 'localStorage');
+  }
+});
+
+test('generation certifies boundary seeds and 1024 distributed 32-bit seeds', () => {
+  const random = seededRandom(0xC0FFEE);
+  const seeds = [0, 1, 0x7FFFFFFF, 0x80000000, 0xFFFFFFFF, ...Array.from({ length: 1024 }, () => Math.floor(random() * 4294967296))];
+  for (const seed of seeds) for (const mode of ['quick-match', 'chaos-mode'] as const) assert.doesNotThrow(() => generateMap(mode, seed), `${mode}, seed ${seed}`);
+});
+
 test('real fleets capture an affordable opening world on stationary and moving generated maps', () => {
   for (const mode of ['quick-match', 'chaos-mode'] as const) for (let seed = 0; seed < 5; seed++) {
     const map = generateMap(mode, seed);
@@ -186,7 +260,6 @@ test('real fleets capture an affordable opening world on stationary and moving g
       .sort((a, b) => distance(a, capital) - distance(b, capital))[0];
     assert.ok(target);
     engine.pixels = engine.pixels.filter(ship => ship.baseId === capital.id || ship.baseId === target.id);
-    for (const ship of engine.pixels) ship.speed = 2;
     assert.equal(issueFleetOrder(engine, capital.id, target.id, 0.5), true);
     for (let step = 0; step < 2400 && target.color !== FACTIONS[0]; step++) engine.update(1 / 60);
     assert.equal(target.color, FACTIONS[0], `${mode}, seed ${seed}`);
@@ -214,4 +287,35 @@ test('the geometry certificate rejects missing orbit membership, missing weapons
   });
   from.x = to.x; from.y = to.y;
   assert.throws(() => validateChaosGeometry(overlapping), /overlap/);
+  const crowded = structuredClone(map);
+  const orbit = crowded.orbits![0];
+  const a = crowded.planets.find(planet => planet.id === orbit.planetIds[0])!;
+  const b = crowded.planets.find(planet => planet.id === orbit.planetIds[1])!;
+  b.x = a.x + 100; b.y = a.y;
+  assert.throws(() => validateChaosGeometry(crowded));
+});
+
+test('continuous-phase certificate rejects a bridge that connects initially but closes later', () => {
+  const map: MapDefinition = {
+    id: 'unsafe-orbit-bridge', title: 'Unsafe', briefing: '', width: 6000, height: 4000, attackRange: 600,
+    objective: { type: 'eliminate-capitals', description: '' }, planets: [], orbits: [],
+  };
+  for (let system = 0; system < 2; system++) {
+    const orbit = { x: 1400 + system * 2300, y: 2000, periodSeconds: 300, planetIds: [] as string[] };
+    for (let ring = 0; ring < 2; ring++) for (let index = 0; index < (ring ? 4 : 10); index++) {
+      const theta = index * Math.PI * 2 / (ring ? 4 : 10), radius = ring ? 380 : 900, capital = ring === 1 && index === 0;
+      const planet: PlanetDefinition = { id: `${system}-${ring}-${index}`, x: orbit.x + radius * Math.cos(theta), y: orbit.y + radius * Math.sin(theta), ships: 20, owner: capital ? FACTIONS[system] : NEUTRAL, superweaponUnlocks: ['omni'], ...(capital ? { capital: true } : {}) };
+      map.planets.push(planet); orbit.planetIds.push(planet.id);
+    }
+    map.orbits!.push(orbit);
+  }
+  assert.doesNotThrow(() => validateMap(map));
+  assert.throws(() => validateChaosGeometry(map), /lose their connections/);
+  const orbit = map.orbits![0], angle = Math.PI / 10;
+  for (const planet of map.planets.filter(planet => orbit.planetIds.includes(planet.id))) {
+    const x = planet.x - orbit.x, y = planet.y - orbit.y;
+    planet.x = orbit.x + x * Math.cos(angle) - y * Math.sin(angle);
+    planet.y = orbit.y + x * Math.sin(angle) + y * Math.cos(angle);
+  }
+  assert.equal(mapConnected(map.planets), false);
 });

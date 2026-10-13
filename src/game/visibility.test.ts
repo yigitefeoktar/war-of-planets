@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { overlapsView, visibleWorldBounds } from './visibility';
 import { createMatch } from './mapLoader';
 import { CHAPTERS, SIEGE_OF_HELIOS, mapOrbits } from './campaign';
-import { generateMap } from './generatedMaps';
+import { CHAOS_LAYOUTS, generateMap } from './generatedMaps';
 
 test('visibility includes viewport corners through zoom, rotation, and shake', () => {
   for (const zoom of [0.05, 0.3, 0.6, 2.5]) for (const angle of [0, 0.15, -0.25, Math.PI / 2]) {
@@ -73,9 +73,11 @@ test('dense generated Chaos maps reuse badge and nebula artwork across camera mo
     canvases++;
     return { width: 0, height: 0, getContext: () => paint };
   } } as unknown as Document;
-  const map = generateMap('chaos-mode', 4, 4);
+  const map = generateMap('chaos-mode', 4, CHAOS_LAYOUTS.indexOf('multiple-fronts'));
   const engine = createMatch(map);
-  const transform = { a: 0.2, b: 0, c: 0, d: 0.2, e: 0, f: 0 };
+  // Larger, sparse orbits need a real whole-map overview for this cache check.
+  const scale = Math.min(1200 / map.width, 1000 / map.height) * 0.8;
+  const transform = { a: scale, b: 0, c: 0, d: scale, e: 60, f: 50 };
   const methods = {
     canvas: { width: 1200, height: 1000 }, getTransform: () => transform,
     drawImage: () => { spriteDraws++; },
@@ -88,7 +90,7 @@ test('dense generated Chaos maps reuse badge and nebula artwork across camera mo
   const initialPaints = artworkPaints, initialCanvases = canvases;
   assert.ok(initialCanvases > 0 && initialCanvases <= engine.nebulae.length + 3);
   for (let frame = 1; frame <= 10; frame++) {
-    transform.e = -frame * 5;
+    transform.e = 60 - frame * 5;
     engine.draw(ctx, null, frame * 25, 0);
   }
   assert.equal(canvases, initialCanvases);
