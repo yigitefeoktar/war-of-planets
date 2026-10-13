@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { overlapsView, visibleWorldBounds } from './visibility';
 import { createMatch } from './mapLoader';
-import { SIEGE_OF_HELIOS } from './campaign';
+import { CHAPTERS, SIEGE_OF_HELIOS, mapOrbits } from './campaign';
 import { generateMap } from './generatedMaps';
 
 test('visibility includes viewport corners through zoom, rotation, and shake', () => {
@@ -96,4 +96,81 @@ test('dense generated Chaos maps reuse badge and nebula artwork across camera mo
   assert.ok(spriteDraws > map.planets.length * 10);
   assert.equal(JSON.stringify({ pixels: engine.pixels, bases: [...engine.bases.values()] }), before);
   t.diagnostic(`${map.planets.length} Chaos planets: ${initialCanvases} cached canvases, ${initialPaints} artwork paints at warmup, 0 additional artwork paints during 10 panning frames.`);
+});
+
+test('all authored campaign maps keep original vector artwork and star rendering, including Hard Mode', t => {
+  const originalDocument = globalThis.document;
+  const originalPath = globalThis.Path2D;
+  t.after(() => {
+    if (originalDocument) globalThis.document = originalDocument; else Reflect.deleteProperty(globalThis, 'document');
+    if (originalPath) globalThis.Path2D = originalPath; else Reflect.deleteProperty(globalThis, 'Path2D');
+  });
+  globalThis.Path2D = class {} as typeof Path2D;
+  globalThis.document = { createElement: () => {
+    assert.fail('authored maps must not create badge or nebula sprites');
+  } } as unknown as Document;
+  let spriteDraws = 0, starHalos = 0, gradients = 0;
+  const transform = { a: 0.2, b: 0, c: 0, d: 0.2, e: 0, f: 0 };
+  const methods = {
+    canvas: { width: 1200, height: 1200 }, getTransform: () => transform,
+    drawImage: () => { spriteDraws++; },
+    arc: (_x: number, _y: number, radius: number) => { if (radius === 115) starHalos++; },
+    createRadialGradient: () => { gradients++; return { addColorStop: () => {} }; },
+    createLinearGradient: () => ({ addColorStop: () => {} }),
+  };
+  const ctx = new Proxy(methods, { get: (target, key) => Reflect.get(target, key) ?? (() => {}) }) as unknown as CanvasRenderingContext2D;
+  for (const map of CHAPTERS['chapter-1'].maps) for (const hardMode of [false, true]) {
+    transform.e = transform.f = 0;
+    const engine = createMatch(map, { hardMode });
+    engine.draw(ctx, null, 0, 0);
+    const firstFrameGradients = gradients;
+    engine.draw(ctx, null, 0, 0);
+    assert.ok(gradients > firstFrameGradients, `${map.id} retains per-frame vector gradients`);
+    assert.equal(spriteDraws, 0, `${map.id} must not reuse generated-map sprite caches`);
+    transform.e = transform.f = -100000;
+    starHalos = 0;
+    engine.draw(ctx, null, 500000, 500000);
+    assert.equal(starHalos, mapOrbits(map).filter(orbit => !orbit.dysonSphere).length,
+      `${map.id} keeps the original decorative-star draw path`);
+  }
+});
+
+test('only generated Quick Match and Chaos maps opt into sprite rendering in both difficulty settings', t => {
+  const originalDocument = globalThis.document;
+  const originalPath = globalThis.Path2D;
+  t.after(() => {
+    if (originalDocument) globalThis.document = originalDocument; else Reflect.deleteProperty(globalThis, 'document');
+    if (originalPath) globalThis.Path2D = originalPath; else Reflect.deleteProperty(globalThis, 'Path2D');
+  });
+  globalThis.Path2D = class {} as typeof Path2D;
+  const paint = new Proxy({ createRadialGradient: () => ({ addColorStop: () => {} }) }, {
+    get: (target, key) => Reflect.get(target, key) ?? (() => {}),
+  });
+  globalThis.document = { createElement: () => ({ width: 0, height: 0, getContext: () => paint }) } as unknown as Document;
+  let spriteDraws = 0, starHalos = 0;
+  const transform = { a: 0.2, b: 0, c: 0, d: 0.2, e: 0, f: 0 };
+  const methods = {
+    canvas: { width: 1200, height: 1200 }, getTransform: () => transform,
+    drawImage: () => { spriteDraws++; },
+    arc: (_x: number, _y: number, radius: number) => { if (radius === 115) starHalos++; },
+    createRadialGradient: () => ({ addColorStop: () => {} }),
+    createLinearGradient: () => ({ addColorStop: () => {} }),
+  };
+  const ctx = new Proxy(methods, { get: (target, key) => Reflect.get(target, key) ?? (() => {}) }) as unknown as CanvasRenderingContext2D;
+  for (const mode of ['quick-match', 'chaos-mode'] as const) for (const hardMode of [false, true]) {
+    const map = generateMap(mode, 4);
+    transform.e = transform.f = 0;
+    spriteDraws = 0;
+    const engine = createMatch(map, { hardMode });
+    engine.draw(ctx, null, 0, 0);
+    assert.ok(spriteDraws > 0, `${mode} enables the rendering caches`);
+    transform.e = transform.f = -100000;
+    starHalos = 0;
+    engine.draw(ctx, null, 500000, 500000);
+    assert.equal(starHalos, 0, `${mode} skips offscreen decorative stars`);
+    transform.e = transform.f = 0;
+    spriteDraws = 0;
+    createMatch({ ...map, generated: undefined }, { hardMode }).draw(ctx, null, 0, 0);
+    assert.equal(spriteDraws, 0, 'layout density and difficulty alone cannot enable generated-map rendering');
+  }
 });
