@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { overlapsView, visibleWorldBounds } from './visibility';
 import { createMatch } from './mapLoader';
 import { SIEGE_OF_HELIOS } from './campaign';
+import { generateMap } from './generatedMaps';
 
 test('visibility includes viewport corners through zoom, rotation, and shake', () => {
   for (const zoom of [0.05, 0.3, 0.6, 2.5]) for (const angle of [0, 0.15, -0.25, Math.PI / 2]) {
@@ -53,4 +54,46 @@ test('Helios close opening avoids offscreen ship geometry without changing simul
   assert.ok(shipPaths < ships * 0.5, `only ${shipPaths} ship paths for ${ships} ships`);
   t.diagnostic(`Helios opening: ${shipPaths} ship paths emitted for ${ships} total ships.`);
   assert.equal(JSON.stringify({ pixels: engine.pixels, bases: [...engine.bases.values()] }), before);
+});
+
+test('dense generated Chaos maps reuse badge and nebula artwork across camera movement', t => {
+  const originalDocument = globalThis.document;
+  const originalPath = globalThis.Path2D;
+  t.after(() => {
+    if (originalDocument) globalThis.document = originalDocument; else Reflect.deleteProperty(globalThis, 'document');
+    if (originalPath) globalThis.Path2D = originalPath; else Reflect.deleteProperty(globalThis, 'Path2D');
+  });
+  globalThis.Path2D = class {} as typeof Path2D;
+  let canvases = 0, artworkPaints = 0, spriteDraws = 0;
+  const paint = new Proxy({
+    fill: () => { artworkPaints++; }, stroke: () => { artworkPaints++; },
+    createRadialGradient: () => ({ addColorStop: () => {} }),
+  }, { get: (target, key) => Reflect.get(target, key) ?? (() => {}) }) as unknown as CanvasRenderingContext2D;
+  globalThis.document = { createElement: () => {
+    canvases++;
+    return { width: 0, height: 0, getContext: () => paint };
+  } } as unknown as Document;
+  const map = generateMap('chaos-mode', 4, 4);
+  const engine = createMatch(map);
+  const transform = { a: 0.2, b: 0, c: 0, d: 0.2, e: 0, f: 0 };
+  const methods = {
+    canvas: { width: 1200, height: 1000 }, getTransform: () => transform,
+    drawImage: () => { spriteDraws++; },
+    createRadialGradient: () => ({ addColorStop: () => {} }),
+    createLinearGradient: () => ({ addColorStop: () => {} }),
+  };
+  const ctx = new Proxy(methods, { get: (target, key) => Reflect.get(target, key) ?? (() => {}) }) as unknown as CanvasRenderingContext2D;
+  const before = JSON.stringify({ pixels: engine.pixels, bases: [...engine.bases.values()] });
+  engine.draw(ctx, null, 0, 0);
+  const initialPaints = artworkPaints, initialCanvases = canvases;
+  assert.ok(initialCanvases > 0 && initialCanvases <= engine.nebulae.length + 3);
+  for (let frame = 1; frame <= 10; frame++) {
+    transform.e = -frame * 5;
+    engine.draw(ctx, null, frame * 25, 0);
+  }
+  assert.equal(canvases, initialCanvases);
+  assert.equal(artworkPaints, initialPaints, 'panning never repaints the cached glow artwork');
+  assert.ok(spriteDraws > map.planets.length * 10);
+  assert.equal(JSON.stringify({ pixels: engine.pixels, bases: [...engine.bases.values()] }), before);
+  t.diagnostic(`${map.planets.length} Chaos planets: ${initialCanvases} cached canvases, ${initialPaints} artwork paints at warmup, 0 additional artwork paints during 10 panning frames.`);
 });

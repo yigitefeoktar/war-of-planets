@@ -70,3 +70,23 @@ for (const orbiting of [false, true]) {
     assert.equal(paints.filter(paint => paint.kind === 'stroke' && paint.dash[0] === 15).length, 1);
   });
 }
+
+test('friendly target rings refresh after moving links and ownership changes', () => {
+  const engine = new GameEngine(1600, 1000);
+  engine.bases.clear(); engine.pixels = [];
+  engine.addBase('source', 100, 300, PLAYER, 0);
+  engine.addBase('bridge', 500, 300, PLAYER, 0);
+  engine.addBase('target', 900, 300, PLAYER, 0);
+  const targetRing = () => {
+    const { ctx, paints } = recordingCanvas();
+    engine.draw(ctx, 'source', 0, 0);
+    return paints.some(paint => paint.kind === 'stroke' && paint.x === 900 && paint.dash[0] === 4);
+  };
+  assert.ok(targetRing(), 'friendly relays can reach beyond direct attack range');
+  engine.bases.get('bridge')!.x = 1500;
+  assert.equal(targetRing(), false, 'an orbit breaking a link updates the next frame');
+  engine.bases.get('bridge')!.x = 500;
+  assert.ok(targetRing());
+  engine.bases.get('bridge')!.color = '#ef4444';
+  assert.equal(targetRing(), false, 'a captured relay immediately disconnects the target');
+});

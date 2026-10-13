@@ -3,6 +3,7 @@ import { DYSON_SPHERE_ID, type OrbitDefinition } from './campaign';
 import type { SuperweaponTargetMode } from './superweapons';
 import type { Base } from './types';
 import type { GalaxyTheme } from './galaxy';
+import { overlapsView, visibleWorldBounds } from './visibility';
 
 // Rigid rotating systems, not a gravity simulation. Each center is either a
 // decorative star or an optional capturable Dyson sphere defined by the map.
@@ -60,8 +61,12 @@ export class OrbitingGameEngine extends GameEngine {
 
   override draw(ctx: CanvasRenderingContext2D, selectedBaseId: string | null, cameraX: number, cameraY: number, targetingMode: SuperweaponTargetMode = null, selectedGroup?: ReadonlySet<string>) {
     super.draw(ctx, selectedBaseId, cameraX, cameraY, targetingMode, selectedGroup);
+    const transform = ctx.getTransform();
+    const view = visibleWorldBounds(transform, ctx.canvas.width, ctx.canvas.height);
+    const starRadius = 115 + 30 / Math.hypot(transform.a, transform.b);
     for (const orbit of this.orbits) {
       if (orbit.dysonSphere) continue;
+      if (!overlapsView(view, orbit.x, orbit.y, starRadius)) continue;
       ctx.save();
       ctx.translate(orbit.x, orbit.y);
       this.drawStar(ctx);
