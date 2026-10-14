@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Skull } from 'lucide-react';
+import { Swords } from 'lucide-react';
 import './ChapterVictoryScreen.css';
 
 const ARTWORK_SRC = '/images/modes/chapter-1.jpg';
@@ -62,12 +62,13 @@ export function ChapterVictoryScreen({ title, onMenu, onTryHardMode, onHover }: 
           <path strokeLinecap="square" strokeLinejoin="miter" strokeWidth="2" d="M19 12H5m7-7-7 7 7 7" />
         </svg>
       </button>
+      <p className="chapter-victory-challenge-label">Your Next Challenge</p>
       <button ref={hardModeButton} className="chapter-victory-action chapter-victory-hard-mode" type="button" onMouseEnter={onHover} onClick={onTryHardMode}
         onKeyDown={event => {
           if (event.key === 'Tab' && !event.shiftKey) { event.preventDefault(); menuButton.current?.focus(); }
         }}>
+        <Swords size={20} aria-hidden="true" />
         <span>Try in Hard Mode</span>
-        <Skull size={20} aria-hidden="true" />
       </button>
     </div>
   </section>;

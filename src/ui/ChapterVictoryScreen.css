@@ -129,12 +129,36 @@
   animation: chapter-victory-rise .65s .46s cubic-bezier(.2, .7, .2, 1) both;
 }
 
-.chapter-victory-hard-mode { margin-top: 14px; animation-delay: .58s; }
+.chapter-victory-challenge-label {
+  width: min(100%, 444px);
+  margin: 18px 0 8px;
+  color: #7dd3fc;
+  font: 600 11px/1.4 monospace;
+  letter-spacing: .2em;
+  text-align: left;
+  text-transform: uppercase;
+  animation: chapter-victory-rise .6s .54s cubic-bezier(.2, .7, .2, 1) both;
+}
+
+.chapter-victory-hard-mode {
+  border-color: #67e8f9;
+  background: linear-gradient(135deg, #67e8f9, #22d3ee);
+  color: #062331;
+  box-shadow: 0 0 20px #67e8f940;
+  animation-delay: .58s;
+}
 .chapter-victory-action svg { flex-shrink: 0; transition: transform .2s; }
 .chapter-victory-action:hover { background: #0e74904d; color: #fff; box-shadow: 0 0 28px #06b6d42e; }
 .chapter-victory-action:hover svg { transform: translateX(-4px); }
 .chapter-victory-action:active { background: #0e749070; }
 .chapter-victory-action:focus-visible { outline: 2px solid #cffafe; outline-offset: 5px; }
+.chapter-victory-hard-mode:hover {
+  background: linear-gradient(135deg, #8bf1fb, #38dbed);
+  color: #062331;
+  box-shadow: 0 0 28px #67e8f94d;
+}
+.chapter-victory-hard-mode:hover svg { transform: scale(1.08); }
+.chapter-victory-hard-mode:active { background: linear-gradient(135deg, #38dff0, #06b6d4); }
 
 @keyframes chapter-victory-reveal { from { opacity: 0; } to { opacity: 1; } }
 @keyframes chapter-victory-art-arrive { from { transform: scale(1.025); opacity: 0; } to { transform: scale(1); opacity: .46; } }
@@ -160,7 +184,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .chapter-victory, .chapter-victory-art, .chapter-victory-emblem, .chapter-victory-halo,
-  .chapter-victory-label, .chapter-victory-title, .chapter-victory-action { animation: none; }
+  .chapter-victory-label, .chapter-victory-title, .chapter-victory-challenge-label, .chapter-victory-action { animation: none; }
   .chapter-victory-action, .chapter-victory-action svg { transition: none; }
   .chapter-victory-action:hover svg { transform: none; }
 }
