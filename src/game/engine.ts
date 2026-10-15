@@ -3,7 +3,7 @@ import { drawPlanetEffects, drawRepelledShips, type RepelledShip } from './plane
 import { canIssueFleetOrder, connectedFriendlyIds } from './logistics';
 import { TacticalAI } from './ai';
 import { assignQuickMatchSuperweaponPlanets, isPointAccessible, SUPERWEAPON_CHARGE_INTERVAL_SECONDS, SUPERWEAPON_IDS, SUPERWEAPON_MAX_CHARGES, OVERDRIVE_DURATION, OVERDRIVE_MULTIPLIER, REPULSE_DURATION, type SuperweaponTargetMode } from './superweapons';
-import { SUPERWEAPON_VISUALS, superweaponIconLayout } from './superweaponVisuals';
+import { superweaponIconLayout } from './superweaponVisuals';
 import { drawWeaponBadge } from './weaponBadges';
 import { galaxyAppearance, type GalaxyTheme } from './galaxy';
 import { overlapsView, visibleWorldBounds } from './visibility';
@@ -65,38 +65,6 @@ interface Shockwave {
   thickness: number;
 }
 
-const superweaponPathCache = new Map<SuperweaponId, Path2D[]>();
-
-// Preserve the original vector rendering for authored maps.
-function drawSuperweaponIcon(ctx: CanvasRenderingContext2D, weapon: SuperweaponId, x: number, y: number, scale: number) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(scale, scale);
-  const { color, paths } = SUPERWEAPON_VISUALS[weapon];
-  ctx.fillStyle = 'rgba(2, 6, 23, 0.78)';
-  ctx.beginPath();
-  ctx.arc(0, 0, 15, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = color;
-  ctx.fillStyle = color;
-  ctx.lineWidth = 2;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 14;
-  ctx.translate(-12, -12);
-  let iconPaths = superweaponPathCache.get(weapon);
-  if (!iconPaths) {
-    iconPaths = paths.map(({ d }) => new Path2D(d));
-    superweaponPathCache.set(weapon, iconPaths);
-  }
-  for (let index = 0; index < paths.length; index++) {
-    if (paths[index].fill) ctx.fill(iconPaths[index]);
-    else ctx.stroke(iconPaths[index]);
-  }
-  ctx.restore();
-}
-
 type GameEngineOptions = {
   rng?: () => number;
   now?: () => number;
@@ -104,7 +72,6 @@ type GameEngineOptions = {
   multiSelectEnabled?: boolean;
   dysonChargeIntervalSeconds?: number;
   galaxyTheme?: GalaxyTheme;
-  generatedMapRendering?: boolean;
 };
 
 export class GameEngine {
@@ -123,7 +90,6 @@ export class GameEngine {
   readonly multiSelectEnabled: boolean;
   readonly dysonChargeIntervalSeconds?: number;
   readonly backgroundColor: string;
-  protected readonly generatedMapRendering: boolean;
   private readonly galaxyStyle: ReturnType<typeof galaxyAppearance>;
   width: number;
   height: number;
@@ -143,7 +109,7 @@ export class GameEngine {
   isHardMode: boolean = false;
   reducedMotion: boolean = false;
   private territoryClusters: TerritoryCluster[] = [];
-  private nebulaSprites?: WeakMap<NebulaCloud, HTMLCanvasElement>;
+  private nebulaSprites = new WeakMap<NebulaCloud, HTMLCanvasElement>();
   private territorySignature = '';
   private lastTerritoryUpdate = Number.NEGATIVE_INFINITY;
   private factionsAtShipLimit = new Set<string>();
@@ -168,8 +134,6 @@ export class GameEngine {
     this.nowProvider = options.now ?? Date.now;
     this.superweaponUnlocksEnabled = options.superweaponUnlocksEnabled ?? true;
     this.multiSelectEnabled = options.multiSelectEnabled ?? true;
-    this.generatedMapRendering = options.generatedMapRendering ?? false;
-    if (this.generatedMapRendering) this.nebulaSprites = new WeakMap();
     this.dysonChargeIntervalSeconds = options.dysonChargeIntervalSeconds;
     this.galaxyStyle = galaxyAppearance(width, height, options.galaxyTheme);
     this.backgroundColor = this.galaxyStyle.backgroundColor;
@@ -916,8 +880,8 @@ export class GameEngine {
 
     for (const cloud of this.nebulae) {
       // The cloud artwork is static; only its parallax position changes.
-      let sprite = this.nebulaSprites?.get(cloud);
-      if (this.generatedMapRendering && !sprite && typeof document !== 'undefined') {
+      let sprite = this.nebulaSprites.get(cloud);
+      if (!sprite && typeof document !== 'undefined') {
         const canvas = document.createElement('canvas');
         canvas.width = canvas.height = 256;
         const paint = canvas.getContext('2d');
@@ -929,7 +893,7 @@ export class GameEngine {
           glow.addColorStop(1, `rgba(${cloud.rgb}, 0)`);
           paint.fillStyle = glow;
           paint.beginPath(); paint.arc(0, 0, 1, 0, Math.PI * 2); paint.fill();
-          this.nebulaSprites!.set(cloud, canvas);
+          this.nebulaSprites.set(cloud, canvas);
           sprite = canvas;
         }
       }
@@ -1161,7 +1125,7 @@ export class GameEngine {
     // Include fleet rings, ability halos, glows, and screen-sized weapon badges.
     const visibleBase = (base: Base) => overlapsView(view, base.x, base.y,
       Math.max(220, 100 + Math.sqrt(base.pixelCount) * 5) + 100 / zoom);
-    const selectedSource = this.generatedMapRendering && selectedBaseId ? this.bases.get(selectedBaseId) : undefined;
+    const selectedSource = selectedBaseId ? this.bases.get(selectedBaseId) : undefined;
     const friendlyTargets = !targetingMode && selectedSource?.color === '#3b82f6'
       ? connectedFriendlyIds(this.bases.values(), selectedSource.id, this.MAX_ATTACK_RANGE)
       : undefined;
@@ -1364,13 +1328,11 @@ export class GameEngine {
           isOutOfRange = true;
         }
       } else if (!isSelected && selectedBaseId) {
-        const selectedBase = this.generatedMapRendering ? selectedSource : this.bases.get(selectedBaseId);
+        const selectedBase = selectedSource;
         if (selectedBase?.color === '#3b82f6') {
-          const reachable = this.generatedMapRendering
-            ? base.color === selectedBase.color
-              ? friendlyTargets?.has(base.id)
-              : Math.hypot(selectedBase.x - base.x, selectedBase.y - base.y) <= this.MAX_ATTACK_RANGE
-            : canIssueFleetOrder(this.bases.values(), selectedBase.id, base.id, this.MAX_ATTACK_RANGE);
+          const reachable = base.color === selectedBase.color
+            ? friendlyTargets?.has(base.id)
+            : Math.hypot(selectedBase.x - base.x, selectedBase.y - base.y) <= this.MAX_ATTACK_RANGE;
           if (reachable) {
             ctx.save();
             ctx.translate(drawX, drawY);
@@ -1427,13 +1389,7 @@ export class GameEngine {
       if (base.superweaponUnlocks?.length) {
         const { scale, gap, y: iconY } = superweaponIconLayout(iconZoom, planetRadius);
         const startX = -((base.superweaponUnlocks.length - 1) * gap) / 2;
-        base.superweaponUnlocks.forEach((weapon, index) => {
-          if (this.generatedMapRendering) {
-            drawWeaponBadge(ctx, weapon, drawX + startX + index * gap, drawY + iconY, scale, iconZoom);
-          } else {
-            drawSuperweaponIcon(ctx, weapon, drawX + startX + index * gap, drawY + iconY, scale);
-          }
-        });
+        base.superweaponUnlocks.forEach((weapon, index) => drawWeaponBadge(ctx, weapon, drawX + startX + index * gap, drawY + iconY, scale, iconZoom));
       }
     }
 

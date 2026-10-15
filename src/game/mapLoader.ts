@@ -12,12 +12,10 @@ export function createMatch(map?: MapDefinition, options: { hardMode?: boolean; 
   const multiSelectEnabled = !!battlefield.generated || battlefield.id === SIEGE_OF_HELIOS.id;
   const hasWeaponPlanets = battlefield.planets.some(planet => planet.superweaponUnlocks?.length);
   const galaxyTheme = options.hardMode ? 'hard' : battlefield.galaxyTheme;
-  // Performance changes are opt-in only for the new generated battlefields.
-  const generatedMapRendering = !!battlefield.generated;
   const orbits = mapOrbits(battlefield);
   const engine = orbits.length
-    ? new OrbitingGameEngine(battlefield.width, battlefield.height, orbits, hasWeaponPlanets, galaxyTheme, multiSelectEnabled, generatedMapRendering)
-    : new GameEngine(battlefield.width, battlefield.height, { superweaponUnlocksEnabled: hasWeaponPlanets, galaxyTheme, multiSelectEnabled, generatedMapRendering });
+    ? new OrbitingGameEngine(battlefield.width, battlefield.height, orbits, hasWeaponPlanets, galaxyTheme, multiSelectEnabled)
+    : new GameEngine(battlefield.width, battlefield.height, { superweaponUnlocksEnabled: hasWeaponPlanets, galaxyTheme, multiSelectEnabled });
   engine.isHardMode = options.hardMode ?? false;
   engine.bases.clear();
   engine.pixels = [];

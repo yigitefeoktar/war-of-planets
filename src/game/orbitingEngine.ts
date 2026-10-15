@@ -3,7 +3,7 @@ import { DYSON_SPHERE_ID, type OrbitDefinition } from './campaign';
 import type { SuperweaponTargetMode } from './superweapons';
 import type { Base } from './types';
 import type { GalaxyTheme } from './galaxy';
-import { overlapsView, visibleWorldBounds, type ViewBounds } from './visibility';
+import { overlapsView, visibleWorldBounds } from './visibility';
 
 // Rigid rotating systems, not a gravity simulation. Each center is either a
 // decorative star or an optional capturable Dyson sphere defined by the map.
@@ -11,7 +11,7 @@ export class OrbitingGameEngine extends GameEngine {
   private readonly orbits: OrbitDefinition[];
   private readonly orbitByPlanet = new Map<string, OrbitDefinition>();
 
-  constructor(width: number, height: number, orbit: OrbitDefinition | OrbitDefinition[], hasWeaponPlanets = false, galaxyTheme?: GalaxyTheme, multiSelectEnabled = true, generatedMapRendering = false) {
+  constructor(width: number, height: number, orbit: OrbitDefinition | OrbitDefinition[], hasWeaponPlanets = false, galaxyTheme?: GalaxyTheme, multiSelectEnabled = true) {
     const orbits = Array.isArray(orbit) ? orbit : [orbit];
     const dyson = orbits.find(system => system.dysonSphere)?.dysonSphere;
     super(width, height, {
@@ -19,7 +19,6 @@ export class OrbitingGameEngine extends GameEngine {
       multiSelectEnabled,
       dysonChargeIntervalSeconds: dyson?.chargeIntervalSeconds,
       galaxyTheme,
-      generatedMapRendering,
     });
     this.orbits = orbits;
     for (const system of orbits) for (const id of system.planetIds) this.orbitByPlanet.set(id, system);
@@ -62,16 +61,12 @@ export class OrbitingGameEngine extends GameEngine {
 
   override draw(ctx: CanvasRenderingContext2D, selectedBaseId: string | null, cameraX: number, cameraY: number, targetingMode: SuperweaponTargetMode = null, selectedGroup?: ReadonlySet<string>) {
     super.draw(ctx, selectedBaseId, cameraX, cameraY, targetingMode, selectedGroup);
-    let view: ViewBounds | undefined;
-    let starRadius = 0;
-    if (this.generatedMapRendering) {
-      const transform = ctx.getTransform();
-      view = visibleWorldBounds(transform, ctx.canvas.width, ctx.canvas.height);
-      starRadius = 115 + 30 / Math.hypot(transform.a, transform.b);
-    }
+    const transform = ctx.getTransform();
+    const view = visibleWorldBounds(transform, ctx.canvas.width, ctx.canvas.height);
+    const starRadius = 115 + 30 / Math.hypot(transform.a, transform.b);
     for (const orbit of this.orbits) {
       if (orbit.dysonSphere) continue;
-      if (view && !overlapsView(view, orbit.x, orbit.y, starRadius)) continue;
+      if (!overlapsView(view, orbit.x, orbit.y, starRadius)) continue;
       ctx.save();
       ctx.translate(orbit.x, orbit.y);
       this.drawStar(ctx);

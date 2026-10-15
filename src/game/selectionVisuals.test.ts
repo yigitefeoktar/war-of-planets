@@ -71,8 +71,8 @@ for (const orbiting of [false, true]) {
   });
 }
 
-for (const generatedMapRendering of [false, true]) test(`${generatedMapRendering ? 'generated' : 'authored'} friendly target rings refresh after moving links and ownership changes`, () => {
-  const engine = new GameEngine(1600, 1000, { generatedMapRendering });
+test('friendly target rings refresh after moving links and ownership changes', () => {
+  const engine = new GameEngine(1600, 1000);
   engine.bases.clear(); engine.pixels = [];
   engine.addBase('source', 100, 300, PLAYER, 0);
   engine.addBase('bridge', 500, 300, PLAYER, 0);
