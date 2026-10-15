@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { DYSON_SPHERE_ID, NEUTRAL, PLAYER, getOutcome, validateMap, type MapDefinition } from './campaign';
 import { createMatch } from './mapLoader';
 import { OrbitingGameEngine } from './orbitingEngine';
+import { generateMap } from './generatedMaps';
 
 
 const ORBIT_FIXTURE: MapDefinition = {
@@ -126,9 +127,11 @@ for (const warp of [false, true]) test(`${warp ? 'Omni-Strike' : 'normal attack'
 });
 
 test('non-member planets stay fixed in standalone and authored matches', () => {
-  const quick = quietEngine();
-  assert.ok(!(quick instanceof OrbitingGameEngine));
-  const fixed = [...quick.bases.values()].filter(p => !p.superweaponUnlocks?.length);
+  const map = generateMap('quick-match', 42);
+  const quick = quietEngine(map);
+  assert.ok(quick instanceof OrbitingGameEngine);
+  const orbiting = new Set(map.orbits!.flatMap(orbit => orbit.planetIds));
+  const fixed = [...quick.bases.values()].filter(p => !orbiting.has(p.id));
   const before = fixed.map(p => [p.x, p.y]);
   quick.update(1 / 60);
   assert.deepEqual(fixed.map(p => [p.x, p.y]), before);

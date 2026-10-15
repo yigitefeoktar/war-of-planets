@@ -43,8 +43,8 @@ test('1000 Quick seeds preserve frontlines, equal opening costs and substantiall
     const map = generateMap('quick-match', seed);
     assert.doesNotThrow(() => validateMap(map));
     assert.doesNotThrow(() => validateQuickGeometry(map));
-    assert.ok(!map.orbit && !map.orbits);
-    assert.ok(map.planets.length >= 45 && map.planets.length <= 95);
+    assert.ok(map.orbits!.length >= 1 && map.orbits!.length <= 2);
+    assert.ok(map.planets.length >= 70 && map.planets.length <= 180);
     assert.equal(map.generated?.mode, 'quick-match');
     const capitals = map.planets.filter(planet => planet.capital);
     assert.deepEqual(capitals.map(planet => planet.owner).sort(), [...FACTIONS].sort());
@@ -55,21 +55,32 @@ test('1000 Quick seeds preserve frontlines, equal opening costs and substantiall
       assert.ok(neighbors.every(planet => planet.owner === NEUTRAL && planet.ships <= 18 && !planet.superweaponUnlocks));
       return captureCosts(capital, map.planets);
     });
-    costs.forEach(cost => assert.deepEqual(cost, costs[0]));
+    const homeGroups = map.generated!.weaponGroups!.filter(group => group.moduleId.startsWith('home-'));
+    assert.equal(homeGroups.length, 4);
+    homeGroups.forEach(group => assert.deepEqual(group.allowedWeapons, homeGroups[0].allowedWeapons));
+    const starterIndex = ['omni', 'overdrive', 'repulse'].indexOf(homeGroups[0].allowedWeapons[0]);
+    costs.forEach(cost => assert.equal(cost[starterIndex], costs[0][starterIndex]));
     assert.ok(costs[0].every(cost => Number.isFinite(cost) && cost > 18));
     for (let index = 0; index < map.planets.length; index++) {
       const planet = map.planets[index];
       const neighbors = map.planets.filter(other => other !== planet && distance(planet, other) <= 600);
-      assert.ok(neighbors.length >= 1 && neighbors.length <= 4);
+      assert.ok(neighbors.length >= 1 && neighbors.length <= 6);
       for (const other of map.planets.slice(index + 1)) {
         const d = distance(planet, other);
-        assert.ok(d >= 500);
-        assert.ok(d <= 575 || d >= 650, 'An edge sits too close to the attack threshold');
+        assert.ok(d >= 500 - 1e-5);
       }
-      // No triangles: enemies must advance along a route, rather than jumping
-      // diagonally across the planet being defended.
-      for (const a of neighbors) for (const b of neighbors) if (a !== b) assert.ok(distance(a, b) > 600);
     }
+    const grouped = new Set<string>();
+    for (const group of map.generated!.weaponGroups!) {
+      assert.ok(group.planetIds.length >= 3 && group.planetIds.length <= 5);
+      const worlds = map.planets.filter(planet => group.planetIds.includes(planet.id));
+      assert.ok(mapConnected(worlds));
+      worlds.forEach(planet => {
+        assert.equal(grouped.has(planet.id), false); grouped.add(planet.id);
+        assert.ok(planet.superweaponUnlocks!.every(weapon => group.allowedWeapons.includes(weapon)));
+      });
+    }
+    assert.equal(grouped.size, map.planets.filter(planet => planet.superweaponUnlocks?.length).length);
     for (const capital of capitals) {
       const prefix = /^home-\d+-/.exec(capital.id)![0];
       const gates = map.planets.filter(planet => planet.id.startsWith(prefix) && /-gate(?:-[ab])?$/.test(planet.id));
@@ -160,6 +171,66 @@ test('Chaos connects through independently varied orbit phases even after all ri
   }
 });
 
+test('Quick module connections, spacing and frontiers survive 2000 independent orbit configurations', () => {
+  const random = seededRandom(15102026);
+  for (let seed = 0; seed < 80; seed++) {
+    const map = generateMap('quick-match', seed);
+    for (let sample = 0; sample < 25; sample++) {
+      const phases = map.orbits!.map(orbit => ({ ...orbit, phase: random() * Math.PI * 2 }));
+      const planets = map.planets.map(planet => {
+        const orbit = phases.find(orbit => orbit.planetIds.includes(planet.id));
+        if (!orbit) return { ...planet };
+        const x = planet.x - orbit.x, y = planet.y - orbit.y;
+        return { ...planet, x: orbit.x + x * Math.cos(orbit.phase) - y * Math.sin(orbit.phase), y: orbit.y + x * Math.sin(orbit.phase) + y * Math.cos(orbit.phase) };
+      });
+      assert.ok(mapConnected(planets.filter(planet => !planet.capital || planet.owner === FACTIONS[0])));
+      for (let i = 0; i < planets.length; i++) {
+        const planet = planets[i], neighbors = planets.filter(other => other !== planet && distance(planet, other) <= 600);
+        assert.ok(neighbors.length <= 6);
+        for (const other of planets.slice(i + 1)) assert.ok(distance(planet, other) >= 500 - 1e-5);
+        if (planet.id.startsWith('home-') && !planet.id.endsWith('-gate')) {
+          const prefix = /^home-\d+-/.exec(planet.id)![0];
+          assert.ok(neighbors.every(other => other.id.startsWith(prefix)));
+        }
+      }
+      for (const group of map.generated!.weaponGroups!) assert.ok(mapConnected(planets.filter(planet => group.planetIds.includes(planet.id))));
+    }
+  }
+});
+
+test('modular certificate rejects ungrouped weapons, wrong specialty, broken modules and closing gateways', () => {
+  const map = generateMap('quick-match', 26);
+  const lone = structuredClone(map);
+  lone.planets.find(planet => !planet.superweaponUnlocks?.length && !planet.capital)!.superweaponUnlocks = ['omni'];
+  assert.throws(() => validateQuickGeometry(lone), /Ungrouped weapon/);
+  const wrong = structuredClone(map), group = wrong.generated!.weaponGroups!.find(group => !group.allowedWeapons.includes('omni'))!;
+  wrong.planets.find(planet => planet.id === group.planetIds[0])!.superweaponUnlocks = ['omni'];
+  assert.throws(() => validateQuickGeometry(wrong), /allowed types/);
+  const missing = structuredClone(map);
+  missing.generated!.modules![0].planetIds.pop();
+  assert.throws(() => validateQuickGeometry(missing), /module membership/);
+  const closes = structuredClone(map), star = closes.generated!.modules!.find(module => module.kind === 'star-system')!;
+  const port = closes.planets.find(planet => planet.id === star.ports[0])!;
+  port.x = star.x + (port.x - star.x) * 1.03; port.y = star.y + (port.y - star.y) * 1.03;
+  assert.throws(() => validateQuickGeometry(closes), /gateway closes/);
+});
+
+test('ordinary fleets cross a fixed gateway and capture a moving Quick specialist world', () => {
+  const map = generateMap('quick-match', 12), star = map.generated!.modules!.find(module => module.kind === 'star-system')!;
+  const port = map.planets.find(planet => planet.id === star.ports[0])!;
+  port.owner = FACTIONS[0]; port.ships = 140;
+  const target = map.planets.find(planet => star.planetIds.includes(planet.id) && planet.superweaponUnlocks?.length)!;
+  const engine = createMatch(map);
+  engine.lastAITime = engine.lastSpawnTime = Number.MAX_SAFE_INTEGER;
+  engine.pixels = engine.pixels.filter(ship => ship.baseId === port.id || ship.baseId === target.id);
+  for (let step = 0; step < 840 && distance(engine.bases.get(port.id)!, engine.bases.get(target.id)!) > 600; step++) engine.update(0.5);
+  assert.ok(issueFleetOrder(engine, port.id, target.id, 0.75));
+  for (let step = 0; step < 3600 && engine.bases.get(target.id)!.color !== FACTIONS[0]; step++) engine.update(1 / 60);
+  assert.equal(engine.bases.get(target.id)!.color, FACTIONS[0]);
+  assert.ok(engine.getSuperweaponSourceCount(FACTIONS[0], target.superweaponUnlocks![0]) > 0);
+  assert.deepEqual([engine.bases.get(port.id)!.x, engine.bases.get(port.id)!.y], [port.x, port.y]);
+});
+
 test('seeds reproduce the complete opening; Play Again resets fleets, charges, ownership and orbit phase', () => {
   for (const mode of ['quick-match', 'chaos-mode'] as const) for (let seed = 0; seed < 20; seed++) {
     const map = generateMap(mode, seed), original = structuredClone(map);
@@ -173,7 +244,7 @@ test('seeds reproduce the complete opening; Play Again resets fleets, charges, o
     const again = createMatch(map, { hardMode: true });
     assert.equal(again.isHardMode, true);
     assert.equal(again.multiSelectEnabled, true);
-    assert.equal(again instanceof OrbitingGameEngine, mode === 'chaos-mode');
+    assert.equal(again instanceof OrbitingGameEngine, true);
     for (const planet of map.planets) {
       const base = again.bases.get(planet.id)!;
       assert.deepEqual([base.x, base.y, base.color, base.pixelCount, !!base.isCapital, base.superweaponUnlocks ?? []],

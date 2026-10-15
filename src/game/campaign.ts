@@ -25,6 +25,14 @@ export function testLevelForMode(mode: ChapterOneTestModeId): number {
 export type PlanetDefinition = { id: string; x: number; y: number; owner: typeof FACTIONS[number] | typeof NEUTRAL; ships: number; capital?: boolean; superweaponUnlocks?: SuperweaponId[] };
 export type DysonSphereDefinition = { chargeIntervalSeconds: number };
 export type OrbitDefinition = { x: number; y: number; periodSeconds: number; planetIds: string[]; dysonSphere?: DysonSphereDefinition };
+export type GeneratedMapModule = {
+  id: string; kind: 'home' | 'junction' | 'arena' | 'star-system' | 'weapon-cluster' | 'corridor';
+  x: number; y: number; planetIds: string[]; ports: string[];
+};
+export type GeneratedWeaponGroup = {
+  id: string; moduleId: string; profile: 'production' | 'defense' | 'strike' | 'support';
+  planetIds: string[]; allowedWeapons: SuperweaponId[];
+};
 export type MapDefinition = {
   id: string;
   title: string;
@@ -41,7 +49,7 @@ export type MapDefinition = {
   orbits?: OrbitDefinition[];
   mobileFocus?: 'capital';
   tutorial?: { attackTargetId: string };
-  generated?: { mode: GeneratedMode; seed: number; layout: string };
+  generated?: { mode: GeneratedMode; seed: number; layout: string; modules?: GeneratedMapModule[]; weaponGroups?: GeneratedWeaponGroup[] };
 };
 export type Chapter = { id: ChapterId; plannedLevels: number; maps: MapDefinition[] };
 

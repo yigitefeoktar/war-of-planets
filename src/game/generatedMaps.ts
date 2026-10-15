@@ -1,192 +1,14 @@
 import { FACTIONS, NEUTRAL, validateMap, type GeneratedMode, type MapDefinition, type OrbitDefinition, type PlanetDefinition } from './campaign';
 import { SUPERWEAPON_IDS } from './superweapons';
-import { chaosRoutes, quickRoutes } from './routeNetworks';
+import { chaosRoutes } from './routeNetworks';
+import { between, distance, integer, mapConnected, rotate, seededRandom, shuffle, TAU, wrapMap } from './mapGenerationUtils';
+import { buildQuickMap, QUICK_LAYOUTS, validateQuickGeometry } from './quickMapGenerator';
+export { mapConnected, seededRandom } from './mapGenerationUtils';
+export { QUICK_LAYOUTS, validateQuickGeometry } from './quickMapGenerator';
 
-// Generate strategic routes first; certify the actual attacks after placement.
-// Seeds reproduce the entire opening, including colors, fleets and orbit phase.
-export const QUICK_LAYOUTS = ['divided-territories', 'branching-fronts', 'outer-circuits', 'linked-arenas'] as const;
 export const CHAOS_LAYOUTS = ['stellar-chain', 'branching-constellation', 'orbital-circuit', 'multiple-fronts'] as const;
 const RANGE = 600;
-const TAU = Math.PI * 2;
-const HISTORY_KEY = 'war-of-planets.generated-maps.v2';
-
-export function seededRandom(seed: number): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state += 0x6D2B79F5;
-    let value = Math.imul(state ^ state >>> 15, 1 | state);
-    value ^= value + Math.imul(value ^ value >>> 7, 61 | value);
-    return ((value ^ value >>> 14) >>> 0) / 4294967296;
-  };
-}
-
-function shuffle<T>(items: readonly T[], random: () => number): T[] {
-  const result = [...items];
-  for (let index = result.length - 1; index > 0; index--) {
-    const other = Math.floor(random() * (index + 1));
-    [result[index], result[other]] = [result[other], result[index]];
-  }
-  return result;
-}
-const between = (random: () => number, min: number, max: number) => min + random() * (max - min);
-const integer = (random: () => number, min: number, max: number) => Math.floor(between(random, min, max + 1));
-const distance = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
-
-function rotate(x: number, y: number, angle: number) {
-  return { x: x * Math.cos(angle) - y * Math.sin(angle), y: x * Math.sin(angle) + y * Math.cos(angle) };
-}
-
-export function mapConnected(planets: readonly { x: number; y: number }[], range = RANGE): boolean {
-  if (!planets.length) return false;
-  const reached = new Set([0]);
-  const queue = [0];
-  for (let index = 0; index < queue.length; index++) {
-    for (let other = 0; other < planets.length; other++) {
-      if (!reached.has(other) && distance(planets[queue[index]], planets[other]) <= range) {
-        reached.add(other); queue.push(other);
-      }
-    }
-  }
-  return reached.size === planets.length;
-}
-
-function wrapMap(mode: GeneratedMode, seed: number, layout: string, planets: PlanetDefinition[], orbits?: OrbitDefinition[]): MapDefinition {
-  // Fit the complete swept paths with room for capital fleets and star halos.
-  const extent = orbits?.length
-    ? Math.max(...orbits.flatMap(orbit => {
-      const radius = Math.max(...planets.filter(planet => orbit.planetIds.includes(planet.id)).map(planet => distance(planet, orbit)));
-      return [Math.abs(orbit.x) + radius, Math.abs(orbit.y) + radius];
-    }))
-    : Math.max(...planets.flatMap(planet => [Math.abs(planet.x), Math.abs(planet.y)]));
-  const size = Math.ceil((extent + 240) * 2 / 100) * 100;
-  const offset = size / 2;
-  return {
-    id: `generated-${mode}-${seed}`, title: mode === 'quick-match' ? 'Quick Match' : 'Chaos Mode',
-    briefing: mode === 'quick-match' ? 'Choose your expansion route and capture the rival capitals.' : 'Ride the moving systems, capture weapon worlds and protect your orbiting capital.',
-    width: size, height: size, attackRange: RANGE,
-    galaxyTheme: mode === 'chaos-mode' ? 'siege' : 'standard',
-    objective: { type: 'eliminate-capitals', description: 'Capture all enemy capitals. Keep your blue capital alive.' },
-    generated: { mode, seed, layout },
-    planets: planets.map(planet => ({ ...planet, x: planet.x + offset, y: planet.y + offset })),
-    ...(orbits?.length ? { orbits: orbits.map(orbit => ({ ...orbit, x: orbit.x + offset, y: orbit.y + offset })) } : {}),
-  };
-}
-
-function circuitMap(seed: number): MapDefinition {
-  const random = seededRandom(seed);
-  const quarter = integer(random, 10, 12), count = quarter * 4;
-  const step = between(random, 535, 540);
-  const layers = Math.round(count / TAU), radius = layers * step;
-  const angle = between(random, 0, TAU), factions = shuffle(FACTIONS, random);
-  const opening = integer(random, 12, 18), weaponCost = integer(random, 28, 36), gateCost = integer(random, 38, 48);
-  const planets: PlanetDefinition[] = [];
-  for (let index = 0; index < count; index++) {
-    const sector = Math.round(index / quarter) % 4;
-    const delta = ((index - sector * quarter + count + count / 2) % count) - count / 2;
-    const home = Math.abs(delta) <= 3;
-    const role = delta === 0 ? 'capital' : Math.abs(delta) === 1 ? `opening-${delta > 0 ? 'a' : 'b'}`
-      : Math.abs(delta) === 2 ? delta > 0 ? 'overdrive' : 'repulse' : `gate-${delta > 0 ? 'a' : 'b'}`;
-    const weapon = home && Math.abs(delta) === 2 ? delta > 0 ? 'overdrive' : 'repulse' : home && Math.abs(delta) === 3 ? 'omni' : undefined;
-    planets.push({
-      id: home ? `home-${sector}-${role}` : `circuit-${index}`,
-      ...rotate(radius, 0, angle + TAU * index / count), owner: delta === 0 ? factions[sector] : NEUTRAL,
-      ships: delta === 0 ? 200 : Math.abs(delta) === 1 ? opening : Math.abs(delta) === 2 ? weaponCost : home ? gateCost : integer(random, 24, 44),
-      ...(delta === 0 ? { capital: true } : {}), ...(weapon ? { superweaponUnlocks: [weapon] as PlanetDefinition['superweaponUnlocks'] } : {}),
-    });
-  }
-  // Opposite crossings give everyone equivalent access; four crossings produce
-  // a central multi-front arena. Both differ substantially from a maze or grid.
-  const spokes = random() < 0.5 ? [0, 2] : [0, 1, 2, 3];
-  for (const spoke of spokes) for (let layer = 1; layer < layers; layer++) {
-    planets.push({ id: `spoke-${spoke}-${layer}`, ...rotate(radius - layer * step, 0, angle + TAU * (Math.floor(quarter / 2) + spoke * quarter) / count), owner: NEUTRAL, ships: integer(random, 24, 44) });
-  }
-  // Public interior branches can reconnect into another spoke or end in a
-  // weapon pocket. Their location/length changes the graph, not just its angle.
-  const branchCount = integer(random, 2, 6);
-  for (let branch = 0; branch < branchCount; branch++) {
-    const spoke = spokes[integer(random, 0, spokes.length - 1)], along = integer(random, 2, 3), side = random() < 0.5 ? -1 : 1;
-    const length = integer(random, 1, 2);
-    for (let segment = 1; segment <= length; segment++) {
-      const point = rotate(along * step, side * segment * step, angle + TAU * Math.floor(quarter / 2) / count + spoke * Math.PI / 2);
-      if (planets.some(planet => distance(planet, point) < 1)) continue;
-      const weapon = segment === length && random() < 0.5 ? SUPERWEAPON_IDS[integer(random, 0, 2)] : undefined;
-      planets.push({ id: `pocket-${branch}-${segment}`, ...point, owner: NEUTRAL, ships: weapon ? 48 : integer(random, 24, 44), ...(weapon ? { superweaponUnlocks: [weapon] } : {}) });
-    }
-  }
-  planets.push({ id: 'circuit-hub', x: 0, y: 0, owner: NEUTRAL, ships: integer(random, 48, 64), superweaponUnlocks: [SUPERWEAPON_IDS[integer(random, 0, 2)]] });
-  return wrapMap('quick-match', seed, QUICK_LAYOUTS[2], planets);
-}
-
-function quickMap(seed: number, layoutIndex: number): MapDefinition {
-  if (layoutIndex === 2) return circuitMap(seed);
-  const random = seededRandom(seed);
-  const network = quickRoutes(layoutIndex, random);
-  const cells = new Map<string, { x: number; y: number; sector?: number; role?: string; ships: number; weapon?: typeof SUPERWEAPON_IDS[number] }>();
-  const put = (x: number, y: number, ships = integer(random, 24, 44), sector?: number, role?: string, weapon?: typeof SUPERWEAPON_IDS[number]) =>
-    cells.set(`${x},${y}`, { x, y, ships, sector, role, weapon });
-  for (const point of network.points) put(point.x, point.y);
-  for (const [a, b] of network.edges) put((network.points[a].x + network.points[b].x) / 2, (network.points[a].y + network.points[b].y) / 2);
-  const openingCost = integer(random, 12, 18);
-  const weaponCost = integer(random, 28, 36);
-  const gateCost = integer(random, 38, 48);
-  const twoApproaches = random() < 0.5;
-  // Four equivalent home networks; public routes may be asymmetric. The only
-  // exit is the gate, four captures away from the capital on either home arm.
-  [[1, 1], [-1, 1], [-1, -1], [1, -1]].forEach(([sx, sy], sector) => {
-    const x = network.columns + 2, y = network.rows + 2;
-    const home = (dx: number, dy: number, ships: number, role: string, weapon?: typeof SUPERWEAPON_IDS[number]) =>
-      put((x - dx) * sx, (y - dy) * sy, ships, sector, role, weapon);
-    home(0, 0, 200, 'capital');
-    home(1, 0, openingCost, 'opening-a'); home(0, 1, openingCost, 'opening-b');
-    home(2, 0, weaponCost, 'overdrive', 'overdrive'); home(0, 2, weaponCost, 'repulse', 'repulse');
-    home(2, 1, 24, 'approach-a'); home(1, 2, 24, 'approach-b');
-    home(2, 2, gateCost, 'gate', 'omni');
-    // These approach worlds cannot attack the other side of the home perimeter.
-    put((network.columns - 1) * sx, network.rows * sy, 30);
-    if (twoApproaches) put(network.columns * sx, (network.rows - 1) * sy, 30);
-  });
-  const sites = shuffle([...cells.values()].filter(cell => cell.sector === undefined && network.points.some(point => point.x === cell.x && point.y === cell.y)), random);
-  sites.slice(0, integer(random, 1, Math.min(3, sites.length))).forEach((cell, index) => {
-    cell.weapon = SUPERWEAPON_IDS[index % SUPERWEAPON_IDS.length]; cell.ships = integer(random, 48, 64);
-  });
-  const factions = shuffle(FACTIONS, random);
-  const angle = between(random, 0, TAU);
-  const xStep = between(random, 520, 550), yStep = between(random, 520, 550);
-  const planets: PlanetDefinition[] = [...cells.values()].map(cell => {
-    const point = rotate(cell.x * xStep + between(random, -8, 8), cell.y * yStep + between(random, -8, 8), angle);
-    const capital = cell.role === 'capital';
-    return {
-      id: cell.sector === undefined ? `route-${cell.x}-${cell.y}` : `home-${cell.sector}-${cell.role}`,
-      ...point, owner: capital ? factions[cell.sector!] : NEUTRAL, ships: cell.ships,
-      ...(capital ? { capital: true } : {}), ...(cell.weapon ? { superweaponUnlocks: [cell.weapon] } : {}),
-    };
-  });
-  const map = wrapMap('quick-match', seed, QUICK_LAYOUTS[layoutIndex], planets);
-  // Check the embedded graph against the intended lattice links, not just BFS.
-  const list = [...cells.values()];
-  for (let a = 0; a < list.length; a++) for (let b = a + 1; b < list.length; b++) {
-    const intended = Math.abs(list[a].x - list[b].x) + Math.abs(list[a].y - list[b].y) === 1;
-    const separation = distance(planets[a], planets[b]);
-    if (intended ? separation > 575 || separation < 500 : separation < 650) throw new Error('A route gained an unintended attack shortcut');
-  }
-  return map;
-}
-
-export function validateQuickGeometry(map: MapDefinition): void {
-  if (!mapConnected(map.planets, map.attackRange)) throw new Error('Disconnected Quick routes');
-  for (const planet of map.planets) {
-    const neighbors = map.planets.filter(other => other !== planet && distance(planet, other) <= map.attackRange);
-    if (neighbors.length < 1 || neighbors.length > 4) throw new Error('Too many attack routes');
-    if (neighbors.some(a => neighbors.some(b => a !== b && distance(a, b) <= map.attackRange))) throw new Error('An attack bypasses a route defender');
-    if (planet.capital && (neighbors.length !== 2 || neighbors.some(other => other.capital || other.superweaponUnlocks?.length || other.ships > 18))) throw new Error('Unsafe capital opening');
-    const home = /^home-(\d+)-/.exec(planet.id)?.[1];
-    if (home !== undefined && !/-gate(?:-[ab])?$/.test(planet.id) && neighbors.some(other => !other.id.startsWith(`home-${home}-`))) throw new Error('An attack bypasses the home frontier');
-    for (const other of map.planets) if (planet !== other) {
-      const separation = distance(planet, other);
-      if (separation < 500 || (separation > map.attackRange && separation < 650)) throw new Error('Unsafe Quick spacing');
-    }
-  }
-}
+const HISTORY_KEY = 'war-of-planets.generated-maps.v3';
 
 function chaosMap(seed: number, layoutIndex: number): MapDefinition {
   const random = seededRandom(seed);
@@ -311,7 +133,7 @@ export function generateMap(mode: GeneratedMode, seed: number, layoutIndex = (se
     validateChaosGeometry(map);
     return map;
   }
-  const map = quickMap(normalized, layoutIndex);
+  const map = buildQuickMap(normalized, layoutIndex);
   validateMap(map);
   validateQuickGeometry(map);
   return map;

@@ -9,8 +9,8 @@ const shuffled = <T>(items: readonly T[], random: () => number): T[] =>
 const pickInt = (random: () => number, min: number, max: number) => min + Math.floor(random() * (max - min + 1));
 
 export function quickRoutes(family: number, random: () => number): RouteNetwork & { columns: number; rows: number } {
-  const columns = pickInt(random, family === 1 ? 3 : 2, 4);
-  const rows = pickInt(random, columns === 2 ? 3 : 2, family === 1 ? 3 : 4);
+  const columns = pickInt(random, family === 1 ? 3 : 2, 3);
+  const rows = pickInt(random, columns === 2 ? 3 : 2, 3);
   const points: RoutePoint[] = [];
   for (let y = 0; y < rows; y++) for (let x = 0; x < columns; x++) points.push({ x: x * 2 - columns + 1, y: y * 2 - rows + 1 });
   const index = (x: number, y: number) => y * columns + x;
