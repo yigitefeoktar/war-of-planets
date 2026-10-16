@@ -53,7 +53,7 @@ test('1000 Quick seeds preserve frontlines, equal opening costs and substantiall
     assert.doesNotThrow(() => validateMap(map));
     assert.doesNotThrow(() => validateQuickGeometry(map));
     assert.ok(map.orbits!.length >= 1 && map.orbits!.length <= 2);
-    assert.ok(map.planets.length >= 30 && map.planets.length <= 40);
+    assert.ok(map.planets.length >= 35 && map.planets.length <= 50);
     assert.equal(map.generated?.mode, 'quick-match');
     const capitals = map.planets.filter(planet => planet.capital);
     assert.deepEqual(capitals.map(planet => planet.owner).sort(), [...FACTIONS].sort());
@@ -88,12 +88,14 @@ test('1000 Quick seeds preserve frontlines, equal opening costs and substantiall
     }
     assert.equal(grouped.size, map.planets.filter(planet => planet.superweaponUnlocks?.length).length);
     for (const capital of capitals) {
-      const prefix = /^home-\d+-/.exec(capital.id)![0];
-      const gates = map.planets.filter(planet => planet.id.startsWith(prefix) && /-gate(?:-[ab])?$/.test(planet.id));
-      const remaining = map.planets.filter(planet => !gates.includes(planet));
-      assert.equal(mapConnected(remaining), false, 'Home worlds are reachable around their frontier');
+      const home = map.generated!.modules!.find(module => module.planetIds.includes(capital.id))!;
+      const exits = map.planets.filter(planet => home.planetIds.includes(planet.id) && !planet.capital && map.planets.some(other => !home.planetIds.includes(other.id) && distance(planet, other) <= 600));
+      assert.ok(exits.length >= 2, 'A home is trapped behind a single exit');
       assert.ok(mapConnected(map.planets.filter(planet => planet !== capital)), 'Capital elimination strands routes');
     }
+    const moving = new Set(map.orbits!.flatMap(orbit => orbit.planetIds));
+    const fixed = map.planets.filter(planet => !moving.has(planet.id) && !planet.capital);
+    for (const removed of fixed) assert.ok(mapConnected(fixed.filter(planet => planet !== removed)), 'One fixed crossing controls the battlefield');
     fingerprints.add(fingerprint(map)); counts.add(map.planets.length);
     const signature = routeSignature(map);
     graphs.add(signature); families[seed % QUICK_LAYOUTS.length].add(signature);
@@ -114,7 +116,7 @@ test('1000 Chaos seeds have weapons on every world and certified non-overlapping
     const map = generateMap('chaos-mode', seed);
     assert.doesNotThrow(() => validateMap(map));
     assert.doesNotThrow(() => validateChaosGeometry(map));
-    assert.ok(map.planets.length >= 30 && map.planets.length <= 40);
+    assert.ok(map.planets.length >= 35 && map.planets.length <= 50);
     assert.equal(new Set(map.orbits!.flatMap(orbit => orbit.planetIds)).size, map.planets.length);
     const capitals = map.planets.filter(planet => planet.capital);
     assert.deepEqual(capitals.map(planet => planet.owner).sort(), [...FACTIONS].sort());
@@ -144,8 +146,8 @@ test('1000 Chaos seeds have weapons on every world and certified non-overlapping
     fingerprints.add(fingerprint(map)); starCounts.add(map.orbits!.length); planetCounts.add(map.planets.length);
   }
   assert.equal(fingerprints.size, 1000);
-  assert.deepEqual([...starCounts].sort((a, b) => a - b), [3]);
-  assert.ok(planetCounts.size >= 4);
+  assert.deepEqual([...starCounts].sort((a, b) => a - b), [4]);
+  assert.ok(planetCounts.size >= 3);
   assert.ok(routeGraphs.size >= 40, `Only ${routeGraphs.size} Chaos route structures`);
   families.forEach((structures, i) => assert.ok(structures.size >= 10, `${CHAOS_LAYOUTS[i]} has only ${structures.size} route structures`));
   t.diagnostic(`1000 Chaos maps: ${Math.round(performance.now() - started)}ms; ${planetCounts.size} planet counts; route structures per family ${families.map(f => f.size).join(', ')}.`);
@@ -200,7 +202,7 @@ test('Quick module connections, spacing and frontiers survive 2000 independent o
         const planet = planets[i], neighbors = planets.filter(other => other !== planet && distance(planet, other) <= 600);
         assert.ok(neighbors.length >= 2 && neighbors.length <= 9);
         for (const other of planets.slice(i + 1)) assert.ok(distance(planet, other) >= 270 - 1e-5);
-        if (planet.id.startsWith('home-') && !planet.id.endsWith('-gate')) {
+        if (planet.capital) {
           const prefix = /^home-\d+-/.exec(planet.id)![0];
           assert.ok(neighbors.every(other => other.id.startsWith(prefix)));
         }
@@ -213,7 +215,7 @@ test('Quick module connections, spacing and frontiers survive 2000 independent o
 test('modular certificate rejects ungrouped weapons, wrong specialty, broken modules and closing gateways', () => {
   const map = generateMap('quick-match', 26);
   const lone = structuredClone(map);
-  lone.planets.find(planet => !planet.superweaponUnlocks?.length && !planet.capital)!.superweaponUnlocks = ['omni'];
+  lone.planets.find(planet => !planet.superweaponUnlocks?.length && !planet.id.startsWith('home-'))!.superweaponUnlocks = ['omni'];
   assert.throws(() => validateQuickGeometry(lone), /Ungrouped weapon/);
   const wrong = structuredClone(map), group = wrong.generated!.weaponGroups!.find(group => !group.allowedWeapons.includes('omni'))!;
   wrong.planets.find(planet => planet.id === group.planetIds[0])!.superweaponUnlocks = ['omni'];
@@ -222,9 +224,12 @@ test('modular certificate rejects ungrouped weapons, wrong specialty, broken mod
   missing.generated!.modules![0].planetIds.pop();
   assert.throws(() => validateQuickGeometry(missing), /module membership/);
   const closes = structuredClone(map), star = closes.generated!.modules!.find(module => module.kind === 'star-system')!;
-  const port = closes.planets.find(planet => planet.id === star.ports[0])!;
-  port.x = star.x + (port.x - star.x) * 1.35; port.y = star.y + (port.y - star.y) * 1.35;
-  assert.throws(() => validateQuickGeometry(closes), /gateway closes/);
+  star.ports = [closes.planets.filter(planet => !closes.orbits!.some(orbit => orbit.planetIds.includes(planet.id))).sort((a, b) => distance(b, star) - distance(a, star))[0].id];
+  assert.throws(() => validateQuickGeometry(closes), /gateways close/);
+  const blocked = structuredClone(map), home = blocked.generated!.modules!.find(module => module.kind === 'home')!;
+  for (const id of home.planetIds) blocked.planets.find(planet => planet.id === id)!.x += 10000;
+  assert.throws(() => validateQuickGeometry(blocked), /one approach|capital opening|permanent neighbors|crossing/);
+
 });
 
 test('ordinary fleets cross a fixed gateway and capture a moving Quick specialist world', () => {
@@ -271,7 +276,7 @@ test('compact recipes enforce their planet budget and fit the complete swept geo
       Math.min(...bounds.map(b => b.top)), map.height - Math.max(...bounds.map(b => b.bottom))];
     margins.forEach(margin => assert.ok(margin >= 240 - 1e-5 && margin < 290 + 1e-5, 'Empty square padding or a clipped orbit'));
     const oversized = structuredClone(map);
-    while (oversized.planets.length <= 40) oversized.planets.push({ ...oversized.planets[0], id: `extra-${oversized.planets.length}` });
+    while (oversized.planets.length <= 50) oversized.planets.push({ ...oversized.planets[0], id: `extra-${oversized.planets.length}` });
     assert.throws(() => mode === 'quick-match' ? validateQuickGeometry(oversized) : validateChaosGeometry(oversized), /planet budget/);
   }
 });
@@ -360,9 +365,9 @@ test('New Map consumes all four families before refilling its shuffled bag', () 
   }
 });
 
-test('generation certifies compact bounds for boundary seeds and 1024 distributed 32-bit seeds', () => {
+test('generation certifies compact bounds for boundary seeds and 4096 distributed 32-bit seeds', () => {
   const random = seededRandom(0xC0FFEE);
-  const seeds = [0, 1, 0x7FFFFFFF, 0x80000000, 0xFFFFFFFF, ...Array.from({ length: 1024 }, () => Math.floor(random() * 4294967296))];
+  const seeds = [0, 1, 0x7FFFFFFF, 0x80000000, 0xFFFFFFFF, ...Array.from({ length: 4096 }, () => Math.floor(random() * 4294967296))];
   for (const seed of seeds) for (const mode of ['quick-match', 'chaos-mode'] as const) {
     const map = generateMap(mode, seed);
     assert.ok(Math.max(map.width, map.height) <= 6800 && map.width * map.height <= 36_000_000, `${mode}, seed ${seed} exceeds compact bounds`);
