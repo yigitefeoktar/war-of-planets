@@ -34,19 +34,41 @@ export function mapConnected(planets: readonly { x: number; y: number }[], range
 }
 
 export function wrapMap(mode: GeneratedMode, seed: number, layout: string, planets: PlanetDefinition[], orbits?: OrbitDefinition[], recipe?: Pick<NonNullable<MapDefinition['generated']>, 'modules' | 'weaponGroups'>): MapDefinition {
-  // Include fixed worlds as well as the entire swept paths of moving worlds.
-  const extent = Math.max(...planets.flatMap(planet => [Math.abs(planet.x), Math.abs(planet.y)]), ...(orbits ?? []).flatMap(orbit => {
+  // Choose a compact orientation before fitting bounds. Randomly rotating a
+  // narrow two-system map by 45 degrees nearly doubled its empty rectangle.
+  // Sixteen bounded candidates retain seeded variety without rejection loops.
+  const circles = (orbits ?? []).map(orbit => ({ ...orbit, radius: Math.max(...planets.filter(planet => orbit.planetIds.includes(planet.id)).map(planet => distance(planet, orbit))) }));
+  const phase = seededRandom(seed ^ 0x71A4C295)() * TAU;
+  let bestAngle = phase, bestArea = Infinity;
+  for (let i = 0; i < 16; i++) {
+    const angle = phase + i * TAU / 16;
+    const points = planets.map(planet => ({ ...rotate(planet.x, planet.y, angle), radius: 0 }));
+    points.push(...circles.map(orbit => ({ ...rotate(orbit.x, orbit.y, angle), radius: orbit.radius })));
+    const spanX = Math.max(...points.map(p => p.x + p.radius)) - Math.min(...points.map(p => p.x - p.radius)) + 480;
+    const spanY = Math.max(...points.map(p => p.y + p.radius)) - Math.min(...points.map(p => p.y - p.radius)) + 480;
+    if (spanX * spanY < bestArea) { bestArea = spanX * spanY; bestAngle = angle; }
+  }
+  planets = planets.map(planet => ({ ...planet, ...rotate(planet.x, planet.y, bestAngle) }));
+  orbits = orbits?.map(orbit => ({ ...orbit, ...rotate(orbit.x, orbit.y, bestAngle) }));
+  if (recipe?.modules) recipe = { ...recipe, modules: recipe.modules.map(module => ({ ...module, ...rotate(module.x, module.y, bestAngle) })) };
+  // Fit each axis to the actual content, including complete swept paths.
+  // Centering every recipe in a large square left unnecessary empty borders.
+  const bounds = planets.map(planet => ({ left: planet.x, right: planet.x, top: planet.y, bottom: planet.y }));
+  for (const orbit of orbits ?? []) {
     const radius = Math.max(...planets.filter(planet => orbit.planetIds.includes(planet.id)).map(planet => distance(planet, orbit)));
-    return [Math.abs(orbit.x) + radius, Math.abs(orbit.y) + radius];
-  }));
-  const size = Math.ceil((extent + 240) * 2 / 100) * 100, offset = size / 2;
+    bounds.push({ left: orbit.x - radius, right: orbit.x + radius, top: orbit.y - radius, bottom: orbit.y + radius });
+  }
+  const left = Math.min(...bounds.map(bound => bound.left)), right = Math.max(...bounds.map(bound => bound.right));
+  const top = Math.min(...bounds.map(bound => bound.top)), bottom = Math.max(...bounds.map(bound => bound.bottom));
+  const width = Math.ceil((right - left + 480) / 100) * 100, height = Math.ceil((bottom - top + 480) / 100) * 100;
+  const offsetX = (width - right - left) / 2, offsetY = (height - bottom - top) / 2;
   return {
     id: `generated-${mode}-${seed}`, title: mode === 'quick-match' ? 'Quick Match' : 'Chaos Mode',
     briefing: mode === 'quick-match' ? 'Choose your expansion route, secure specialist regions and capture the rival capitals.' : 'Ride the moving systems, capture weapon worlds and protect your orbiting capital.',
-    width: size, height: size, attackRange: 600, galaxyTheme: mode === 'chaos-mode' ? 'siege' : 'standard',
+    width, height, attackRange: 600, galaxyTheme: mode === 'chaos-mode' ? 'siege' : 'standard',
     objective: { type: 'eliminate-capitals', description: 'Capture all enemy capitals. Keep your blue capital alive.' },
-    generated: { mode, seed, layout, ...(recipe ?? {}), ...(recipe?.modules ? { modules: recipe.modules.map(module => ({ ...module, x: module.x + offset, y: module.y + offset })) } : {}) },
-    planets: planets.map(planet => ({ ...planet, x: planet.x + offset, y: planet.y + offset })),
-    ...(orbits?.length ? { orbits: orbits.map(orbit => ({ ...orbit, x: orbit.x + offset, y: orbit.y + offset })) } : {}),
+    generated: { mode, seed, layout, ...(recipe ?? {}), ...(recipe?.modules ? { modules: recipe.modules.map(module => ({ ...module, x: module.x + offsetX, y: module.y + offsetY })) } : {}) },
+    planets: planets.map(planet => ({ ...planet, x: planet.x + offsetX, y: planet.y + offsetY })),
+    ...(orbits?.length ? { orbits: orbits.map(orbit => ({ ...orbit, x: orbit.x + offsetX, y: orbit.y + offsetY })) } : {}),
   };
 }

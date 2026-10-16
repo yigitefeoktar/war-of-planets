@@ -1,59 +1,64 @@
 import { FACTIONS, NEUTRAL, validateMap, type GeneratedMode, type MapDefinition, type OrbitDefinition, type PlanetDefinition } from './campaign';
 import { SUPERWEAPON_IDS } from './superweapons';
-import { chaosRoutes } from './routeNetworks';
 import { between, distance, integer, mapConnected, rotate, seededRandom, shuffle, TAU, wrapMap } from './mapGenerationUtils';
 import { buildQuickMap, QUICK_LAYOUTS, validateQuickGeometry } from './quickMapGenerator';
 export { mapConnected, seededRandom } from './mapGenerationUtils';
 export { QUICK_LAYOUTS, validateQuickGeometry } from './quickMapGenerator';
 
-export const CHAOS_LAYOUTS = ['stellar-chain', 'branching-constellation', 'orbital-circuit', 'multiple-fronts'] as const;
+export const CHAOS_LAYOUTS = ['binary-fronts', 'stellar-bend', 'orbital-triangle', 'dense-binary'] as const;
 const RANGE = 600;
 const HISTORY_KEY = 'war-of-planets.generated-maps.v3';
 
 function chaosMap(seed: number, layoutIndex: number): MapDefinition {
   const random = seededRandom(seed);
-  const outerCount = random() < 0.5 ? 10 : 12;
+  // Four private home systems imposed a 56-world minimum before any public
+  // objectives. Opposite inner capitals can safely share a system instead.
+  const starCount = layoutIndex === 1 || layoutIndex === 2 ? 3 : 2;
+  const outerCount = starCount === 3 ? 10 : 12;
   const radius = between(random, 532, 552) / (2 * Math.sin(Math.PI / outerCount));
   const innerRadius = radius - 520;
   const innerCount = outerCount === 10 ? 4 : 6;
   const separation = radius * 2 + between(random, 450, 452);
+  const bend = layoutIndex === 2 ? Math.PI / 3 : between(random, 1.35, 2.3);
+  const points = starCount === 2 ? [{ x: -0.5, y: 0 }, { x: 0.5, y: 0 }]
+    : [rotate(1, 0, -bend / 2), rotate(1, 0, bend / 2), { x: 0, y: 0 }];
+  const mean = { x: points.reduce((sum, point) => sum + point.x, 0) / points.length, y: points.reduce((sum, point) => sum + point.y, 0) / points.length };
   const angle = between(random, 0, TAU);
-  const centers = chaosRoutes(layoutIndex, random).map(point => rotate(point.x * separation, point.y * separation, angle));
-  // Prefer peripheral systems for homes, without forcing every map into four corners.
-  const homes = shuffle(centers.map((center, index) => ({ index, degree: centers.filter(other => other !== center && distance(center, other) < separation + 1).length })), random)
-    .sort((a, b) => a.degree - b.degree).slice(0, 4).map(home => home.index);
+  const centers = points.map(point => rotate((point.x - mean.x) * separation, (point.y - mean.y) * separation, angle));
   const factions = shuffle(FACTIONS, random);
   const weapons = () => shuffle(SUPERWEAPON_IDS, random).slice(0, random() < 0.5 ? 1 : 2);
   const capitalWeapons = weapons();
   const planets: PlanetDefinition[] = [], orbits: OrbitDefinition[] = [];
+  // Opposite capitals have equal local routes. Inner populations and their
+  // alignment with the outer circuit vary independently between systems.
   centers.forEach((center, system) => {
-    const homeIndex = homes.indexOf(system);
-    const phase = between(random, 0, TAU);
-    const outward = Math.atan2(center.y, center.x);
-    // Inner capitals never form the bridge between stars. Eliminating one cannot
-    // remove a gateway or disconnect the remaining outer circuit.
-    const capitalIndex = Math.round((outward - phase) * innerCount / TAU + innerCount * 2) % innerCount;
-    const interiorCount = homeIndex >= 0 ? innerCount : integer(random, 0, innerCount);
-    const interiorPhase = homeIndex >= 0 ? phase : between(random, 0, TAU);
+    const home = system < 2, phase = between(random, 0, TAU);
+    const compactInterior = outerCount === 12 && layoutIndex !== 3 && random() < 0.5;
+    const innerOffset = between(random, layoutIndex === 3 ? Math.PI / (outerCount * 2) : 0, Math.PI / outerCount);
+    const publicCount = home ? 0 : integer(random, 0, 2);
+    const interiorIndices = home ? Array.from({ length: innerCount }, (_, i) => i).filter(i => !compactInterior || i !== 1 && i !== 4) : Array.from({ length: publicCount }, (_, i) => i);
     const members: PlanetDefinition[] = [];
     for (let ring = 0; ring < 2; ring++) {
-      const count = ring === 0 ? outerCount : interiorCount;
-      for (let index = 0; index < count; index++) {
-        const capital = homeIndex >= 0 && ring === 1 && index === capitalIndex;
-        const point = rotate(ring === 0 ? radius : innerRadius, 0, (ring === 0 ? phase : interiorPhase) + TAU * index / count);
+      const indices = ring === 0 ? Array.from({ length: outerCount }, (_, i) => i) : interiorIndices;
+      for (const index of indices) {
+        const capitalSlot = ring === 1 && home && (index === 0 || index === innerCount / 2);
+        const theta = ring === 0 ? phase + TAU * index / outerCount
+          : home ? phase + innerOffset + TAU * index / innerCount : phase + Math.PI / outerCount + Math.PI * index;
+        const point = rotate(ring === 0 ? radius : innerRadius, 0, theta);
         const planet: PlanetDefinition = {
           id: `system-${system}-${ring}-${index}`, x: center.x + point.x, y: center.y + point.y,
-          owner: capital ? factions[homeIndex] : NEUTRAL, ships: capital ? 200 : integer(random, 20, 42),
-          superweaponUnlocks: capital ? [...capitalWeapons] : weapons(), ...(capital ? { capital: true } : {}),
+          owner: capitalSlot ? factions[system * 2 + (index === 0 ? 0 : 1)] : NEUTRAL,
+          ships: capitalSlot ? 200 : integer(random, 20, 42),
+          superweaponUnlocks: capitalSlot ? [...capitalWeapons] : weapons(), ...(capitalSlot ? { capital: true } : {}),
         };
         members.push(planet); planets.push(planet);
       }
     }
-    const capital = members.find(planet => planet.capital);
-    if (capital) members.filter(planet => !planet.capital && distance(planet, capital) <= RANGE)
-      .sort((a, b) => distance(a, capital) - distance(b, capital)).slice(0, 3)
-      .forEach((planet, index) => { planet.ships = 12 + index * 2; });
-    // Larger orbits move slowly enough for ordinary fleets to intercept targets.
+    for (const capital of members.filter(planet => planet.capital)) {
+      members.filter(planet => !planet.capital && distance(planet, capital) <= RANGE)
+        .sort((a, b) => distance(a, capital) - distance(b, capital)).slice(0, 3)
+        .forEach((planet, index) => { planet.ships = 12 + index * 2; });
+    }
     orbits.push({ ...center, periodSeconds: integer(random, 220, 360), planetIds: members.map(planet => planet.id) });
   });
   return wrapMap('chaos-mode', seed, CHAOS_LAYOUTS[layoutIndex], planets, orbits);
@@ -89,6 +94,7 @@ function permanentBridge(r1: number, n1: number, r2: number, n2: number, centers
 /** Rigid systems preserve internal spacing; disjoint swept discs protect the
  * space between systems. Certified outer rings retain links after capital loss. */
 export function validateChaosGeometry(map: MapDefinition): void {
+  if (map.generated && (map.planets.length < 30 || map.planets.length > 40)) throw new Error('Chaos planet budget exceeded');
   const orbits = map.orbits ?? [];
   const membership = orbits.flatMap(orbit => orbit.planetIds);
   if (!orbits.length || membership.length !== map.planets.length || new Set(membership).size !== membership.length || map.planets.some(planet => !membership.includes(planet.id))) throw new Error('Every Chaos world must orbit');
@@ -102,7 +108,10 @@ export function validateChaosGeometry(map: MapDefinition): void {
     const angles = outer.map(planet => Math.atan2(planet.y - orbit.y, planet.x - orbit.x)).sort((a, b) => a - b);
     if (angles.some((angle, i) => Math.abs(angles[(i + 1) % angles.length] + (i + 1 === angles.length ? TAU : 0) - angle - TAU / angles.length) > 1e-6)) throw new Error('Irregular outer circuit');
     for (let i = 0; i < planets.length; i++) {
-      if (planets.filter(other => other !== planets[i] && distance(planets[i], other) <= map.attackRange).length > 5) throw new Error('Crowded orbital routes');
+      const neighbors = planets.filter(other => other !== planets[i] && distance(planets[i], other) <= map.attackRange);
+      if (planets[i].capital && neighbors.some(planet => planet.capital)) throw new Error('Adjacent capitals bypass their frontiers');
+      const degree = neighbors.length;
+      if (degree < 2 || degree > 5) throw new Error('Orbital worlds require multiple neighbors without crowding');
       for (const other of planets.slice(i + 1)) if (distance(planets[i], other) < 450 - 1e-5) throw new Error('Unsafe orbital spacing');
     }
     const capitalRadius = Math.max(0, ...planets.filter(planet => planet.capital).map(planet => distance(planet, orbit)));

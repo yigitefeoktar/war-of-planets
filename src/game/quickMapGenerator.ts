@@ -1,5 +1,4 @@
 import { FACTIONS, NEUTRAL, type GeneratedMapModule, type GeneratedWeaponGroup, type MapDefinition, type OrbitDefinition, type PlanetDefinition } from './campaign';
-import { quickRoutes, type RouteNetwork } from './routeNetworks';
 import { between, distance, integer, mapConnected, rotate, seededRandom, shuffle, TAU, wrapMap } from './mapGenerationUtils';
 import type { SuperweaponId } from './types';
 
@@ -7,114 +6,82 @@ type Profile = GeneratedWeaponGroup['profile'];
 export const WEAPON_PROFILES: Record<Profile, readonly SuperweaponId[]> = {
   production: ['overdrive'], defense: ['repulse'], strike: ['omni'], support: ['overdrive', 'repulse'],
 };
-export const QUICK_LAYOUTS = ['divided-territories', 'branching-fronts', 'outer-circuits', 'linked-arenas'] as const;
+export const QUICK_LAYOUTS = ['single-star-fronts', 'binary-arenas', 'binary-circuits', 'single-star-flanks'] as const;
 const EPSILON = 1e-5;
 
-function recipeRoutes(family: number, random: () => number): RouteNetwork {
-  if (family !== 2) return quickRoutes(family, random);
-  const count = integer(random, 4, 8), radius = 2 / (2 * Math.sin(Math.PI / count));
-  return {
-    points: Array.from({ length: count }, (_, index) => rotate(radius, 0, TAU * index / count)),
-    edges: Array.from({ length: count }, (_, index) => [index, (index + 1) % count]),
-  };
-}
-
-/** Ports are fixed worlds shared by adjacent modules. Interiors can change
- * shape without changing how the assembler joins the surrounding territory. */
+/** A match has a planet budget, rather than a budget of large independent
+ * rooms. Homes share their frontier with the orbital modules; specialist
+ * groups reuse circuit worlds instead of adding another room and corridor. */
 export function buildQuickMap(seed: number, family: number): MapDefinition {
-  const random = seededRandom(seed), unit = between(random, 500, 503);
-  const network = recipeRoutes(family, random);
+  const random = seededRandom(seed);
+  const starCount = family === 0 || family === 3 ? 1 : 2;
+  const counts = Array.from({ length: starCount }, () => integer(random, 10, 12));
+  if (counts.reduce((sum, count) => sum + count, 0) > 23) counts[1] = 11;
+  const radii = counts.map(count => between(random, 500, 510) / (2 * Math.sin(Math.PI / count)));
+  const separation = starCount === 2 ? radii[0] + radii[1] + 1000 : 0;
   const planets: PlanetDefinition[] = [], modules: GeneratedMapModule[] = [], groups: GeneratedWeaponGroup[] = [], orbits: OrbitDefinition[] = [];
-  const core = network.points.map((point, index): GeneratedMapModule => ({ id: `core-${index}`, kind: 'junction', x: point.x * 3 * unit, y: point.y * 3 * unit, planetIds: [], ports: [] }));
-  modules.push(...core);
-  const byId = new Map<string, PlanetDefinition>();
+  const stars = radii.map((_, index): GeneratedMapModule => ({ id: `core-${index}`, kind: 'star-system', x: starCount === 1 ? 0 : (index - 0.5) * separation, y: 0, planetIds: [], ports: [] }));
+  modules.push(...stars);
   const add = (module: GeneratedMapModule, x: number, y: number, role: string, ships = integer(random, 24, 40)): PlanetDefinition => {
     const planet: PlanetDefinition = { id: `${module.id}-${role}`, x, y, owner: NEUTRAL, ships };
-    planets.push(planet); byId.set(planet.id, planet); module.planetIds.push(planet.id);
+    planets.push(planet); module.planetIds.push(planet.id);
     return planet;
   };
-  const portal = (id: string, x: number, y: number) => {
-    const module: GeneratedMapModule = { id, kind: 'corridor', x, y, planetIds: [], ports: [] };
-    modules.push(module);
-    return add(module, x, y, 'portal', 30);
-  };
-  for (const [index, [a, b]] of network.edges.entries()) {
-    const gate = portal(`route-${index}`, (core[a].x + core[b].x) / 2, (core[a].y + core[b].y) / 2);
-    core[a].ports.push(gate.id); core[b].ports.push(gate.id);
+  if (starCount === 2) {
+    // One shared gateway replaces two long corridors. It always touches both
+    // rings, so its degree is at least two at every independent orbit phase.
+    const x = stars[0].x + radii[0] + 500;
+    const bridge: GeneratedMapModule = { id: 'shared-route', kind: 'corridor', x, y: 0, planetIds: [], ports: [] };
+    modules.push(bridge);
+    const port = add(bridge, x, 0, 'portal', integer(random, 24, 32));
+    stars.forEach(star => star.ports.push(port.id));
   }
-  // Outward attachments leave the core's approaches clear, including swept orbits.
-  const homes = family === 2 ? Array.from({ length: 4 }, (_, i) => Math.floor(i * core.length / 4))
-    : [0, core.findIndex(node => node.x === Math.max(...core.map(p => p.x)) && node.y === core[0].y), core.length - 1,
-      core.findIndex(node => node.x === core[0].x && node.y === Math.max(...core.map(p => p.y)))];
-  const factions = shuffle(FACTIONS, random), starter = shuffle(['production', 'defense', 'strike'] as const, random)[0];
-  const openingCost = integer(random, 12, 18), specialistCost = integer(random, 28, 36), homeCross = random() < 0.5;
-  const group = (module: GeneratedMapModule, candidates: PlanetDefinition[], profile: Profile, ring: boolean, count?: number) => {
-    const size = count ?? integer(random, 3, Math.min(5, candidates.length));
-    let selected: PlanetDefinition[];
-    if (ring) {
-      const start = integer(random, 0, candidates.length - 1);
-      selected = Array.from({ length: size }, (_, i) => candidates[(start + i) % candidates.length]);
-    } else {
-      selected = [candidates[0]];
-      while (selected.length < size) {
-        const next = shuffle(candidates.filter(planet => !selected.includes(planet) && selected.some(other => distance(planet, other) <= 600)), random)[0];
-        if (!next) throw new Error('Weapon group has no connected growth path');
-        selected.push(next);
-      }
-    }
-    const allowed = [...WEAPON_PROFILES[profile]];
-    selected.forEach((planet, index) => { planet.superweaponUnlocks = [allowed[index % allowed.length]]; });
-    groups.push({ id: `${module.id}-weapons`, moduleId: module.id, profile, allowedWeapons: allowed, planetIds: selected.map(planet => planet.id) });
-  };
-  homes.forEach((index, sector) => {
-    const parent = core[index], theta = Math.atan2(parent.y, parent.x);
-    const direction = rotate(1, 0, theta);
-    const port = portal(`route-home-${sector}`, parent.x + direction.x * 3 * unit, parent.y + direction.y * 3 * unit);
-    parent.ports.push(port.id);
-    const module: GeneratedMapModule = { id: `home-${sector}`, kind: 'home', x: parent.x + direction.x * 4 * unit, y: parent.y + direction.y * 4 * unit, planetIds: [], ports: [port.id] };
+  const factions = shuffle(FACTIONS, random), openingCost = integer(random, 12, 18), gateCost = integer(random, 24, 32);
+  const extraChoices = family === 0 ? 1 : family === 3 ? 2 : 0;
+  for (let sector = 0; sector < 4; sector++) {
+    const index = starCount === 1 ? 0 : Math.floor(sector / 2), star = stars[index];
+    const theta = starCount === 1 ? sector * Math.PI / 2 + between(random, -0.10, 0.10)
+      : (sector % 2 === 0 ? 1 : -1) * (Math.PI / 2 + (index === 0 ? 1 : -1) * between(random, 0.12, 0.28));
+    const direction = rotate(radii[index] + 500, 0, theta);
+    const module: GeneratedMapModule = { id: `home-${sector}`, kind: 'home', x: star.x + direction.x, y: star.y + direction.y, planetIds: [], ports: [] };
     modules.push(module);
-    const first = rotate(1, 0, theta - Math.PI / 4), second = rotate(1, 0, theta + Math.PI / 4);
-    const specs: [number, number, string][] = [[0, 0, 'gate'], [0, 1, 'specialist-approach'], [0, 2, 'specialist'], [1, 2, 'opening-a'], [2, 2, 'capital'], [2, 1, 'opening-b'], [2, 0, 'supply'], [1, 0, 'supply-approach']];
-    if (homeCross) specs.push([1, 1, 'crossing']);
-    const worlds = specs.map(([x, y, role]) => {
-      const planet = add(module, module.x + (x * first.x + y * second.x) * unit, module.y + (x * first.y + y * second.y) * unit, role,
-        role === 'capital' ? 200 : role.startsWith('opening') ? openingCost : role.startsWith('specialist') || role === 'gate' ? specialistCost : 24);
+    const unit = between(random, 505, 530), spread = between(random, Math.PI / 3, Math.PI / 2);
+    const first = rotate(unit, 0, theta - spread / 2), second = rotate(unit, 0, theta + spread / 2);
+    const specs = [{ x: 0, y: 0, role: 'gate' }, { ...first, role: 'opening-a' },
+      { x: first.x + second.x, y: first.y + second.y, role: 'capital' }, { ...second, role: 'opening-b' }];
+    // Optional equilateral flank triangles add choices without terminal leaves.
+    // The rhombus angle also determines whether its two openings interconnect.
+    const left = rotate(second.x, second.y, -Math.PI / 2), right = rotate(first.x, first.y, Math.PI / 2);
+    const extras = [{ x: first.x + second.x / 2 + left.x * Math.sqrt(3) / 2, y: first.y + second.y / 2 + left.y * Math.sqrt(3) / 2, role: 'flank-a' },
+      { x: second.x + first.x / 2 + right.x * Math.sqrt(3) / 2, y: second.y + first.y / 2 + right.y * Math.sqrt(3) / 2, role: 'flank-b' }];
+    specs.push(...shuffle(extras, random).slice(0, extraChoices));
+    for (const { x, y, role } of specs) {
+      const planet = add(module, module.x + x, module.y + y, role, role === 'capital' ? 200 : role === 'gate' ? gateCost : openingCost);
       if (role === 'capital') { planet.capital = true; planet.owner = factions[sector]; }
-      return planet;
-    });
-    // The same single specialty and opening costs for all four homes. Other
-    // specialties must be earned from public clusters instead of local arsenals.
-    group(module, worlds.slice(0, 3), starter, false, 3);
-  });
-
-  const shuffledCore = shuffle(core, random), starCount = integer(random, 1, 2);
-  const stars = shuffledCore.slice(0, starCount);
-  const clusterCount = integer(random, 1, Math.min(3, core.length - starCount));
-  const clusters = shuffledCore.slice(starCount, starCount + clusterCount);
-  const objectiveModules = shuffle([...stars, ...clusters], random);
-  const profiles: Profile[] = [...shuffle((['production', 'defense', 'strike'] as const).filter(profile => profile !== starter), random)];
-  while (profiles.length < objectiveModules.length) profiles.push(shuffle(['production', 'defense', 'strike', 'support'] as const, random)[0]);
-  for (const module of core) {
-    const star = stars.includes(module), objective = clusters.includes(module);
-    const ring = star || (!objective && random() < (family === 3 ? 0.6 : 0.25));
-    module.kind = star ? 'star-system' : objective ? 'weapon-cluster' : ring ? 'arena' : 'junction';
-    const worlds: PlanetDefinition[] = [];
-    if (ring) {
-      const phase = between(random, 0, TAU);
-      for (let i = 0; i < 12; i++) {
-        const point = rotate(unit * 2, 0, phase + i * TAU / 12);
-        worlds.push(add(module, module.x + point.x, module.y + point.y, `ring-${i}`));
-      }
-      if (star) orbits.push({ x: module.x, y: module.y, periodSeconds: integer(random, 260, 420), planetIds: worlds.map(planet => planet.id) });
-    } else {
-      worlds.push(add(module, module.x, module.y, 'hub'));
-      for (const [index, id] of module.ports.entries()) {
-        const port = byId.get(id)!, dx = (port.x - module.x) / 3, dy = (port.y - module.y) / 3;
-        for (let step = 1; step <= 2; step++) worlds.push(add(module, module.x + dx * step, module.y + dy * step, `arm-${index}-${step}`));
-      }
+      if (role === 'gate') { module.ports.push(planet.id); star.ports.push(planet.id); }
     }
-    const objectiveIndex = objectiveModules.indexOf(module);
-    if (objectiveIndex >= 0) group(module, worlds, profiles[objectiveIndex], ring);
+  }
+  const profiles: Profile[] = shuffle(['production', 'defense', 'strike'], random) as Profile[];
+  if (family === 1) profiles.push('support');
+  for (const [index, star] of stars.entries()) {
+    const phase = between(random, 0, TAU), worlds: PlanetDefinition[] = [];
+    for (let i = 0; i < counts[index]; i++) {
+      const point = rotate(radii[index], 0, phase + i * TAU / counts[index]);
+      worlds.push(add(star, star.x + point.x, star.y + point.y, `ring-${i}`));
+    }
+    // Each circuit contains one or more contiguous, disjoint specialist groups.
+    // All three single-weapon specialties appear; remaining worlds are unarmed.
+    const specialties = profiles.filter((_, i) => i % starCount === index);
+    let cursor = integer(random, 0, worlds.length - 1), remaining = worlds.length;
+    for (const [groupIndex, profile] of specialties.entries()) {
+      const size = integer(random, 3, Math.min(5, remaining - (specialties.length - groupIndex - 1) * 3));
+      const selected = Array.from({ length: size }, (_, i) => worlds[(cursor + i) % worlds.length]);
+      const allowedWeapons = [...WEAPON_PROFILES[profile]];
+      selected.forEach((planet, i) => { planet.superweaponUnlocks = [allowedWeapons[i % allowedWeapons.length]]; });
+      groups.push({ id: `${star.id}-weapons-${groupIndex}`, moduleId: star.id, profile, allowedWeapons, planetIds: selected.map(planet => planet.id) });
+      cursor += size; remaining -= size;
+    }
+    orbits.push({ x: star.x, y: star.y, periodSeconds: integer(random, 260, 420), planetIds: worlds.map(planet => planet.id) });
   }
   const orientation = between(random, 0, TAU);
   for (const point of [...planets, ...modules, ...orbits]) Object.assign(point, rotate(point.x, point.y, orientation));
@@ -124,6 +91,7 @@ export function buildQuickMap(seed: number, family: number): MapDefinition {
 /** Certify every orbital phase. Fixed ports provide permanent connections;
  * non-port worlds stay outside the complete moving attack envelope. */
 export function validateQuickGeometry(map: MapDefinition): void {
+  if (map.planets.length < 30 || map.planets.length > 40) throw new Error('Quick planet budget exceeded');
   const modules = map.generated?.modules ?? [], groups = map.generated?.weaponGroups ?? [], orbits = map.orbits ?? [];
   const byId = new Map(map.planets.map(planet => [planet.id, planet]));
   if (orbits.length < 1 || orbits.length > 2) throw new Error('Quick Match requires one or two stars');
@@ -144,7 +112,7 @@ export function validateQuickGeometry(map: MapDefinition): void {
       if (module.kind !== 'star-system' || distance(module, orbit) > EPSILON || orbit.planetIds.length !== local.length || local.some(planet => !orbit.planetIds.includes(planet.id) || planet.capital)) throw new Error('Invalid star module');
       const radius = distance(local[0], orbit);
       const angles = local.map(planet => Math.atan2(planet.y - orbit.y, planet.x - orbit.x)).sort((a, b) => a - b);
-      if (!mapConnected(local, map.attackRange) || local.some(planet => Math.abs(distance(planet, orbit) - radius) > EPSILON)
+      if (local.length < 3 || 2 * radius * Math.sin(Math.PI / local.length) > map.attackRange || !mapConnected(local, map.attackRange) || local.some(planet => Math.abs(distance(planet, orbit) - radius) > EPSILON)
         || angles.some((angle, i) => Math.abs(angles[(i + 1) % angles.length] + (i + 1 === angles.length ? TAU : 0) - angle - TAU / angles.length) > EPSILON)) throw new Error('Invalid orbital circuit');
       for (const port of ports) {
         const separation = distance(port, orbit);
@@ -160,7 +128,7 @@ export function validateQuickGeometry(map: MapDefinition): void {
     } else if (module.kind === 'star-system' || !mapConnected([...local.filter(planet => !planet.capital), ...ports], map.attackRange)) throw new Error('Disconnected stationary module');
     if (module.kind === 'home') for (const planet of local) {
       const neighbors = map.planets.filter(other => other !== planet && distance(planet, other) <= map.attackRange);
-      if (planet.capital && (planet.ships !== 200 || neighbors.length !== 2 || neighbors.some(other => other.ships > 18 || other.superweaponUnlocks?.length))) throw new Error('Unsafe capital opening');
+      if (planet.capital && (planet.ships !== 200 || neighbors.length < 2 || neighbors.length > 4 || neighbors.some(other => other.ships > 18 || other.superweaponUnlocks?.length))) throw new Error('Unsafe capital opening');
       if (!planet.id.endsWith('-gate') && neighbors.some(other => !module.planetIds.includes(other.id))) throw new Error('An attack bypasses the home frontier');
     }
   }
@@ -168,6 +136,11 @@ export function validateQuickGeometry(map: MapDefinition): void {
     const radius = Math.max(...orbits[i].planetIds.map(id => distance(byId.get(id)!, orbits[i])));
     const otherRadius = Math.max(...other.planetIds.map(id => distance(byId.get(id)!, other)));
     if (distance(orbits[i], other) - radius - otherRadius < 650) throw new Error('Star systems bypass fixed gateways');
+  }
+  for (const planet of fixed) {
+    const staticDegree = fixed.filter(other => other !== planet && distance(planet, other) <= map.attackRange).length;
+    const permanentOrbitNeighbors = modules.filter(module => module.kind === 'star-system' && module.ports.includes(planet.id)).length;
+    if (staticDegree + permanentOrbitNeighbors < 2 || staticDegree + 2 * permanentOrbitNeighbors > 6) throw new Error('Quick worlds require multiple permanent neighbors');
   }
   for (let i = 0; i < map.planets.length; i++) for (let j = i + 1; j < map.planets.length; j++) {
     if (distance(map.planets[i], map.planets[j]) < 500 - EPSILON) throw new Error('Unsafe Quick spacing');

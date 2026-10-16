@@ -73,7 +73,7 @@ test('dense generated Chaos maps reuse badge and nebula artwork across camera mo
     canvases++;
     return { width: 0, height: 0, getContext: () => paint };
   } } as unknown as Document;
-  const map = generateMap('chaos-mode', 4, CHAOS_LAYOUTS.indexOf('multiple-fronts'));
+  const map = generateMap('chaos-mode', 4, CHAOS_LAYOUTS.indexOf('dense-binary'));
   const engine = createMatch(map);
   // Larger, sparse orbits need a real whole-map overview for this cache check.
   const scale = Math.min(1200 / map.width, 1000 / map.height) * 0.8;
