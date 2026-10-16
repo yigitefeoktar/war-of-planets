@@ -33,6 +33,15 @@ export function mapConnected(planets: readonly { x: number; y: number }[], range
   return reached.size === planets.length;
 }
 
+/** Degree-two worlds must be explicitly owned by an entrance module. */
+export function validateConnectionDensity(map: MapDefinition): void {
+  const entrances = new Set(map.generated?.modules?.filter(module => module.kind === 'corridor').flatMap(module => module.planetIds));
+  const degrees = map.planets.map(planet => map.planets.filter(other => other !== planet && distance(planet, other) <= map.attackRange).length);
+  if (degrees.some((degree, i) => degree < 3 && (degree !== 2 || !entrances.has(map.planets[i].id)))) throw new Error('Ordinary planets need at least three neighbors; two requires an intentional entrance');
+  if (degrees.filter(degree => degree === 2).length > 3) throw new Error('Too many narrow entrances');
+  if (degrees.filter(degree => degree === 4 || degree === 5).length < Math.ceil(map.planets.length * 0.60)) throw new Error('Most planets must have four or five neighbors');
+}
+
 export function wrapMap(mode: GeneratedMode, seed: number, layout: string, planets: PlanetDefinition[], orbits?: OrbitDefinition[], recipe?: Pick<NonNullable<MapDefinition['generated']>, 'modules' | 'weaponGroups'>): MapDefinition {
   // Choose a compact orientation before fitting bounds. Randomly rotating a
   // narrow two-system map by 45 degrees nearly doubled its empty rectangle.
