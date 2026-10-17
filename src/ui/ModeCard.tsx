@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Check, ChevronRight, Layers, Orbit, Swords, X } from 'lucide-react';
 import { playSound } from '../audio';
 import './ModeCard.css';
-import { CHAPTERS, CHAPTER_ONE_TEST_MODE_IDS, isChapterOneTestMode, progressLabel, type ModeId, type Progress } from '../game/campaign';
+import { progressLabel, type ModeId, type Progress } from '../game/campaign';
 
 type Mode = { id: ModeId; title: string; subtitle: string; description: string; accent: string; rgb: string; label: string };
 
@@ -12,17 +12,9 @@ const mainModes: Mode[] = [
   { id: 'quick-match', title: 'Quick Match', subtitle: 'One battle. Total conquest.', description: 'A new balanced battlefield every time. Choose your expansion routes, defend your capital and conquer the system.', accent: '#ffc184', rgb: '255, 193, 132', label: 'Balanced random maps' },
   { id: 'chaos-mode', title: 'Chaos Mode', subtitle: 'A galaxy in motion.', description: 'Every planet orbits a star and produces one or two superweapons. Ride shifting routes and fight for a galaxy packed with power.', accent: '#f87171', rgb: '248, 113, 113', label: 'Orbiting weapon worlds' },
 ];
-const testModes: Mode[] = CHAPTER_ONE_TEST_MODE_IDS.map((id, index) => ({
-  id, title: 'Chapter 1 Test', subtitle: `Level ${index + 1}: ${CHAPTERS[id].maps[0].title}`,
-  description: index === CHAPTER_ONE_TEST_MODE_IDS.length - 1
-    ? 'Start directly at the Chapter 1 finale. Test wins do not change campaign progress.'
-    : `Start directly at Level ${index + 1}. Wins continue through later Chapter 1 levels without changing campaign progress.`,
-  accent: '#73dcff', rgb: '115, 220, 255', label: 'Testing',
-}));
-const modes = [...mainModes, ...testModes];
 
 function Artwork({ mode }: { mode: Mode }) {
-  return <>{!isChapterOneTestMode(mode.id) && <img className="mode-art" src={`/images/modes/${mode.id === 'chaos-mode' ? 'hard-mode' : mode.id}.jpg`} alt="" draggable={false} />}<span className="mode-shade" /></>;
+  return <><img className="mode-art" src={`/images/modes/${mode.id === 'chaos-mode' ? 'hard-mode' : mode.id}.jpg`} alt="" draggable={false} /><span className="mode-shade" /></>;
 }
 
 function CardContent({ mode, compact = false }: { mode: Mode; compact?: boolean }) {
@@ -42,7 +34,7 @@ function CardContent({ mode, compact = false }: { mode: Mode; compact?: boolean 
 }
 
 export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress }: { isSoundEnabled: boolean; selectedMode: ModeId; onSelectMode: (mode: ModeId) => void; progress: Progress }) {
-  const selected = modes.find(mode => mode.id === selectedMode) ?? modes[0];
+  const selected = mainModes.find(mode => mode.id === selectedMode) ?? mainModes[0];
   const dialog = useRef<HTMLDialogElement>(null);
   const changeButton = useRef<HTMLButtonElement>(null);
 
@@ -87,18 +79,6 @@ export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress 
           </button>
         ))}
       </div>
-      <section className="mode-test-section" aria-label="Chapter 1 level tests">
-        <p className="mode-test-heading">Start Chapter 1 at any level</p>
-        <div className="mode-test-grid">
-          {testModes.map((mode, index) => {
-            const mapTitle = CHAPTERS[CHAPTER_ONE_TEST_MODE_IDS[index]].maps[0].title;
-            return <button key={mode.id} type="button" aria-label={`Select Level ${index + 1} test: ${mapTitle}`} aria-pressed={selected.id === mode.id} onClick={() => { onSelectMode(mode.id); playSound('select', isSoundEnabled); dialog.current?.close(); }} className={`mode-test-option ${selected.id === mode.id ? 'is-selected' : ''}`}>
-              <span>Level {index + 1} Test <small>{mapTitle}</small></span>
-              <span>{selected.id === mode.id ? 'Selected' : 'Select'} <ChevronRight size={16} /></span>
-            </button>;
-          })}
-        </div>
-      </section>
       <p className="mode-dialog-hint">Select a mode, then launch from the main menu.</p>
     </dialog>, document.body)}
   </>;
