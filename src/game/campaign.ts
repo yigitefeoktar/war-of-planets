@@ -33,6 +33,11 @@ export type GeneratedWeaponGroup = {
   id: string; moduleId: string; profile: 'production' | 'defense' | 'strike' | 'support';
   planetIds: string[]; allowedWeapons: SuperweaponId[];
 };
+export type GeneratedStarSystem = {
+  id: string; size: 'small' | 'normal' | 'large';
+  pattern: 'ring' | 'paired-rings' | 'spiral' | 'scattered';
+  planetIds: string[];
+};
 export type MapDefinition = {
   id: string;
   title: string;
@@ -49,7 +54,7 @@ export type MapDefinition = {
   orbits?: OrbitDefinition[];
   mobileFocus?: 'capital';
   tutorial?: { attackTargetId: string };
-  generated?: { mode: GeneratedMode; seed: number; layout: string; modules?: GeneratedMapModule[]; weaponGroups?: GeneratedWeaponGroup[] };
+  generated?: { mode: GeneratedMode; seed: number; layout: string; modules?: GeneratedMapModule[]; weaponGroups?: GeneratedWeaponGroup[]; systems?: GeneratedStarSystem[] };
 };
 export type Chapter = { id: ChapterId; plannedLevels: number; maps: MapDefinition[] };
 

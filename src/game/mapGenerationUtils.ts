@@ -47,7 +47,7 @@ export function validateConnectionDensity(map: MapDefinition): void {
   if (degrees.filter(degree => degree === 4 || degree === 5).length < Math.ceil(map.planets.length * 0.60)) throw new Error('Most planets must have four or five neighbors');
 }
 
-export function wrapMap(mode: GeneratedMode, seed: number, layout: string, planets: PlanetDefinition[], orbits?: OrbitDefinition[], recipe?: Pick<NonNullable<MapDefinition['generated']>, 'modules' | 'weaponGroups'>): MapDefinition {
+export function wrapMap(mode: GeneratedMode, seed: number, layout: string, planets: PlanetDefinition[], orbits?: OrbitDefinition[], recipe?: Pick<NonNullable<MapDefinition['generated']>, 'modules' | 'weaponGroups' | 'systems'>): MapDefinition {
   // Choose a compact orientation before fitting bounds. Randomly rotating a
   // narrow two-system map by 45 degrees nearly doubled its empty rectangle.
   // Sixteen bounded candidates retain seeded variety without rejection loops.
