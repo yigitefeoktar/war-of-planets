@@ -24,10 +24,9 @@ export const distance = (a: { x: number; y: number }, b: { x: number; y: number 
 export function rotate(x: number, y: number, angle: number) {
   return { x: x * Math.cos(angle) - y * Math.sin(angle), y: x * Math.sin(angle) + y * Math.cos(angle) };
 }
-/** Generated compact arenas need a shorter period for visible movement.
- * Keep normal-sized systems at their authored/generated baseline period. */
-export function generatedOrbitPeriod(normalPeriodSeconds: number, radius: number, planetCount: number): number {
-  return radius <= 400 && planetCount >= 1 && planetCount <= 7 ? Math.round(normalPeriodSeconds / 3) : normalPeriodSeconds;
+/** Timing follows physical size, never a random per-system draw. */
+export function generatedOrbitPeriod(radius: number): number {
+  return radius <= 400 ? 100 : 300;
 }
 export function mapConnected(planets: readonly { x: number; y: number }[], range = 600): boolean {
   if (!planets.length) return false;
@@ -44,7 +43,12 @@ export function validateConnectionDensity(map: MapDefinition): void {
   const degrees = map.planets.map(planet => map.planets.filter(other => other !== planet && distance(planet, other) <= map.attackRange).length);
   if (degrees.some((degree, i) => degree < 3 && (degree !== 2 || !entrances.has(map.planets[i].id)))) throw new Error('Ordinary planets need at least three neighbors; two requires an intentional entrance');
   if (degrees.filter(degree => degree === 2).length > 3) throw new Error('Too many narrow entrances');
-  if (degrees.filter(degree => degree === 4 || degree === 5).length < Math.ceil(map.planets.length * 0.60)) throw new Error('Most planets must have four or five neighbors');
+  // Each Chaos system separately proves its four/five-neighbor majority.
+  // Cross-system fronts add routes; those extra links must not lower its score.
+  const chaos = map.generated?.mode === 'chaos-mode';
+  if (chaos && degrees.some(degree => degree > 9)) throw new Error('Too many attack neighbors around a Chaos planet');
+  const wellConnected = degrees.filter(degree => degree >= 4 && (chaos || degree <= 5)).length;
+  if (wellConnected < Math.ceil(map.planets.length * (chaos ? 0.70 : 0.60))) throw new Error(chaos ? 'Most Chaos planets need at least four neighbors' : 'Most planets must have four or five neighbors');
 }
 
 export function wrapMap(mode: GeneratedMode, seed: number, layout: string, planets: PlanetDefinition[], orbits?: OrbitDefinition[], recipe?: Pick<NonNullable<MapDefinition['generated']>, 'modules' | 'weaponGroups' | 'systems'>): MapDefinition {

@@ -68,7 +68,8 @@ export function buildQuickMap(seed: number, family: number): MapDefinition {
       worlds.push(add(star, star.x + offset.x, star.y + offset.y, `ring-${i}`));
     }
     objectives.push({ module: star, worlds });
-    orbits.push({ x: star.x, y: star.y, periodSeconds: generatedOrbitPeriod(integer(random, 260, 420), radius, worlds.length), planetIds: worlds.map(planet => planet.id) });
+    random(); // Preserve the seeded geometry/garrison sequence after removing the random period.
+    orbits.push({ x: star.x, y: star.y, periodSeconds: generatedOrbitPeriod(radius), planetIds: worlds.map(planet => planet.id) });
   }
   if (binary) {
     const road = shuffle(roads.filter(road => Math.abs(road.y) > 1), random)[0];
@@ -132,6 +133,7 @@ export function validateQuickGeometry(map: MapDefinition): void {
     if (orbit) {
       if (module.kind !== 'star-system' || distance(module, orbit) > EPSILON || orbit.planetIds.length !== local.length || local.some(planet => !orbit.planetIds.includes(planet.id) || planet.capital)) throw new Error('Invalid star module');
       const radius = distance(local[0], orbit);
+      if (orbit.periodSeconds !== generatedOrbitPeriod(radius)) throw new Error('Inconsistent orbital speed for system size');
       const angles = local.map(planet => Math.atan2(planet.y - orbit.y, planet.x - orbit.x)).sort((a, b) => a - b);
       if (local.length < 5 || 2 * radius * Math.sin(2 * Math.PI / local.length) > map.attackRange || !mapConnected(local, map.attackRange) || local.some(planet => Math.abs(distance(planet, orbit) - radius) > EPSILON)
         || angles.some((angle, i) => Math.abs(angles[(i + 1) % angles.length] + (i + 1 === angles.length ? TAU : 0) - angle - TAU / angles.length) > EPSILON)) throw new Error('Invalid orbital circuit');

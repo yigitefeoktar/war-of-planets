@@ -44,17 +44,14 @@ function assertSurvivingNeighborFloor(map: MapDefinition, planets: PlanetDefinit
   }
 }
 
-test('only compact generated systems get faster periods; radius and population both matter', () => {
-  assert.equal(generatedOrbitPeriod(300, 315, 5), 100);
-  assert.equal(generatedOrbitPeriod(300, 400, 7), 100);
-  assert.equal(generatedOrbitPeriod(300, 401, 7), 300);
-  assert.equal(generatedOrbitPeriod(300, 315, 8), 300);
-  assert.equal(generatedOrbitPeriod(300, 590, 12), 300);
+test('generated orbital periods depend only on physical size, never population or seed', () => {
+  for (const radius of [272, 280, 310, 315, 320, 330]) assert.equal(generatedOrbitPeriod(radius), 100);
+  for (const radius of [500, 580, 590, 630, 640, 670, 680, 720]) assert.equal(generatedOrbitPeriod(radius), 300);
 });
 
 test('generated compact arenas visibly rotate faster and each star keeps its own period', () => {
   const map = generateMap('quick-match', 1), [fast, other] = map.orbits!;
-  assert.ok(fast.periodSeconds >= 87 && fast.periodSeconds <= 140);
+  assert.equal(fast.periodSeconds, 100);
   // Give the second star a normal period to verify mixed speeds in one match.
   other.periodSeconds = 300;
   const engine = createMatch(map);
@@ -79,7 +76,7 @@ test('1000 Quick seeds preserve frontlines, equal opening costs and substantiall
     assert.doesNotThrow(() => validateMap(map));
     assert.doesNotThrow(() => validateQuickGeometry(map));
     assert.ok(map.orbits!.length >= 1 && map.orbits!.length <= 2);
-    assert.ok(map.orbits!.every(orbit => orbit.periodSeconds >= 87 && orbit.periodSeconds <= 140));
+    assert.ok(map.orbits!.every(orbit => orbit.periodSeconds === 100));
     assert.ok(map.planets.length >= 35 && map.planets.length <= 50);
     assert.equal(map.generated?.mode, 'quick-match');
     const capitals = map.planets.filter(planet => planet.capital);
@@ -159,8 +156,8 @@ test('1000 Chaos seeds have weapons on every world and certified non-overlapping
     }
     for (const orbit of map.orbits!) {
       const members = map.planets.filter(planet => orbit.planetIds.includes(planet.id));
-      const small = map.generated!.systems!.find(system => system.planetIds[0] === orbit.planetIds[0])!.size === 'small';
-      assert.ok(small ? orbit.periodSeconds >= 73 && orbit.periodSeconds <= 120 : orbit.periodSeconds >= 220 && orbit.periodSeconds <= 360);
+      const radius = Math.max(...members.map(planet => distance(planet, orbit)));
+      assert.equal(orbit.periodSeconds, generatedOrbitPeriod(radius));
       assert.equal(orbit.dysonSphere, undefined);
       for (let index = 0; index < members.length; index++) {
         const planet = members[index], radius = distance(planet, orbit);
@@ -181,27 +178,47 @@ test('1000 Chaos seeds have weapons on every world and certified non-overlapping
   t.diagnostic(`1000 Chaos maps: ${Math.round(performance.now() - started)}ms; ${planetCounts.size} planet counts; route structures per family ${families.map(f => f.size).join(', ')}.`);
 });
 
-test('Chaos mixes sizes, fixed patterns and scattered geometry without changing normal orbit speed', () => {
+test('Chaos designs are internally dense, keep old systems as an option and synchronize similar sizes', () => {
   const patterns = new Set<string>(), populations = new Map<string, Set<number>>();
-  for (let seed = 0; seed < 200; seed++) {
+  let classicMaps = 0, mixedMaps = 0;
+  for (let seed = 0; seed < 300; seed++) {
     const map = generateMap('chaos-mode', seed), systems = map.generated!.systems!;
-    assert.deepEqual([...new Set(systems.map(system => system.size))].sort(), ['large', 'normal', 'small']);
+    if (systems.every(system => system.pattern === 'classic')) classicMaps++;
+    if (new Set(systems.map(system => system.size)).size > 1) mixedMaps++;
     assert.equal(systems.flatMap(system => system.planetIds).length, map.planets.length);
     for (const system of systems) {
       const orbit = map.orbits!.find(orbit => orbit.planetIds[0] === system.planetIds[0])!;
       assert.deepEqual(system.planetIds, orbit.planetIds);
       patterns.add(system.pattern);
       const counts = populations.get(system.size) ?? new Set<number>(); counts.add(system.planetIds.length); populations.set(system.size, counts);
-      assert.ok(system.size === 'small' ? orbit.periodSeconds <= 120 : orbit.periodSeconds >= 220);
-      if (system.pattern === 'scattered' || system.pattern === 'spiral') {
-        const radii = map.planets.filter(planet => system.planetIds.includes(planet.id) && planet.id.includes('-outer-')).map(planet => distance(planet, orbit));
-        assert.ok(Math.max(...radii) - Math.min(...radii) > 1, 'Random/spiral systems must change actual planet positions');
+      const local = map.planets.filter(planet => system.planetIds.includes(planet.id));
+      const degrees = local.map(planet => local.filter(other => other !== planet && distance(planet, other) <= 600).length);
+      assert.ok(degrees.every(degree => degree >= 3));
+      assert.ok(degrees.filter(degree => degree === 4 || degree === 5).length >= Math.ceil(local.length * 0.7), `${system.pattern} has too few internal choices`);
+      assert.ok(degrees.reduce((sum, degree) => sum + degree, 0) / degrees.length >= 4);
+      const radius = Math.max(...local.map(planet => distance(planet, orbit)));
+      assert.equal(orbit.periodSeconds, generatedOrbitPeriod(radius));
+      for (const other of map.orbits!) {
+        const otherRadius = Math.max(...map.planets.filter(planet => other.planetIds.includes(planet.id)).map(planet => distance(planet, other)));
+        if (Math.abs(radius - otherRadius) <= 100) assert.equal(orbit.periodSeconds, other.periodSeconds, 'Similarly sized systems have different speeds');
       }
     }
   }
-  assert.deepEqual([...patterns].sort(), ['paired-rings', 'ring', 'scattered', 'spiral']);
+  assert.ok(classicMaps > 0 && mixedMaps > 0);
+  assert.deepEqual([...patterns].sort(), ['classic', 'pentagon-web', 'ring', 'scattered', 'woven-rings']);
   assert.deepEqual([...populations.get('small')!].sort((a, b) => a - b), [5, 6, 7]);
   assert.deepEqual([...populations.get('large')!].sort((a, b) => a - b), [16, 17, 18]);
+});
+
+test('a weak individual system is rejected even when the whole map has enough connections', () => {
+  const map = Array.from({ length: 80 }, (_, seed) => generateMap('chaos-mode', seed)).find(map => map.generated!.systems!.some(system => system.size === 'small' && system.planetIds.length === 5))!;
+  const system = map.generated!.systems!.find(system => system.size === 'small' && system.planetIds.length === 5)!;
+  const orbit = map.orbits!.find(orbit => orbit.planetIds[0] === system.planetIds[0])!;
+  const removed = system.planetIds.pop()!;
+  orbit.planetIds = orbit.planetIds.filter(id => id !== removed);
+  map.planets = map.planets.filter(planet => planet.id !== removed);
+  assert.doesNotThrow(() => validateConnectionDensity(map));
+  assert.throws(() => validateChaosGeometry(map), /dense internal routes/);
 });
 
 test('Chaos connects through independently varied orbit phases even after all rival capitals disappear', () => {
@@ -462,6 +479,9 @@ test('the geometry certificate rejects missing orbit membership, missing weapons
   });
   from.x = to.x; from.y = to.y;
   assert.throws(() => validateChaosGeometry(overlapping), /overlap/);
+  const wrongSpeed = structuredClone(map);
+  wrongSpeed.orbits![0].periodSeconds += 1;
+  assert.throws(() => validateChaosGeometry(wrongSpeed), /orbital speed/);
   const wrongRecipe = structuredClone(map);
   wrongRecipe.generated!.systems![0].planetIds.pop();
   assert.throws(() => validateChaosGeometry(wrongRecipe), /recipe membership/);

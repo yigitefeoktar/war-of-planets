@@ -35,7 +35,7 @@ export type GeneratedWeaponGroup = {
 };
 export type GeneratedStarSystem = {
   id: string; size: 'small' | 'normal' | 'large';
-  pattern: 'ring' | 'paired-rings' | 'spiral' | 'scattered';
+  pattern: 'classic' | 'pentagon-web' | 'woven-rings' | 'ring' | 'scattered';
   planetIds: string[];
 };
 export type MapDefinition = {
