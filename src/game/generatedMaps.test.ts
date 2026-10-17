@@ -6,7 +6,7 @@ import { createMatch } from './mapLoader';
 import { OrbitingGameEngine } from './orbitingEngine';
 import { issueFleetOrder } from './logistics';
 import { openingFrame } from './camera';
-import { validateConnectionDensity } from './mapGenerationUtils';
+import { generatedOrbitPeriod, validateConnectionDensity } from './mapGenerationUtils';
 
 const distance = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
 const fingerprint = (map: MapDefinition) => JSON.stringify({ planets: map.planets.map(({ id, ...planet }) => planet), orbits: map.orbits });
@@ -44,6 +44,32 @@ function assertSurvivingNeighborFloor(map: MapDefinition, planets: PlanetDefinit
   }
 }
 
+test('only compact generated systems get faster periods; radius and population both matter', () => {
+  assert.equal(generatedOrbitPeriod(300, 315, 5), 100);
+  assert.equal(generatedOrbitPeriod(300, 400, 7), 100);
+  assert.equal(generatedOrbitPeriod(300, 401, 7), 300);
+  assert.equal(generatedOrbitPeriod(300, 315, 8), 300);
+  assert.equal(generatedOrbitPeriod(300, 590, 12), 300);
+});
+
+test('generated compact arenas visibly rotate faster and each star keeps its own period', () => {
+  const map = generateMap('quick-match', 1), [fast, other] = map.orbits!;
+  assert.ok(fast.periodSeconds >= 87 && fast.periodSeconds <= 140);
+  // Give the second star a normal period to verify mixed speeds in one match.
+  other.periodSeconds = 300;
+  const engine = createMatch(map);
+  engine.lastAITime = engine.lastSpawnTime = Number.MAX_SAFE_INTEGER;
+  engine.pixels = [];
+  const elapsed = fast.periodSeconds / 4;
+  engine.update(elapsed);
+  for (const orbit of map.orbits!) for (const id of orbit.planetIds) {
+    const opening = map.planets.find(planet => planet.id === id)!, actual = engine.bases.get(id)!;
+    const angle = Math.PI * 2 * elapsed / orbit.periodSeconds, x = opening.x - orbit.x, y = opening.y - orbit.y;
+    assert.ok(Math.abs(actual.x - (orbit.x + x * Math.cos(angle) - y * Math.sin(angle))) < 1e-6);
+    assert.ok(Math.abs(actual.y - (orbit.y + x * Math.sin(angle) + y * Math.cos(angle))) < 1e-6);
+  }
+});
+
 test('1000 Quick seeds preserve frontlines, equal opening costs and substantially varied routes', t => {
   const fingerprints = new Set<string>(), counts = new Set<number>(), graphs = new Set<string>();
   const families = QUICK_LAYOUTS.map(() => new Set<string>());
@@ -53,6 +79,7 @@ test('1000 Quick seeds preserve frontlines, equal opening costs and substantiall
     assert.doesNotThrow(() => validateMap(map));
     assert.doesNotThrow(() => validateQuickGeometry(map));
     assert.ok(map.orbits!.length >= 1 && map.orbits!.length <= 2);
+    assert.ok(map.orbits!.every(orbit => orbit.periodSeconds >= 87 && orbit.periodSeconds <= 140));
     assert.ok(map.planets.length >= 35 && map.planets.length <= 50);
     assert.equal(map.generated?.mode, 'quick-match');
     const capitals = map.planets.filter(planet => planet.capital);

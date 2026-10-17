@@ -1,5 +1,5 @@
 import { FACTIONS, NEUTRAL, type GeneratedMapModule, type GeneratedWeaponGroup, type MapDefinition, type OrbitDefinition, type PlanetDefinition } from './campaign';
-import { between, distance, integer, mapConnected, rotate, seededRandom, shuffle, TAU, validateConnectionDensity, wrapMap } from './mapGenerationUtils';
+import { between, distance, generatedOrbitPeriod, integer, mapConnected, rotate, seededRandom, shuffle, TAU, validateConnectionDensity, wrapMap } from './mapGenerationUtils';
 import type { SuperweaponId } from './types';
 
 type Profile = GeneratedWeaponGroup['profile'];
@@ -68,7 +68,7 @@ export function buildQuickMap(seed: number, family: number): MapDefinition {
       worlds.push(add(star, star.x + offset.x, star.y + offset.y, `ring-${i}`));
     }
     objectives.push({ module: star, worlds });
-    orbits.push({ x: star.x, y: star.y, periodSeconds: integer(random, 260, 420), planetIds: worlds.map(planet => planet.id) });
+    orbits.push({ x: star.x, y: star.y, periodSeconds: generatedOrbitPeriod(integer(random, 260, 420), radius, worlds.length), planetIds: worlds.map(planet => planet.id) });
   }
   if (binary) {
     const road = shuffle(roads.filter(road => Math.abs(road.y) > 1), random)[0];

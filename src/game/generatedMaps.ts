@@ -1,6 +1,6 @@
 import { FACTIONS, NEUTRAL, validateMap, type GeneratedMode, type MapDefinition, type OrbitDefinition, type PlanetDefinition } from './campaign';
 import { SUPERWEAPON_IDS } from './superweapons';
-import { between, distance, integer, mapConnected, rotate, seededRandom, shuffle, TAU, validateConnectionDensity, wrapMap } from './mapGenerationUtils';
+import { between, distance, generatedOrbitPeriod, integer, mapConnected, rotate, seededRandom, shuffle, TAU, validateConnectionDensity, wrapMap } from './mapGenerationUtils';
 import { buildQuickMap, QUICK_LAYOUTS, validateQuickGeometry } from './quickMapGenerator';
 export { mapConnected, seededRandom } from './mapGenerationUtils';
 export { QUICK_LAYOUTS, validateQuickGeometry } from './quickMapGenerator';
@@ -35,7 +35,7 @@ export function buildChaosMap(seed: number, layoutIndex: number): MapDefinition 
     }
     const capital = members.find(planet => planet.capital)!;
     members.filter(planet => !planet.capital && distance(planet, capital) <= 600).sort((a, b) => distance(a, capital) - distance(b, capital)).slice(0, 3).forEach((planet, i) => { planet.ships = 12 + i * 2; });
-    orbits.push({ ...center, periodSeconds: integer(random, 220, 360), planetIds: members.map(planet => planet.id) });
+    orbits.push({ ...center, periodSeconds: generatedOrbitPeriod(integer(random, 220, 360), radius, members.length), planetIds: members.map(planet => planet.id) });
   });
   return wrapMap('chaos-mode', seed, CHAOS_LAYOUTS[layoutIndex], planets, orbits);
 }

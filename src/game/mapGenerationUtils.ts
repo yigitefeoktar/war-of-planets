@@ -24,6 +24,11 @@ export const distance = (a: { x: number; y: number }, b: { x: number; y: number 
 export function rotate(x: number, y: number, angle: number) {
   return { x: x * Math.cos(angle) - y * Math.sin(angle), y: x * Math.sin(angle) + y * Math.cos(angle) };
 }
+/** Generated compact arenas need a shorter period for visible movement.
+ * Keep normal-sized systems at their authored/generated baseline period. */
+export function generatedOrbitPeriod(normalPeriodSeconds: number, radius: number, planetCount: number): number {
+  return radius <= 400 && planetCount >= 1 && planetCount <= 7 ? Math.round(normalPeriodSeconds / 3) : normalPeriodSeconds;
+}
 export function mapConnected(planets: readonly { x: number; y: number }[], range = 600): boolean {
   if (!planets.length) return false;
   const reached = new Set([0]), queue = [0];
