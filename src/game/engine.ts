@@ -205,7 +205,7 @@ export class GameEngine {
       }
     }
 
-    const { palette, cloudCount, starCount, alphaMultiplier } = this.galaxyStyle;
+    const { palette, cloudCount, starCount, alphaMultiplier, starColors } = this.galaxyStyle;
     for (let i = 0; i < cloudCount; i++) {
       this.nebulae.push({
         x: this.random() * this.width,
@@ -225,13 +225,7 @@ export class GameEngine {
       const depth = this.random();
       const alpha = 0.2 + this.random() * (0.38 + depth * 0.32);
       const tintRoll = this.random();
-      const color = tintRoll < 0.08
-        ? '#9ed8ff'
-        : tintRoll < 0.13
-          ? '#ffd39a'
-          : tintRoll < 0.16
-            ? '#e8b8ff'
-            : '#ffffff';
+      const color = starColors[tintRoll < 0.08 ? 0 : tintRoll < 0.13 ? 1 : tintRoll < 0.16 ? 2 : 3];
       this.stars.push({
         x: this.random() * this.width,
         y: this.random() * this.height,

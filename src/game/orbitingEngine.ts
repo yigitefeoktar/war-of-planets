@@ -10,6 +10,7 @@ import { overlapsView, visibleWorldBounds } from './visibility';
 export class OrbitingGameEngine extends GameEngine {
   private readonly orbits: OrbitDefinition[];
   private readonly orbitByPlanet = new Map<string, OrbitDefinition>();
+  private readonly warmStars: boolean;
 
   constructor(width: number, height: number, orbit: OrbitDefinition | OrbitDefinition[], hasWeaponPlanets = false, galaxyTheme?: GalaxyTheme, multiSelectEnabled = true) {
     const orbits = Array.isArray(orbit) ? orbit : [orbit];
@@ -21,6 +22,7 @@ export class OrbitingGameEngine extends GameEngine {
       galaxyTheme,
     });
     this.orbits = orbits;
+    this.warmStars = galaxyTheme === 'chaos';
     for (const system of orbits) for (const id of system.planetIds) this.orbitByPlanet.set(id, system);
   }
 
@@ -77,10 +79,11 @@ export class OrbitingGameEngine extends GameEngine {
   private drawStar(ctx: CanvasRenderingContext2D) {
     ctx.save();
     ctx.shadowBlur = 0;
+    const tint = this.warmStars ? '255,204,128' : '210,231,255';
     const halo = ctx.createRadialGradient(0, 0, 32, 0, 0, 115);
     halo.addColorStop(0, 'rgba(255,255,255,0.55)');
-    halo.addColorStop(0.4, 'rgba(210,231,255,0.16)');
-    halo.addColorStop(1, 'rgba(210,231,255,0)');
+    halo.addColorStop(0.4, `rgba(${tint},0.16)`);
+    halo.addColorStop(1, `rgba(${tint},0)`);
     ctx.fillStyle = halo;
     ctx.beginPath();
     ctx.arc(0, 0, 115, 0, Math.PI * 2);
@@ -88,10 +91,10 @@ export class OrbitingGameEngine extends GameEngine {
 
     const surface = ctx.createRadialGradient(-12, -12, 5, 0, 0, 42);
     surface.addColorStop(0, '#ffffff');
-    surface.addColorStop(0.65, '#ffffff');
-    surface.addColorStop(1, '#d8e8ff');
+    surface.addColorStop(0.65, this.warmStars ? '#fff4d6' : '#ffffff');
+    surface.addColorStop(1, this.warmStars ? '#ffcd75' : '#d8e8ff');
     ctx.fillStyle = surface;
-    ctx.shadowColor = '#ffffff';
+    ctx.shadowColor = this.warmStars ? '#ffe0a3' : '#ffffff';
     ctx.shadowBlur = 30;
     ctx.beginPath();
     ctx.arc(0, 0, 42, 0, Math.PI * 2);

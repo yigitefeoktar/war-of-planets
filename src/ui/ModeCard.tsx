@@ -10,7 +10,7 @@ type Mode = { id: ModeId; title: string; subtitle: string; description: string; 
 const mainModes: Mode[] = [
   { id: 'chapter-1', title: 'Chapter 1', subtitle: 'The Helios Breach', description: 'Lead your fleet through five tactical battles. Capture new worlds and push into enemy territory.', accent: '#73dcff', rgb: '115, 220, 255', label: 'Campaign · 5 battles' },
   { id: 'quick-match', title: 'Quick Match', subtitle: 'One battle. Total conquest.', description: 'A new balanced battlefield every time. Choose your expansion routes, defend your capital and conquer the system.', accent: '#ffc184', rgb: '255, 193, 132', label: 'Balanced random maps' },
-  { id: 'chaos-mode', title: 'Chaos Mode', subtitle: 'A galaxy in motion.', description: 'Every planet orbits a star and produces one or two superweapons. Ride shifting routes and fight for a galaxy packed with power.', accent: '#f87171', rgb: '248, 113, 113', label: 'Orbiting weapon worlds' },
+  { id: 'chaos-mode', title: 'Chaos Mode', subtitle: 'A galaxy in motion.', description: 'Every planet orbits a star and produces one or two superweapons. Ride shifting routes and fight for a galaxy packed with power.', accent: '#a78bfa', rgb: '167, 139, 250', label: 'Orbiting weapon worlds' },
 ];
 
 function Artwork({ mode }: { mode: Mode }) {

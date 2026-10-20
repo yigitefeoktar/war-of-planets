@@ -1,10 +1,11 @@
-export type GalaxyTheme = 'tutorial' | 'breach' | 'orbit' | 'pincer' | 'siege' | 'standard' | 'hard';
+export type GalaxyTheme = 'tutorial' | 'breach' | 'orbit' | 'pincer' | 'siege' | 'standard' | 'chaos' | 'hard';
 
 type GalaxyPreset = {
   backgroundColor: string;
   palette: readonly string[];
   cloudMultiplier: number;
   alphaMultiplier: number;
+  starColors?: readonly [string, string, string, string];
 };
 
 const PRESETS: Record<GalaxyTheme, GalaxyPreset> = {
@@ -44,6 +45,13 @@ const PRESETS: Record<GalaxyTheme, GalaxyPreset> = {
     cloudMultiplier: 1,
     alphaMultiplier: 1,
   },
+  chaos: {
+    backgroundColor: '#090514',
+    palette: ['91, 52, 151', '115, 65, 164', '65, 48, 122', '99, 68, 148'],
+    cloudMultiplier: 1.1,
+    alphaMultiplier: 0.8,
+    starColors: ['#ffcc80', '#ffe2a8', '#fff0ce', '#fff7e6'],
+  },
   hard: {
     backgroundColor: '#100408',
     palette: ['145, 36, 61', '115, 29, 67', '113, 37, 107', '151, 60, 45'],
@@ -61,5 +69,6 @@ export function galaxyAppearance(width: number, height: number, theme: GalaxyThe
     cloudCount: Math.max(1, Math.round(9 * areaScale * preset.cloudMultiplier)),
     starCount: Math.round(850 * areaScale),
     alphaMultiplier: preset.alphaMultiplier,
+    starColors: preset.starColors ?? ['#9ed8ff', '#ffd39a', '#e8b8ff', '#ffffff'],
   };
 }

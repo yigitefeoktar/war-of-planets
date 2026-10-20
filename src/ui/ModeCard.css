@@ -12,10 +12,18 @@
   color: #ecfeff;
   box-shadow: 0 0 30px #06b6d41a;
 }
-.mode-card.mode-chaos { border-color: #ef444480; box-shadow: 0 0 30px #ef444422; }
-.mode-chaos .mode-eyebrow, .mode-chaos .mode-select { color: #fca5a5; }
-.mode-chaos .mode-shade { background: linear-gradient(90deg, #140305d9, #14030530), linear-gradient(180deg, #14030520 0%, #14030580 35%, #140305ed 72%, #140305 100%); }
-.mode-option.mode-chaos:hover, .mode-option.mode-chaos.is-selected { border-color: #f87171; box-shadow: inset 0 0 0 1px #f8717166, 0 0 30px #ef444444; }
+.mode-card.mode-chaos { --mode-corner: #c4b5fd; background: #150c29; border-color: #a78bfa80; box-shadow: 0 0 30px #8b5cf622; }
+.mode-chaos .mode-art { filter: hue-rotate(285deg) saturate(.8); }
+.mode-chaos .mode-eyebrow, .mode-chaos .mode-select { color: #c4b5fd; text-shadow: 0 0 12px #8b5cf655; }
+.mode-chaos .mode-copy h2 { color: #ede9fe; text-shadow: 0 0 20px #8b5cf633; }
+.mode-chaos .mode-copy p { color: #ede9fecc; }
+.mode-chaos .mode-footer { border-color: #a78bfa33; }
+.mode-chaos .mode-meta { color: #c4b5fda6; }
+.mode-chaos .mode-change { background: #2e106599; border-color: #a78bfa99; color: #ddd6fe; box-shadow: 0 0 16px #8b5cf61a; }
+.mode-chaos .mode-change:hover { background: #8b5cf633; color: white; border-color: #c4b5fd; box-shadow: 0 0 24px #8b5cf633; }
+.mode-chaos:focus-visible, .mode-chaos .mode-change:focus-visible { outline-color: #ede9fe; }
+.mode-chaos .mode-shade { background: linear-gradient(90deg, #0f071cd9, #0f071c30), linear-gradient(180deg, #0f071c20 0%, #0f071c80 35%, #0f071ced 72%, #0f071c 100%); }
+.mode-option.mode-chaos:hover, .mode-option.mode-chaos.is-selected { border-color: #c4b5fd; box-shadow: inset 0 0 0 1px #a78bfa66, 0 0 30px #8b5cf644; }
 
 /* Original briefing: 512 × 270 on the menu's shared scaling canvas. */
 .mode-current {
@@ -34,14 +42,14 @@
   z-index: 2;
   pointer-events: none;
   background:
-    linear-gradient(#22d3ee, #22d3ee) left top / 16px 2px,
-    linear-gradient(#22d3ee, #22d3ee) left top / 2px 16px,
-    linear-gradient(#22d3ee, #22d3ee) right top / 16px 2px,
-    linear-gradient(#22d3ee, #22d3ee) right top / 2px 16px,
-    linear-gradient(#22d3ee, #22d3ee) left bottom / 16px 2px,
-    linear-gradient(#22d3ee, #22d3ee) left bottom / 2px 16px,
-    linear-gradient(#22d3ee, #22d3ee) right bottom / 16px 2px,
-    linear-gradient(#22d3ee, #22d3ee) right bottom / 2px 16px;
+    linear-gradient(var(--mode-corner, #22d3ee), var(--mode-corner, #22d3ee)) left top / 16px 2px,
+    linear-gradient(var(--mode-corner, #22d3ee), var(--mode-corner, #22d3ee)) left top / 2px 16px,
+    linear-gradient(var(--mode-corner, #22d3ee), var(--mode-corner, #22d3ee)) right top / 16px 2px,
+    linear-gradient(var(--mode-corner, #22d3ee), var(--mode-corner, #22d3ee)) right top / 2px 16px,
+    linear-gradient(var(--mode-corner, #22d3ee), var(--mode-corner, #22d3ee)) left bottom / 16px 2px,
+    linear-gradient(var(--mode-corner, #22d3ee), var(--mode-corner, #22d3ee)) left bottom / 2px 16px,
+    linear-gradient(var(--mode-corner, #22d3ee), var(--mode-corner, #22d3ee)) right bottom / 16px 2px,
+    linear-gradient(var(--mode-corner, #22d3ee), var(--mode-corner, #22d3ee)) right bottom / 2px 16px;
   background-repeat: no-repeat;
 }
 .mode-art { position: absolute; z-index: -3; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 35%; transition: transform .6s ease; }

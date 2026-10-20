@@ -83,7 +83,7 @@ export function wrapMap(mode: GeneratedMode, seed: number, layout: string, plane
   return {
     id: `generated-${mode}-${seed}`, title: mode === 'quick-match' ? 'Quick Match' : 'Chaos Mode',
     briefing: mode === 'quick-match' ? 'Choose your expansion route, secure specialist regions and capture the rival capitals.' : 'Ride the moving systems, capture weapon worlds and protect your orbiting capital.',
-    width, height, attackRange: 600, galaxyTheme: mode === 'chaos-mode' ? 'siege' : 'standard',
+    width, height, attackRange: 600, galaxyTheme: mode === 'chaos-mode' ? 'chaos' : 'standard',
     objective: { type: 'eliminate-capitals', description: 'Capture all enemy capitals. Keep your blue capital alive.' },
     generated: { mode, seed, layout, ...(recipe ?? {}), ...(recipe?.modules ? { modules: recipe.modules.map(module => ({ ...module, x: module.x + offsetX, y: module.y + offsetY })) } : {}) },
     planets: planets.map(planet => ({ ...planet, x: planet.x + offsetX, y: planet.y + offsetY })),
