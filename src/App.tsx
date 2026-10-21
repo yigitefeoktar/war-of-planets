@@ -9,6 +9,7 @@ import { ModeCard } from './ui/ModeCard';
 import { SuperweaponButton } from './ui/SuperweaponButton';
 import { AnimatedGamePopup } from './ui/AnimatedGamePopup';
 import { ChapterVictoryScreen, preloadChapterVictoryArtwork } from './ui/ChapterVictoryScreen';
+import { useResultClickGuard } from './ui/useResultClickGuard';
 import { advanceTutorial, drawTutorialHighlights, tutorialTargets, type TutorialState, type TutorialEvent } from './game/tutorial';
 import { hasIncomingHostile, issueFleetOrder, issueFriendlyGroupOrder } from './game/logistics';
 import { MIN_MULTI_SELECT_PLANETS, canUseMultiSelect, countOwnedPlanets, friendlyPlanetsInRectangle, type SelectionPoint } from './game/selection';
@@ -268,6 +269,8 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   const updateCameraLayoutRef = useRef<() => void>(() => {});
   const [factions, setFactions] = useState<{ color: string; isAlive: boolean; isPlayer: boolean; shipCount: number; name: string }[]>([]);
   const [winner, setWinner] = useState<{ color: string } | null>(null);
+  const [resultActionsReady, setResultActionsReady] = useState(false);
+  const resultClickGuard = useResultClickGuard(resultActionsReady);
   useEffect(() => {
     if (victoryTitle) void preloadChapterVictoryArtwork();
   }, [victoryTitle]);
@@ -1784,6 +1787,8 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.8, ease: 'easeOut' }}
+            onAnimationComplete={() => setResultActionsReady(true)}
+            {...resultClickGuard}
             className="classic-result-content relative z-10 my-auto flex w-full max-w-md flex-col items-center text-center"
           >
             <div className="classic-result-status mb-5 font-mono text-[11px] tracking-widest text-cyan-500/70 max-[500px]:mb-3 max-[500px]:text-[9px]">
@@ -1813,6 +1818,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
             </p>
 
             <motion.button
+              disabled={!resultActionsReady}
               whileHover={{ scale: 1.03, backgroundColor: 'rgba(6, 182, 212, 0.2)' }}
               whileTap={{ scale: 0.97 }}
               onMouseEnter={() => playSound('hover', isSoundEnabled)}
@@ -1834,6 +1840,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
             {onNewMap && winner.color !== '#3b82f6' && <button
               type="button"
+              disabled={!resultActionsReady}
               onMouseEnter={() => playSound('hover', isSoundEnabled)}
               onClick={() => { playSound('select', isSoundEnabled); onRetry(); }}
               className="classic-result-replay mt-3 min-h-11 w-full max-w-sm rounded-sm border border-cyan-500/40 bg-cyan-950/40 px-6 py-3 text-sm font-bold uppercase tracking-widest text-cyan-200 transition-colors hover:bg-cyan-900/40 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300"
@@ -1841,6 +1848,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
             {!isChapterComplete && <button
               type="button"
+              disabled={!resultActionsReady}
               onMouseEnter={() => playSound('hover', isSoundEnabled)}
               onClick={() => {
                 playSound('select', isSoundEnabled);

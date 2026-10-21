@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Swords } from 'lucide-react';
+import { useResultClickGuard } from './useResultClickGuard';
 import './ChapterVictoryScreen.css';
 
 const ARTWORK_SRC = '/images/modes/chapter-1.jpg';
@@ -36,9 +37,28 @@ export function ChapterVictoryScreen({ title, onMenu, onTryHardMode, onHover }: 
 }) {
   const menuButton = useRef<HTMLButtonElement>(null);
   const hardModeButton = useRef<HTMLButtonElement>(null);
+  const [actionsReady, setActionsReady] = useState(false);
+  const resultClickGuard = useResultClickGuard(actionsReady);
   useEffect(() => { void preloadChapterVictoryArtwork(); }, []);
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    // Wait for both button reveals, retaining a brief guard when reduced motion removes them.
+    const animations = [menuButton.current, hardModeButton.current]
+      .flatMap(button => button?.getAnimations() ?? []);
+    void Promise.all([
+      new Promise<void>(resolve => { timer = setTimeout(resolve, 600); }),
+      ...animations.map(animation => animation.finished.catch(() => {})),
+    ]).then(() => {
+      if (!cancelled) setActionsReady(true);
+    });
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, []);
+  useEffect(() => {
+    if (actionsReady) menuButton.current?.focus({ preventScroll: true });
+  }, [actionsReady]);
 
-  return <section className="chapter-victory" role="dialog" aria-modal="true" aria-labelledby="chapter-victory-title">
+  return <section {...resultClickGuard} className="chapter-victory" role="dialog" aria-modal="true" aria-labelledby="chapter-victory-title">
     <div className="chapter-victory-background" aria-hidden="true">
       <img className="chapter-victory-art" src={ARTWORK_SRC} alt="" decoding="async" draggable={false}
         onError={event => { event.currentTarget.style.visibility = 'hidden'; }} />
@@ -53,7 +73,7 @@ export function ChapterVictoryScreen({ title, onMenu, onTryHardMode, onHover }: 
       </div>
       <p className="chapter-victory-label">Chapter 1 complete</p>
       <h2 id="chapter-victory-title" className="chapter-victory-title">{title}</h2>
-      <button ref={menuButton} className="chapter-victory-action" type="button" autoFocus onMouseEnter={onHover} onClick={onMenu}
+      <button ref={menuButton} className="chapter-victory-action" type="button" disabled={!actionsReady} onMouseEnter={onHover} onClick={onMenu}
         onKeyDown={event => {
           if (event.key === 'Tab' && event.shiftKey) { event.preventDefault(); hardModeButton.current?.focus(); }
         }}>
@@ -63,7 +83,7 @@ export function ChapterVictoryScreen({ title, onMenu, onTryHardMode, onHover }: 
         </svg>
       </button>
       <p className="chapter-victory-challenge-label">Your Next Challenge</p>
-      <button ref={hardModeButton} className="chapter-victory-action chapter-victory-hard-mode" type="button" onMouseEnter={onHover} onClick={onTryHardMode}
+      <button ref={hardModeButton} className="chapter-victory-action chapter-victory-hard-mode" type="button" disabled={!actionsReady} onMouseEnter={onHover} onClick={onTryHardMode}
         onKeyDown={event => {
           if (event.key === 'Tab' && !event.shiftKey) { event.preventDefault(); menuButton.current?.focus(); }
         }}>
