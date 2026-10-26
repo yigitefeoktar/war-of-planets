@@ -1691,7 +1691,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
             onPointerDown={event => event.stopPropagation()} onTouchStart={event => event.stopPropagation()}>
             <div className="planet-command-content">
           {showSelectMode && <div className="planet-selection-control">
-          <span id="select-mode-requirement" className="planet-control-label">{Math.min(ownedPlanetCount, MIN_MULTI_SELECT_PLANETS)} / {MIN_MULTI_SELECT_PLANETS} OWNED</span>
+          <span id="select-mode-requirement" className="planet-control-label">{ownedPlanetCount} / {MIN_MULTI_SELECT_PLANETS} OWNED</span>
           <button className="planet-multi-select" aria-label="Select mode: select friendly planets" aria-pressed={multiSelectMode}
             aria-describedby="select-mode-requirement" disabled={ownedPlanetCount < MIN_MULTI_SELECT_PLANETS}
             title={ownedPlanetCount < MIN_MULTI_SELECT_PLANETS ? `Requires ${MIN_MULTI_SELECT_PLANETS} owned planets. Currently ${ownedPlanetCount}.` : 'Drag to select friendly planets, then choose a friendly target. PC: right-click drag. Escape: cancel.'}
