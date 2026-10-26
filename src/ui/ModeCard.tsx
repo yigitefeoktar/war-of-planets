@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Check, ChevronRight, Layers, Orbit, Swords, X } from 'lucide-react';
 import { playSound } from '../audio';
 import './ModeCard.css';
+import { HardModeButton } from './HardModeButton';
 import { progressLabel, type ModeId, type Progress } from '../game/campaign';
 
 type Mode = { id: ModeId; title: string; subtitle: string; description: string; accent: string; rgb: string; label: string };
@@ -33,7 +34,7 @@ function CardContent({ mode, compact = false }: { mode: Mode; compact?: boolean 
   </>;
 }
 
-export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress }: { isSoundEnabled: boolean; selectedMode: ModeId; onSelectMode: (mode: ModeId) => void; progress: Progress }) {
+export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress, isHardMode, setIsHardMode }: { isSoundEnabled: boolean; selectedMode: ModeId; onSelectMode: (mode: ModeId) => void; progress: Progress; isHardMode: boolean; setIsHardMode: (value: boolean) => void }) {
   const selected = mainModes.find(mode => mode.id === selectedMode) ?? mainModes[0];
   const dialog = useRef<HTMLDialogElement>(null);
   const changeButton = useRef<HTMLButtonElement>(null);
@@ -78,6 +79,9 @@ export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress 
             <div className="mode-footer"><span className="mode-meta">{progressLabel(mode.id, progress)}</span><span className="mode-select">{selected.id === mode.id ? <><Check size={15} /> Selected</> : <>Select <ChevronRight size={16} /></>}</span></div>
           </button>
         ))}
+      </div>
+      <div className="mt-6 flex justify-center">
+        <HardModeButton isHardMode={isHardMode} setIsHardMode={setIsHardMode} isSoundEnabled={isSoundEnabled} />
       </div>
       <p className="mode-dialog-hint">Select a mode, then launch from the main menu.</p>
     </dialog>, document.body)}

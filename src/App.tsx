@@ -3,9 +3,10 @@ import { createMatch } from './game/mapLoader';
 import { createGeneratedMap } from './game/generatedMaps';
 import { CHAPTERS, DYSON_SPHERE_ID, SIEGE_OF_HELIOS, completeMission, followingMission, getOutcome, isChapterOneTestMode, isGeneratedMode, launchMission, loadProgress, mapOrbits, nextMission, saveProgress, testLevelForMode, type MapDefinition, type ModeId, type Progress } from './game/campaign';
 import { motion } from 'motion/react';
-import { Maximize, Minimize, Volume2, VolumeX, Music, Pause, Play, Flag, Shield, Skull } from 'lucide-react';
+import { Maximize, Minimize, Volume2, VolumeX, Music, Pause, Play, Flag, Shield } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
 import { ModeCard } from './ui/ModeCard';
+import { HardModeButton } from './ui/HardModeButton';
 import { SuperweaponButton } from './ui/SuperweaponButton';
 import { AnimatedGamePopup } from './ui/AnimatedGamePopup';
 import { ChapterVictoryScreen, preloadChapterVictoryArtwork } from './ui/ChapterVictoryScreen';
@@ -151,7 +152,7 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
           </p>
         </motion.div>
 
-        <ModeCard isSoundEnabled={isSoundEnabled} selectedMode={selectedMode} onSelectMode={onSelectMode} progress={progress} />
+        <ModeCard isSoundEnabled={isSoundEnabled} selectedMode={selectedMode} onSelectMode={onSelectMode} progress={progress} isHardMode={isHardMode} setIsHardMode={setIsHardMode} />
         {saveWarning && <p className="mt-2 text-amber-300 text-xs">Progress cannot be saved in this browser session.</p>}
 
         {/* Action Button */}
@@ -233,24 +234,7 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
             {isSoundEnabled ? 'Sound: On' : 'Sound: Off'}
           </button>
 
-          <button
-            type="button"
-            aria-pressed={isHardMode}
-            onMouseEnter={() => playSound('hover', isSoundEnabled)}
-            onClick={() => {
-              const newState = !isHardMode;
-              setIsHardMode(newState);
-              if (newState) playSound('click', isSoundEnabled);
-            }}
-            className={`flex items-center gap-2 px-4 py-2 border transition-all rounded-sm font-mono text-xs tracking-widest uppercase group ${
-              isHardMode
-                ? 'bg-red-900/30 border-red-500/50 text-red-400'
-                : 'bg-cyan-950/40 border-cyan-500/30 text-cyan-500/60 hover:text-cyan-400 hover:border-cyan-400/50 hover:bg-cyan-900/30'
-            }`}
-          >
-            <Skull size={14} className={`group-hover:scale-110 transition-transform ${!isHardMode && 'opacity-50'}`} />
-            {isHardMode ? 'Hard Mode: On' : 'Hard Mode: Off'}
-          </button>
+          <HardModeButton isHardMode={isHardMode} setIsHardMode={setIsHardMode} isSoundEnabled={isSoundEnabled} />
 
         </motion.div>
         </div>
