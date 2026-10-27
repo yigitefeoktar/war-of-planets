@@ -35,7 +35,7 @@
   padding: 24px 32px;
   animation: mode-enter 1s .3s both;
 }
-.mode-card::after, .mode-dialog::after {
+.mode-card::after, .mode-dialog-panel::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -69,8 +69,10 @@
 .mode-instructions li::marker { color: #06b6d4; }
 .mode-instructions strong { color: #60a5fa; }
 
-.mode-dialog { --mode-mono: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace); position: fixed; inset: 0; margin: auto; width: min(1100px, 94vw); max-width: none; max-height: 92dvh; overflow-y: auto; padding: 32px; border: 1px solid #06b6d466; border-radius: 2px; background: linear-gradient(#06b6d408 1px, transparent 1px), linear-gradient(90deg, #06b6d408 1px, transparent 1px), radial-gradient(ellipse at top, #082f4980, #03080f 75%); background-size: 40px 40px, 40px 40px, auto; color: #cffafe; box-shadow: 0 0 60px #06b6d41a, 0 30px 100px #000c; touch-action: pan-y; }
-.mode-dialog[open] { animation: mode-enter .45s both; }
+.mode-dialog { --mode-mono: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace); position: fixed; inset: 0; margin: auto; width: min(1100px, 94vw); max-width: none; max-height: 92dvh; padding: 0; border: 0; background: transparent; color: #cffafe; overflow: visible; flex-direction: column; gap: 24px; }
+.mode-dialog-panel { position: relative; min-height: 0; overflow-y: auto; padding: 32px; border: 1px solid #06b6d466; border-radius: 2px; background: linear-gradient(#06b6d408 1px, transparent 1px), linear-gradient(90deg, #06b6d408 1px, transparent 1px), radial-gradient(ellipse at top, #082f4980, #03080f 75%); background-size: 40px 40px, 40px 40px, auto; color: #cffafe; box-shadow: 0 0 60px #06b6d41a, 0 30px 100px #000c; touch-action: pan-y; }
+.mode-dialog-hard-mode { display: flex; flex-shrink: 0; justify-content: center; }
+.mode-dialog[open] { display: flex; animation: mode-enter .45s both; }
 .mode-dialog::backdrop { background: #01050de6; backdrop-filter: blur(10px); }
 .mode-dialog[open]::backdrop { animation: mode-fade .35s both; }
 .mode-dialog-header { display: flex; justify-content: space-between; gap: 24px; align-items: center; margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid #06b6d433; }
@@ -97,7 +99,7 @@
 @keyframes mode-enter { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes mode-fade { from { opacity: 0; } to { opacity: 1; } }
 @media (max-width: 700px) {
-  .mode-dialog { padding: 24px 18px; }
+  .mode-dialog-panel { padding: 24px 18px; }
   .mode-grid { grid-template-columns: 1fr; gap: 16px; }
   .mode-option { min-height: 300px; }
   .mode-option .mode-art { object-position: center 35%; }

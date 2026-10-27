@@ -67,23 +67,25 @@ export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress,
       </div>
     </section>
     {createPortal(<dialog ref={dialog} aria-labelledby="mode-picker-title" className="mode-dialog">
-      <header className="mode-dialog-header">
-        <div><p className="mode-dialog-kicker">Your next operation</p><h2 id="mode-picker-title">Choose your battlefield</h2></div>
-        <button type="button" aria-label="Close mode selection" onClick={() => dialog.current?.close()} className="mode-close"><X size={22} /></button>
-      </header>
-      <div className="mode-grid">
-        {mainModes.map(mode => (
-          <button key={mode.id} type="button" aria-label={`Select ${mode.title}`} aria-pressed={selected.id === mode.id} onClick={() => { onSelectMode(mode.id); playSound('select', isSoundEnabled); dialog.current?.close(); }} className={`mode-card mode-option ${mode.id === 'chaos-mode' ? 'mode-chaos' : ''} ${selected.id === mode.id ? 'is-selected' : ''}`}>
-            <Artwork mode={mode} />
-            <CardContent mode={mode} compact />
-            <div className="mode-footer"><span className="mode-meta">{progressLabel(mode.id, progress)}</span><span className="mode-select">{selected.id === mode.id ? <><Check size={15} /> Selected</> : <>Select <ChevronRight size={16} /></>}</span></div>
-          </button>
-        ))}
+      <div className="mode-dialog-panel">
+        <header className="mode-dialog-header">
+          <div><p className="mode-dialog-kicker">Your next operation</p><h2 id="mode-picker-title">Choose your battlefield</h2></div>
+          <button type="button" aria-label="Close mode selection" onClick={() => dialog.current?.close()} className="mode-close"><X size={22} /></button>
+        </header>
+        <div className="mode-grid">
+          {mainModes.map(mode => (
+            <button key={mode.id} type="button" aria-label={`Select ${mode.title}`} aria-pressed={selected.id === mode.id} onClick={() => { onSelectMode(mode.id); playSound('select', isSoundEnabled); dialog.current?.close(); }} className={`mode-card mode-option ${mode.id === 'chaos-mode' ? 'mode-chaos' : ''} ${selected.id === mode.id ? 'is-selected' : ''}`}>
+              <Artwork mode={mode} />
+              <CardContent mode={mode} compact />
+              <div className="mode-footer"><span className="mode-meta">{progressLabel(mode.id, progress)}</span><span className="mode-select">{selected.id === mode.id ? <><Check size={15} /> Selected</> : <>Select <ChevronRight size={16} /></>}</span></div>
+            </button>
+          ))}
+        </div>
+        <p className="mode-dialog-hint">Select a mode, then launch from the main menu.</p>
       </div>
-      <div className="mt-6 flex justify-center">
+      <div className="mode-dialog-hard-mode">
         <HardModeButton isHardMode={isHardMode} setIsHardMode={setIsHardMode} isSoundEnabled={isSoundEnabled} />
       </div>
-      <p className="mode-dialog-hint">Select a mode, then launch from the main menu.</p>
     </dialog>, document.body)}
   </>;
 }
