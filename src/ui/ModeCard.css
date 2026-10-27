@@ -126,3 +126,18 @@
 .mode-frontier .mode-change:hover { background: #ec489933; color: white; border-color: #ff8fc7; box-shadow: 0 0 24px #ec489933; }
 .mode-frontier:focus-visible, .mode-frontier .mode-change:focus-visible { outline-color: #fce7f3; }
 .mode-frontier .mode-shade { background: linear-gradient(90deg, #1c0714d9, #1c071430), linear-gradient(180deg, #1c071420 0%, #1c071480 35%, #1c0714ed 72%, #1c0714 100%); }
+
+/* Match card accents to their theme while preserving the light copy colors. */
+.mode-card.mode-quick { --mode-corner: #ffc184; background: #29180c66; border-color: #ffc18480; box-shadow: 0 0 30px #ffc1841a; }
+.mode-quick .mode-eyebrow, .mode-quick .mode-select { color: #ffc184; text-shadow: 0 0 12px #fb923c55; }
+.mode-quick .mode-copy h2 { text-shadow: 0 0 20px #fb923c33; }
+.mode-quick .mode-footer { border-color: #ffc18433; }
+.mode-quick .mode-meta { color: #ffc184a6; }
+.mode-quick .mode-instructions li::marker, .mode-quick .mode-instructions strong { color: #ffc184; }
+.mode-quick .mode-change { background: #431b0799; border-color: #ffc18499; color: #ffc184; box-shadow: 0 0 16px #fb923c1a; }
+.mode-quick .mode-change:hover { background: #fb923c33; color: white; border-color: #ffc184; box-shadow: 0 0 24px #fb923c33; }
+.mode-quick .mode-shade { background: linear-gradient(90deg, #1c1007c9, #1c100720), linear-gradient(180deg, #1c100720 0%, #1c100780 35%, #1c1007ed 72%, #1c1007 100%); }
+.mode-coming-soon .mode-shade { background: linear-gradient(90deg, #0b0b0cc9, #0b0b0c20), linear-gradient(180deg, #0b0b0c20 0%, #0b0b0c80 35%, #0b0b0ced 72%, #0b0b0c 100%); }
+.mode-card.mode-option:enabled:hover { border-color: var(--mode-corner, #22d3ee); box-shadow: 0 0 30px color-mix(in srgb, var(--mode-corner, #22d3ee) 20%, transparent); }
+.mode-card.mode-option.is-selected { border-color: var(--mode-corner, #22d3ee); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mode-corner, #22d3ee) 40%, transparent), 0 0 24px color-mix(in srgb, var(--mode-corner, #22d3ee) 12%, transparent); }
+.mode-card.mode-option:focus-visible, .mode-card .mode-change:focus-visible { outline-color: var(--mode-corner, #cffafe); }

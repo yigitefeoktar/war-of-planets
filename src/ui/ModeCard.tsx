@@ -58,7 +58,7 @@ export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress,
   }, []);
 
   return <>
-    <section aria-label="Selected game mode" className={`mode-card mode-current ${selected.id === 'chaos-mode' ? 'mode-chaos' : ''}`}>
+    <section aria-label="Selected game mode" className={`mode-card mode-current ${selected.id === 'quick-match' ? 'mode-quick' : selected.id === 'chaos-mode' ? 'mode-chaos' : ''}`}>
       <Artwork mode={selected} />
       <CardContent mode={selected} />
       <div className="mode-footer">
@@ -77,7 +77,7 @@ export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress,
         </header>
         <div className="mode-grid">
           {mainModes.map(mode => (
-            <button key={mode.id} type="button" aria-label={`Select ${mode.title}`} aria-pressed={selected.id === mode.id} onClick={() => { onSelectMode(mode.id); playSound('select', isSoundEnabled); dialog.current?.close(); }} className={`mode-card mode-option ${mode.id === 'chaos-mode' ? 'mode-chaos' : ''} ${selected.id === mode.id ? 'is-selected' : ''}`}>
+            <button key={mode.id} type="button" aria-label={`Select ${mode.title}`} aria-pressed={selected.id === mode.id} onClick={() => { onSelectMode(mode.id); playSound('select', isSoundEnabled); dialog.current?.close(); }} className={`mode-card mode-option ${mode.id === 'quick-match' ? 'mode-quick' : mode.id === 'chaos-mode' ? 'mode-chaos' : ''} ${selected.id === mode.id ? 'is-selected' : ''}`}>
               <Artwork mode={mode} />
               <CardContent mode={mode} compact />
               <div className="mode-footer"><span className="mode-meta">{progressLabel(mode.id, progress)}</span><span className="mode-select">{selected.id === mode.id ? <><Check size={15} /> Selected</> : <>Select <ChevronRight size={16} /></>}</span></div>
