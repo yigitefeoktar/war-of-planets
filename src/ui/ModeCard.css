@@ -114,3 +114,15 @@
   .mode-art, .mode-option, .mode-change, .mode-change svg { transition: none; }
   .mode-option:hover, .mode-option:hover .mode-art, .mode-change:hover svg { transform: none; }
 }
+
+.mode-frontier .mode-art { filter: hue-rotate(65deg) saturate(.7); }
+.mode-frontier { --mode-corner: #ff8fc7; background: #290c1e; border-color: #ff8fc777; color: #fce7f3; box-shadow: 0 0 30px #ff8fc722; }
+.mode-frontier .mode-eyebrow, .mode-frontier .mode-select { color: #ffb7dd; text-shadow: 0 0 12px #ec489955; }
+.mode-frontier .mode-copy h2 { color: #fce7f3; text-shadow: 0 0 20px #ec489933; }
+.mode-frontier .mode-copy p { color: #fce7f3cc; }
+.mode-frontier .mode-footer { border-color: #ff8fc733; }
+.mode-frontier .mode-meta { color: #ffb7dda6; }
+.mode-frontier .mode-change { background: #50072499; border-color: #ff8fc799; color: #ffb7dd; box-shadow: 0 0 16px #ec48991a; }
+.mode-frontier .mode-change:hover { background: #ec489933; color: white; border-color: #ff8fc7; box-shadow: 0 0 24px #ec489933; }
+.mode-frontier:focus-visible, .mode-frontier .mode-change:focus-visible { outline-color: #fce7f3; }
+.mode-frontier .mode-shade { background: linear-gradient(90deg, #1c0714d9, #1c071430), linear-gradient(180deg, #1c071420 0%, #1c071480 35%, #1c0714ed 72%, #1c0714 100%); }
