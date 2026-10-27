@@ -55,16 +55,19 @@ test('Hard mode doubles enemy Overdrive production and follows current planet ow
   engine.isHardMode = true;
   engine.addBase('enemy', 1000, 1000, RED, 10);
   engine.addBase('player', 5000, 1000, BLUE, 10);
+  for (const [index, color] of [RED, BLUE].entries()) {
+    for (let i = 0; i < 3; i++) engine.addBase(`support-${color}-${i}`, 1000 + i * 2500, 5000 + index * 3000, color, 0);
+  }
   for (const base of engine.bases.values()) base.overdrive = { color: base.color, remaining: 7.5, pulse: 0 };
   tick();
-  assert.equal(stationed('enemy'), 24);
-  assert.equal(stationed('player'), 17);
+  assert.equal(stationed('enemy'), 16);
+  assert.equal(stationed('player'), 13);
   const captured = engine.bases.get('enemy')!;
   captured.color = BLUE;
   for (const ship of engine.pixels) if (ship.baseId === captured.id) ship.color = BLUE;
   engine.recordPlanetCapture(captured.id, BLUE);
   tick();
-  assert.equal(stationed('enemy'), 25);
+  assert.equal(stationed('enemy'), 17);
 });
 
 test('Hard mode production respects the faction cap and stops the low-garrison exception at 41', () => {
@@ -165,7 +168,8 @@ test('garrison allowance uses live stationed ships rather than stale planet coun
 
 test('Overdrive production respects remaining faction allowance', () => {
   const { engine, tick, count } = match();
-  engine.addBase('boosted', 1000, 1000, BLUE, FACTION_SHIP_LIMIT - 2);
+  engine.addBase('boosted', 1000, 1000, BLUE, FACTION_SHIP_LIMIT - 2 - 5 * 41);
+  for (let i = 0; i < 5; i++) engine.addBase(`support-${i}`, 3000 + i * 1000, 1000, BLUE, 41);
   engine.bases.get('boosted')!.overdrive = { color: BLUE, remaining: 7.5, pulse: 0 };
   tick();
   assert.equal(count(BLUE), FACTION_SHIP_LIMIT);

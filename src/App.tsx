@@ -1683,7 +1683,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         const enemySelected = !!planet && planet.color !== '#3b82f6';
         const weapons = ['overdrive', 'omni', 'repulse'] as SuperweaponId[];
         const labels = { omni: 'Omni Strike', overdrive: 'Production Overdrive', repulse: 'Repulse Shield' };
-        const descriptions = { omni: 'Warp 30% of every idle fleet here', overdrive: '7x production / 7.5 seconds', repulse: 'Repel and destroy arrivals / 6 seconds' };
+        const descriptions = { omni: 'Warp 30% of every idle fleet here', overdrive: 'Match all your other planets\u2019 combined normal production for 7.5 seconds; never below this planet\u2019s normal rate', repulse: 'Repel and destroy arrivals / 6 seconds' };
         const renderBar = (state: 'normal' | 'enemy') => {
           const showSelectMode = state === 'normal' && engine.multiSelectEnabled;
           const shownPlanet = planet && (state === 'normal') === (planet.color === '#3b82f6') ? planet : undefined;
