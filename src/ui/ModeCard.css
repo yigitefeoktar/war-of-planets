@@ -71,7 +71,8 @@
 
 .mode-dialog { --mode-mono: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace); position: fixed; inset: 0; margin: auto; width: min(1100px, 94vw); max-width: none; max-height: 92dvh; padding: 0; border: 0; background: transparent; color: #cffafe; overflow: visible; flex-direction: column; gap: 24px; }
 .mode-dialog-panel { position: relative; min-height: 0; overflow-y: auto; padding: 32px; border: 1px solid #06b6d466; border-radius: 2px; background: linear-gradient(#06b6d408 1px, transparent 1px), linear-gradient(90deg, #06b6d408 1px, transparent 1px), radial-gradient(ellipse at top, #082f4980, #03080f 75%); background-size: 40px 40px, 40px 40px, auto; color: #cffafe; box-shadow: 0 0 60px #06b6d41a, 0 30px 100px #000c; touch-action: pan-y; }
-.mode-dialog-hard-mode { display: flex; flex-shrink: 0; justify-content: center; }
+.mode-dialog-actions { display: flex; flex-direction: row-reverse; align-items: center; flex-shrink: 0; gap: 12px; }
+.mode-dialog-actions > button:focus-visible { outline: 2px solid #cffafe; outline-offset: 4px; }
 .mode-dialog[open] { display: flex; animation: mode-enter .45s both; }
 .mode-dialog::backdrop { background: #01050de6; backdrop-filter: blur(10px); }
 .mode-dialog[open]::backdrop { animation: mode-fade .35s both; }
@@ -106,6 +107,7 @@
   .mode-option .mode-copy h2 { max-width: none; font-size: 26px; }
   .mode-option .mode-copy p { min-height: 0; }
   .mode-dialog-header { align-items: flex-start; gap: 12px; }
+  .mode-dialog-actions { flex-direction: column; }
 }
 @media (prefers-reduced-motion: reduce) {
   .mode-current, .mode-dialog[open], .mode-dialog[open]::backdrop, .mode-dialog[open] .mode-option { animation: none; }

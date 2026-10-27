@@ -70,7 +70,10 @@ export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress,
       <div className="mode-dialog-panel">
         <header className="mode-dialog-header">
           <div><p className="mode-dialog-kicker">Your next operation</p><h2 id="mode-picker-title">Choose your battlefield</h2></div>
-          <button type="button" aria-label="Close mode selection" onClick={() => dialog.current?.close()} className="mode-close"><X size={22} /></button>
+          <div className="mode-dialog-actions">
+            <button type="button" aria-label="Close mode selection" onClick={() => dialog.current?.close()} className="mode-close"><X size={22} /></button>
+            <HardModeButton isHardMode={isHardMode} setIsHardMode={setIsHardMode} isSoundEnabled={isSoundEnabled} compact />
+          </div>
         </header>
         <div className="mode-grid">
           {mainModes.map(mode => (
@@ -82,9 +85,6 @@ export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress,
           ))}
         </div>
         <p className="mode-dialog-hint">Select a mode, then launch from the main menu.</p>
-      </div>
-      <div className="mode-dialog-hard-mode">
-        <HardModeButton isHardMode={isHardMode} setIsHardMode={setIsHardMode} isSoundEnabled={isSoundEnabled} />
       </div>
     </dialog>, document.body)}
   </>;
