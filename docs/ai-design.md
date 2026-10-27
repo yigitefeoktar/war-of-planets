@@ -5,8 +5,11 @@ each enemy planet with more than 120 idle ships independently has a 70% chance t
 send 90% of them toward one of its three nearest/weakest hostile or neutral worlds
 within attack range. It favours short routes and small garrisons, but the choice
 among the top three remains random. Different planets can attack in the same tick.
-On hard mode the threshold is 110 ships and the chance is 85%. This deliberately
-creates bold commitments and exposed worlds for counterattacks.
+Both difficulties use these same tactics, creating bold commitments and exposed
+worlds for counterattacks. Hard Mode instead doubles enemy planet ship production:
+two ships per tick instead of one, including a 2x multiplier during Overdrive.
+Player production is unchanged. Faction caps and the low-garrison exception still
+limit the number of ships produced.
 
 Capital worlds retain at least 45 ships and ask nearby friendly worlds for help
 when a hostile fleet is incoming. The AI excludes friendly attack targets,
@@ -28,15 +31,16 @@ use. Otherwise the standard expansion attempt has a 15% chance. A warp
 replaces ordinary orders in that decision so the capital reserve survives. The AI
 uses Repulse when a substantial hostile fleet is a few seconds from a threatened
 world, and Overdrive on an unthreatened productive world near the front. Normal
-mode reacts later and sometimes passes on a useful cast; hard mode responds sooner.
+and hard modes share the same timing and cast chances.
 Every cast uses the same stored charge, target rules, strength and duration as the
-player. Enemy activations are announced on screen. There are no hidden resources
-or adjustments based on the player's win/loss history.
+player. Enemy activations are announced on screen. Hard Mode's 2x enemy production
+is the only difficulty bonus; there are no adjustments based on the player's win/loss history.
 
 # Faction mechanics
 
-All four faction colors use the same combat, ship production, and weapon charging
-rules. Ordinary combat exchanges one attacking ship for one defending ship.
+All faction colors use the same combat and weapon charging rules. Ship production
+is also equal in Normal mode; Hard Mode doubles production for enemy colors only.
+Ordinary combat exchanges one attacking ship for one defending ship.
 Colors identify ownership; starting positions, fleets, expansion, and weapon
 access determine each faction's advantages. The AI evaluates fleets using their
 actual ship counts, without color-based strength adjustments.

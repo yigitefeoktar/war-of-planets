@@ -24,7 +24,7 @@ A deterministic seed reproduces the complete map definition, including faction a
 
 ## Difficulty and result screens
 
-Hard Mode is the original skull-icon On/Off control restored from commit `13aa334`, with the current audio buttons' hover, focus, sound and transition behavior. It is available for Chapter 1, level tests, Quick Match, and Chaos Mode. Difficulty is fixed when a battle starts and retained across retries, new maps and campaign progression. Hard uses the current more aggressive AI and warmer background; maps and starting ships do not change with difficulty. It defaults to Off on page load.
+Hard Mode is the original skull-icon On/Off control restored from commit `13aa334`, with the current audio buttons' hover, focus, sound and transition behavior. It is available for Chapter 1, level tests, Quick Match, and Chaos Mode. Difficulty is fixed when a battle starts and retained across retries, new maps and campaign progression. Hard doubles enemy planet ship production and uses a warmer background; AI decisions, maps and starting ships do not change with difficulty. It defaults to Off on page load.
 
 Only Quick Match and Chaos Mode use the generated-map result actions. Defeat shows New Map, Play Again and Main menu. Victory shows New Map and Main menu. New Map creates a new battlefield in the same mode and difficulty. Play Again resets the exact same opening. Campaign result actions and saved progression remain separate; generated victories never mark a campaign mission complete. Existing chapter-level test options remain in the mode picker.
 

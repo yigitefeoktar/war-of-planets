@@ -1,6 +1,6 @@
 # Generated battlefield requirements
 
-Chapter 1 uses authored maps and is outside these generators. Hard Mode changes AI difficulty; it uses the same geometry requirements as normal difficulty.
+Chapter 1 uses authored maps and is outside these generators. Hard Mode doubles enemy planet ship production; AI decisions and geometry requirements are the same as normal difficulty.
 
 ## Quick Match
 

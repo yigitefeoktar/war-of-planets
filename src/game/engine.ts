@@ -654,7 +654,8 @@ export class GameEngine {
           // preserves the inclusive exception: a garrison of 40 can still grow.
           const allowance = Math.max(FACTION_SHIP_LIMIT - factionCount, LOW_GARRISON_THRESHOLD + 1 - garrisonCount, 0);
           if (allowance === 0) continue;
-          const count = Math.min(allowance, base.overdrive ? OVERDRIVE_MULTIPLIER : 1);
+          const productionMultiplier = this.isHardMode && base.color !== '#3b82f6' ? 2 : 1;
+          const count = Math.min(allowance, productionMultiplier * (base.overdrive ? OVERDRIVE_MULTIPLIER : 1));
           if (base.overdrive) {
             base.overdrive.pulse = 1;
             this.createExplosion(base.x, base.y, '#ffbd59', 8);

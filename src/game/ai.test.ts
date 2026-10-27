@@ -87,12 +87,16 @@ test('original random gate leaves occasional quiet ticks', () => {
   assert.deepEqual(new TacticalAI().plan(w).get(RED)!.orders, []);
 });
 
-test('hard mode attacks sooner without extra ships', () => {
-  const w = world([base('a', 0, RED, 115), base('target', 400, GREY, 10)]);
-  w.random = () => 0.2;
-  assert.deepEqual(new TacticalAI().plan(w).get(RED)!.orders, []);
-  w.hard = true;
-  assert.deepEqual(new TacticalAI().plan(w).get(RED)!.orders, [{ from: 'a', to: 'target', count: 103 }]);
+test('both difficulties use the same attack threshold and random gate', () => {
+  for (const hard of [false, true]) {
+    for (const [idle, roll, count] of [[115, 0.5, 0], [120, 0.5, 0], [125, 0.2, 0], [125, 0.5, 112]]) {
+      const w = world([base('a', 0, RED, idle), base('target', 400, GREY, 10)]);
+      w.hard = hard;
+      w.random = () => roll;
+      assert.deepEqual(new TacticalAI().plan(w).get(RED)!.orders,
+        count ? [{ from: 'a', to: 'target', count }] : [], JSON.stringify({ hard, idle, roll }));
+    }
+  }
 });
 
 test('after a quiet front rear ships can gather through a winding friendly network', () => {
@@ -176,18 +180,48 @@ test('Repulse is reserved for a substantial approaching attack and uses an eligi
   assert.equal(cautious.plan(small).get(RED)!.repulseTarget, undefined);
 });
 
-test('Overdrive chooses a safe productive front world and difficulty affects timing', () => {
-  const w = world([base('capital', 0, RED, 50, true), base('front', 500, RED, 40), base('enemy', 800, BLUE, 100)]);
-  w.canAbility = (_color, _id, weapon) => weapon === 'overdrive';
-  const ai = new TacticalAI();
-  ai.plan(w);
-  w.seconds = 7;
-  assert.equal(ai.plan(w).get(RED)!.overdriveTarget, undefined);
-  w.hard = true;
-  w.seconds = 11;
-  assert.equal(ai.plan(w).get(RED)!.overdriveTarget, 'front');
-  w.seconds = 13;
-  assert.equal(ai.plan(w).get(RED)!.overdriveTarget, undefined);
+test('Repulse uses the same threat threshold and cast chance in both difficulties', () => {
+  for (const hard of [false, true]) {
+    for (const [incoming, roll, casts] of [[12, 0.5, false], [18, 0.9, false], [18, 0.5, true]] as const) {
+      const w = world([base('capital', 0, RED, 30, true), base('enemy', 400, BLUE, 50)]);
+      w.hard = hard;
+      w.random = () => roll;
+      w.canAbility = (_color, id, weapon) => id === 'capital' && weapon === 'repulse';
+      for (const ship of w.pixels.filter(ship => ship.color === BLUE).slice(0, incoming)) {
+        ship.state = 'moving'; ship.targetBaseId = 'capital'; ship.x = 300;
+      }
+      const ai = new TacticalAI();
+      ai.plan(w);
+      w.seconds = 7;
+      assert.equal(ai.plan(w).get(RED)!.repulseTarget, undefined);
+      w.seconds = 11;
+      assert.equal(ai.plan(w).get(RED)!.repulseTarget, casts ? 'capital' : undefined);
+    }
+  }
+});
+
+test('Overdrive uses the same timing and cast chance in both difficulties', () => {
+  for (const hard of [false, true]) {
+    const w = world([base('capital', 0, RED, 50, true), base('front', 500, RED, 40), base('enemy', 800, BLUE, 100)]);
+    w.hard = hard;
+    w.canAbility = (_color, _id, weapon) => weapon === 'overdrive';
+    w.random = () => 0.3;
+    const ai = new TacticalAI();
+    ai.plan(w);
+    w.seconds = 7;
+    assert.equal(ai.plan(w).get(RED)!.overdriveTarget, undefined);
+    w.seconds = 11;
+    w.random = () => 0.5;
+    assert.equal(ai.plan(w).get(RED)!.overdriveTarget, undefined);
+    w.random = () => 0.3;
+    assert.equal(ai.plan(w).get(RED)!.overdriveTarget, 'front');
+    for (const second of [13, 20, 24]) {
+      w.seconds = second;
+      assert.equal(ai.plan(w).get(RED)!.overdriveTarget, undefined);
+    }
+    w.seconds = 25;
+    assert.equal(ai.plan(w).get(RED)!.overdriveTarget, 'front');
+  }
 });
 
 test('enemy Repulse consumes the same charge and announces its target', () => {
@@ -217,7 +251,7 @@ test('enemy Repulse consumes the same charge and announces its target', () => {
 
 test('enemy Overdrive spends one universal Dyson charge on a productive front world', () => {
   let now = 0;
-  const engine = new GameEngine(1200, 1000, { now: () => now, rng: () => 0.5 });
+  const engine = new GameEngine(1200, 1000, { now: () => now, rng: () => 0.3 });
   engine.bases.clear(); engine.pixels = [];
   engine.addBase('capital', 0, 0, RED, 40, true);
   engine.addBase('front', 500, 0, RED, 40);
@@ -238,7 +272,7 @@ test('enemy Overdrive spends one universal Dyson charge on a productive front wo
   assert.equal(engine.getSuperweaponCharge(RED, 'overdrive'), 0);
 });
 
-test('engine executes the large capital attack and hard mode gives no hidden production', () => {
+test('engine executes the large capital attack and hard mode doubles enemy production', () => {
   let now = 0;
   const engine = new GameEngine(1000, 1000, { now: () => now, rng: () => 0.5 });
   engine.bases.clear(); engine.pixels = [];
@@ -253,5 +287,5 @@ test('engine executes the large capital attack and hard mode gives no hidden pro
   engine.isHardMode = true;
   const count = engine.pixels.length;
   engine.update(0.016);
-  assert.equal(engine.pixels.length, count + 1);
+  assert.equal(engine.pixels.length, count + 2);
 });
