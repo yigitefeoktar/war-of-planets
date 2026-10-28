@@ -86,8 +86,8 @@ class Battlefield {
 }
 
 function spiralBreach() {
-  const map = new Battlefield('frontier-twin-suns', 9200, 6500);
-  map.system('blue', { x: 1100, y: 4400 }, BLUE, 4, 'conversion', 300, { weapon: 'conversion' });
+  const map = new Battlefield('frontier-twin-suns', 6800, 8500);
+  map.system('blue', { x: 1100, y: 4700 }, BLUE, 0, 'conversion', 300, { weapon: 'conversion' });
   for (const planet of map.planets) planet.ships = planet.capital ? 320 : 12;
 
   // Six frontier worlds curve around the western edge. Only the last two
@@ -97,6 +97,29 @@ function spiralBreach() {
     { x: 2550, y: 2820 }, { x: 2940, y: 2400 }, { x: 3470, y: 2170 },
   ];
   for (const [index, point] of approach.entries()) map.world(point, 'conversion', 8, `${map.id}-blue-approach-${index + 1}`);
+
+  // An early, separate fork gives Blue first access to the northern arsenal.
+  // Only the last branch world contacts its orbit; the main battlefield is distant.
+  const arsenalPath = [
+    { x: 1750, y: 3600 }, { x: 1430, y: 3100 }, { x: 1170, y: 2620 }, { x: 750, y: 2260 },
+  ];
+  for (const [index, point] of arsenalPath.entries()) map.world(point, 'conversion', 8, `${map.id}-arsenal-path-${index + 1}`);
+  map.system('arsenal', { x: 1150, y: 1350 }, NEUTRAL, 0, undefined, 240);
+  for (const [index, planet] of map.planets.filter(planet => planet.id.includes('-arsenal-') && !planet.id.includes('-path-')).entries()) {
+    planet.superweaponUnlocks = [index % 2 === 0 ? 'omni' : 'repulse'];
+    planet.ships = 12;
+  }
+
+  // Four worlds occupy just 60 degrees of a large orbit. Their moving arc is
+  // a ferry: boarding windows open near Blue, then near the fixed eastern dock.
+  const ferry = { x: 2600, y: 6500 }, ferryIds: string[] = [];
+  for (let index = 0; index < 4; index++) {
+    const angle = (-120 + index * 20) * Math.PI / 180;
+    const planet = map.world({ x: ferry.x + Math.cos(angle) * 1400, y: ferry.y + Math.sin(angle) * 1400 },
+      undefined, 12, `${map.id}-ferry-${index}`);
+    ferryIds.push(planet.id);
+  }
+  map.orbits.push({ ...ferry, periodSeconds: 180, planetIds: ferryIds });
 
   // Capitals sit at the near edge, within two captures of a spiral landing.
   // Their neutral hinterlands extend north, east and south instead of hiding
@@ -132,18 +155,24 @@ function spiralBreach() {
     { x: 4400, y: 1500, weapon: 'omni' }, { x: 7000, y: 1900, weapon: 'repulse' },
     { x: 4400, y: 3900, weapon: 'repulse' }, { x: 7100, y: 4400, weapon: 'omni' },
   ] as const;
-  for (const [index, point] of hub.entries()) {
+  // Cut away the eastern half of the old battlefield without moving its capitals.
+  const mainWorlds: PlanetDefinition[] = [];
+  for (const [index, point] of hub.filter(point => point.x <= 6000).entries()) {
     const district = [...districts].sort((a, b) => distance(point, a) - distance(point, b))[0];
     const weapon = index >= capitals.length && random() < 0.08 ? district.weapon === 'omni' ? 'repulse' : 'omni' : district.weapon;
     const capital = capitals[index];
     const planet = map.world(point, weapon, capital ? 240 : 12, capital ? `${map.id}-${capital.name}-capital` : `${map.id}-hub-${index}`);
     if (capital) { planet.owner = capital.owner; planet.capital = true; }
+    mainWorlds.push(planet);
   }
+  const dock = map.world({ x: 3850, y: 5300 }, 'repulse', 12, `${map.id}-ferry-dock`);
+  const nearest = [...mainWorlds].sort((a, b) => distance(a, dock) - distance(b, dock))[0];
+  map.lane([dock, nearest], 'repulse');
 
   return {
     id: map.id, title: 'The Spiral Breach', width: map.width, height: map.height, attackRange: 600,
-    briefing: 'Build a conversion fleet in Blue’s home system, then follow the six-world spiral. Its final two worlds open onto a wide battlefield of Omni Strike and Repulse Shield districts. Red, Green, and Yellow capitals stand near the landing area, with extensive neutral territory behind them. Steal their garrisons and choose which capital to strike first.',
-    lesson: 'Your home system and all six approach worlds produce Conversion Probe. Both final approach worlds have several routes into the main battlefield. Enemy capitals are nearby but require ordinary attacks; conversion steals neighboring non-capital worlds and their stationed ships, even through Repulse Shields.',
+    briefing: 'Take the early spiral fork to a northern system of Omni Strike and Repulse Shield worlds, or continue toward the nearby Red, Green, and Yellow capitals. Their eastern territory has been cut back. A four-world rotating arc provides a second crossing along the bottom: board it near Blue and ride toward the battlefield dock.',
+    lesson: 'Your home system and both approach paths produce Conversion Probe. The northern arsenal starts neutral. Four ordinary planets share one side of the large southern orbit, completing a turn in three minutes; boarding connections change as they rotate. Enemy capitals require ordinary attacks.',
     galaxyTheme: 'twin-suns', overviewScale: 0.9, mobileFocus: 'capital',
     weapons: [...CHAPTER_TWO_WEAPONS], pinkTerraforming: false,
     objective: { type: 'eliminate-capitals', description: 'Capture Red, Green, and Yellow capitals while protecting your blue capital. Capitals cannot be converted.' },
