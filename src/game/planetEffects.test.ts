@@ -65,14 +65,13 @@ test('pink removal and construction have large distinct bursts anchored to the l
     assert.ok(burst.colors.includes(CONVERSION_COLOR));
     assert.deepEqual(burst.calls.find(call => call.method === 'translate')?.args, [300, 400]);
     assert.ok(burst.calls.some(call => call.method === 'arc' && Number(call.args[2]) >= 100), 'burst extends well beyond the planet');
-    assert.equal(burst.calls.find(call => call.method === 'fillText')?.args[0],
-      action === 'strip' ? 'SUPERWEAPONS REMOVED' : 'CONVERSION PROBE ONLINE');
+    assert.ok(!burst.calls.some(call => ['fillText', 'strokeText', 'fillRect'].includes(call.method)), 'burst has no text or label background');
     base.x = 500; base.y = 600;
     const moved = recorder(); drawPinkTerraform(moved.ctx, base);
     assert.deepEqual(moved.calls.find(call => call.method === 'translate')?.args, [500, 600]);
     const reduced = recorder(); drawPinkTerraform(reduced.ctx, base, true);
     assert.ok(!reduced.calls.some(call => call.method === 'rotate'));
-    assert.ok(reduced.calls.some(call => call.method === 'fillText'), 'reduced motion retains action feedback');
+    assert.ok(!reduced.calls.some(call => ['fillText', 'strokeText', 'fillRect'].includes(call.method)), 'reduced motion stays text-free');
     assert.ok(reduced.calls.length < burst.calls.length);
   }
 });

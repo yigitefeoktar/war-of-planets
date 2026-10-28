@@ -113,7 +113,7 @@ export function drawPinkTerraform(ctx: CanvasRenderingContext2D, base: Base, red
     }
   }
 
-  // A fixed central emblem and explicit label keep the two actions distinct at a glance.
+  // A fixed central emblem keeps the two actions distinct at a glance.
   ctx.shadowBlur = 12; ctx.strokeStyle = '#fff0f8'; ctx.lineWidth = 4;
   ctx.beginPath();
   if (building) {
@@ -122,10 +122,6 @@ export function drawPinkTerraform(ctx: CanvasRenderingContext2D, base: Base, red
     ctx.moveTo(-14, -14); ctx.lineTo(14, 14); ctx.moveTo(14, -14); ctx.lineTo(-14, 14);
   }
   ctx.stroke();
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = '#300c28'; ctx.fillRect(-128, 91, 256, 27);
-  ctx.fillStyle = '#ffe4f3'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText(building ? 'CONVERSION PROBE ONLINE' : 'SUPERWEAPONS REMOVED', 0, 110);
   ctx.restore();
 }
 

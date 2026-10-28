@@ -1247,8 +1247,6 @@ export class GameEngine {
       const seconds = this.pinkTerraformSeconds;
       ctx.strokeStyle = '#ff8fc7'; ctx.lineWidth = 4;
       ctx.beginPath(); ctx.arc(x, y, 36, -Math.PI / 2, -Math.PI / 2 + seconds / PINK_TERRAFORM_INTERVAL_SECONDS * Math.PI * 2); ctx.stroke();
-      ctx.fillStyle = '#ffd1e8'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText(`PINK ${base.superweaponUnlocks?.length ? 'STRIP' : 'BUILD'} ${Math.ceil(PINK_TERRAFORM_INTERVAL_SECONDS - seconds)}s`, x, y - (base.pinkTerraformEffect ? 165 : 55));
     }
     ctx.restore();
   }
