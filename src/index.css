@@ -89,6 +89,10 @@
 .planet-ability-title { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; flex-shrink: 0; color: #d4f1fb; font-size: 11px; line-height: 1.5; font-weight: 700; }
 .planet-ability-name { min-width: 0; }
 .planet-ability-title strong { flex-shrink: 0; white-space: nowrap; }
+@media (orientation: landscape) {
+  .planet-ability.overdrive:has(.planet-ability-track.charging) .planet-ability-name { flex: 1; container-type: inline-size; }
+  .planet-ability.overdrive:has(.planet-ability-track.charging) .planet-ability-name > .planet-ability-full { font-size: min(11px, 8cqi); white-space: nowrap; }
+}
 .planet-ability-status { display: block; flex-shrink: 0; padding-right: 18px; color: #638395; font-size: 8px; line-height: 10px; }
 .planet-ability-status .planet-ability-full { display: block; }
 .planet-ability-compact { display: none; }
