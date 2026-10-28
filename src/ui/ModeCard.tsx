@@ -52,6 +52,7 @@ export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress,
   const selected = modes.find(mode => mode.id === selectedMode) ?? modes[0];
   const dialog = useRef<HTMLDialogElement>(null);
   const changeButton = useRef<HTMLButtonElement>(null);
+  const pointerInteraction = useRef(false);
 
   useEffect(() => {
     const element = dialog.current;
@@ -61,7 +62,10 @@ export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress,
       menuPositions.push({ element: parent, top: parent.scrollTop, left: parent.scrollLeft });
     }
     const restoreFocus = () => {
-      changeButton.current?.focus({ preventScroll: true });
+      // Dialogs can carry their autofocus ring back to the trigger after a tap.
+      // Restore keyboard focus, but leave pointer interactions without a ring.
+      if (pointerInteraction.current) changeButton.current?.blur();
+      else changeButton.current?.focus({ preventScroll: true });
       for (const position of menuPositions) {
         position.element.scrollTop = position.top;
         position.element.scrollLeft = position.left;
@@ -77,10 +81,10 @@ export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress,
       <CardContent mode={selected} />
       <div className="mode-footer">
         <span className="mode-meta">{progressLabel(selectedMode, progress)}</span>
-        <button ref={changeButton} type="button" aria-haspopup="dialog" onClick={() => { playSound('select', isSoundEnabled); dialog.current?.showModal(); }} className="mode-change">Change <ChevronRight size={17} /></button>
+        <button ref={changeButton} type="button" aria-haspopup="dialog" onPointerDown={() => { pointerInteraction.current = true; }} onKeyDown={() => { pointerInteraction.current = false; }} onClick={() => { playSound('select', isSoundEnabled); dialog.current?.showModal(); }} className="mode-change">Change <ChevronRight size={17} /></button>
       </div>
     </section>
-    {createPortal(<dialog ref={dialog} aria-labelledby="mode-picker-title" className="mode-dialog">
+    {createPortal(<dialog ref={dialog} aria-labelledby="mode-picker-title" className="mode-dialog" onPointerDownCapture={() => { pointerInteraction.current = true; }} onKeyDownCapture={() => { pointerInteraction.current = false; }}>
       <div className="mode-dialog-panel">
         <div className="mode-dialog-scroll">
         <header className="mode-dialog-header">

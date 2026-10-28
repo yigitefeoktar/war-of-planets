@@ -21,7 +21,9 @@
 .mode-custom .mode-footer { border-color: #6ee7a033; }
 .mode-custom .mode-meta { color: #86efaca6; }
 .mode-custom .mode-change { background: #052e1699; border-color: #6ee7a099; color: #86efac; box-shadow: 0 0 16px #22c55e1a; }
-.mode-custom .mode-change:hover { background: #22c55e33; color: white; border-color: #6ee7a0; box-shadow: 0 0 24px #22c55e33; }
+@media (hover: hover) and (pointer: fine) {
+  .mode-custom .mode-change:hover { background: #22c55e33; color: white; border-color: #6ee7a0; box-shadow: 0 0 24px #22c55e33; }
+}
 .mode-custom .mode-shade { background: linear-gradient(90deg, #04110ac9, #04110a20), linear-gradient(180deg, #04110a20 0%, #04110a80 35%, #04110aed 72%, #04110a 100%); }
 .mode-card.mode-chaos { --mode-corner: #c4b5fd; background: #150c29; border-color: #a78bfa80; box-shadow: 0 0 30px #8b5cf622; }
 .mode-chaos .mode-art { filter: hue-rotate(285deg) saturate(.8); }
@@ -31,7 +33,9 @@
 .mode-chaos .mode-footer { border-color: #a78bfa33; }
 .mode-chaos .mode-meta { color: #c4b5fda6; }
 .mode-chaos .mode-change { background: #2e106599; border-color: #a78bfa99; color: #ddd6fe; box-shadow: 0 0 16px #8b5cf61a; }
-.mode-chaos .mode-change:hover { background: #8b5cf633; color: white; border-color: #c4b5fd; box-shadow: 0 0 24px #8b5cf633; }
+@media (hover: hover) and (pointer: fine) {
+  .mode-chaos .mode-change:hover { background: #8b5cf633; color: white; border-color: #c4b5fd; box-shadow: 0 0 24px #8b5cf633; }
+}
 .mode-chaos:focus-visible, .mode-chaos .mode-change:focus-visible { outline-color: #ede9fe; }
 .mode-chaos .mode-shade { background: linear-gradient(90deg, #0f071cd9, #0f071c30), linear-gradient(180deg, #0f071c20 0%, #0f071c80 35%, #0f071ced 72%, #0f071c 100%); }
 
@@ -72,9 +76,13 @@
 .mode-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #06b6d433; }
 .mode-meta { max-width: 260px; font: 10px/1.5 var(--mode-mono); text-transform: uppercase; letter-spacing: .1em; color: #67e8f9a6; }
 .mode-change { position: relative; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; gap: 10px; min-height: 40px; padding: 0 16px; border: 1px solid #22d3ee99; border-radius: 2px; background: #08334499; color: #67e8f9; font: 700 11px/1 var(--mode-mono); text-transform: uppercase; letter-spacing: .18em; cursor: pointer; box-shadow: 0 0 16px #06b6d41a; transition: background .3s, color .3s, border-color .3s, box-shadow .3s; }
-.mode-change:hover { background: #06b6d433; color: white; border-color: #22d3ee; box-shadow: 0 0 24px #06b6d433; }
+@media (hover: hover) and (pointer: fine) {
+  .mode-change:hover { background: #06b6d433; color: white; border-color: #22d3ee; box-shadow: 0 0 24px #06b6d433; }
+}
 .mode-change svg { transition: transform .3s; }
-.mode-change:hover svg { transform: translateX(3px); }
+@media (hover: hover) and (pointer: fine) {
+  .mode-change:hover svg { transform: translateX(3px); }
+}
 .mode-card:focus-visible, .mode-change:focus-visible, .mode-close:focus-visible { outline: 2px solid #cffafe; outline-offset: 4px; }
 .mode-instructions { list-style: decimal-leading-zero; padding-left: 24px; margin: 0; color: #cffafecc; font: 11px/1.75 var(--mode-mono); }
 .mode-instructions li::marker { color: #06b6d4; }
@@ -155,7 +163,9 @@
 .mode-frontier .mode-footer { border-color: #ff8fc733; }
 .mode-frontier .mode-meta { color: #ffb7dda6; }
 .mode-frontier .mode-change { background: #50072499; border-color: #ff8fc799; color: #ffb7dd; box-shadow: 0 0 16px #ec48991a; }
-.mode-frontier .mode-change:hover { background: #ec489933; color: white; border-color: #ff8fc7; box-shadow: 0 0 24px #ec489933; }
+@media (hover: hover) and (pointer: fine) {
+  .mode-frontier .mode-change:hover { background: #ec489933; color: white; border-color: #ff8fc7; box-shadow: 0 0 24px #ec489933; }
+}
 .mode-frontier:focus-visible, .mode-frontier .mode-change:focus-visible { outline-color: #fce7f3; }
 .mode-frontier .mode-shade { background: linear-gradient(90deg, #1c0714d9, #1c071430), linear-gradient(180deg, #1c071420 0%, #1c071480 35%, #1c0714ed 72%, #1c0714 100%); }
 
@@ -167,7 +177,9 @@
 .mode-quick .mode-meta { color: #ffc184a6; }
 .mode-quick .mode-instructions li::marker, .mode-quick .mode-instructions strong { color: #ffc184; }
 .mode-quick .mode-change { background: #431b0799; border-color: #ffc18499; color: #ffc184; box-shadow: 0 0 16px #fb923c1a; }
-.mode-quick .mode-change:hover { background: #fb923c33; color: white; border-color: #ffc184; box-shadow: 0 0 24px #fb923c33; }
+@media (hover: hover) and (pointer: fine) {
+  .mode-quick .mode-change:hover { background: #fb923c33; color: white; border-color: #ffc184; box-shadow: 0 0 24px #fb923c33; }
+}
 .mode-quick .mode-shade { background: linear-gradient(90deg, #1c1007c9, #1c100720), linear-gradient(180deg, #1c100720 0%, #1c100780 35%, #1c1007ed 72%, #1c1007 100%); }
 .mode-coming-soon .mode-shade { background: linear-gradient(90deg, #0b0b0cc9, #0b0b0c20), linear-gradient(180deg, #0b0b0c20 0%, #0b0b0c80 35%, #0b0b0ced 72%, #0b0b0c 100%); }
 .mode-card.mode-option:enabled:hover { border-color: var(--mode-corner, #22d3ee); box-shadow: 0 0 30px color-mix(in srgb, var(--mode-corner, #22d3ee) 20%, transparent); }
