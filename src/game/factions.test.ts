@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { GameEngine } from './engine';
 import { OrbitingGameEngine } from './orbitingEngine';
-import { SUPERWEAPON_CHARGE_INTERVAL_SECONDS, SUPERWEAPON_IDS } from './superweapons';
+import { OVERDRIVE_MULTIPLIER, SUPERWEAPON_CHARGE_INTERVAL_SECONDS, SUPERWEAPON_IDS } from './superweapons';
 
 const BLUE = '#3b82f6', RED = '#ef4444', GREEN = '#22c55e', YELLOW = '#eab308';
 
@@ -13,7 +13,6 @@ test('every faction produces one ship per cycle and the same Overdrive output', 
   for (const [index, color] of [BLUE, RED, GREEN, YELLOW, '#6b7280'].entries()) engine.addBase(color, index * 150, 0, color, 0);
   for (const [index, color] of [BLUE, RED, GREEN, YELLOW].entries()) {
     engine.addBase(`boosted-${color}`, index * 150, 600, color, 0);
-    engine.addBase(`support-${color}`, index * 150, 900, color, 0);
     engine.bases.get(`boosted-${color}`)!.overdrive = { color, remaining: 7.5, pulse: 0 };
   }
   engine.addBase('sphere', 0, 300, GREEN, 0);
@@ -21,7 +20,7 @@ test('every faction produces one ship per cycle and the same Overdrive output', 
   for (let i = 0; i < 10; i++) { now += 251; engine.update(0.001); }
   for (const color of [BLUE, RED, GREEN, YELLOW]) {
     assert.equal(engine.pixels.filter(p => p.baseId === color).length, 10);
-    assert.equal(engine.pixels.filter(p => p.baseId === `boosted-${color}`).length, 20);
+    assert.equal(engine.pixels.filter(p => p.baseId === `boosted-${color}`).length, 10 * OVERDRIVE_MULTIPLIER);
   }
   assert.equal(engine.pixels.filter(p => p.baseId === 'sphere' || p.baseId === '#6b7280').length, 0);
 });

@@ -24,7 +24,7 @@ A deterministic seed reproduces the complete map definition, including faction a
 
 ## Difficulty and result screens
 
-Hard Mode is the original skull-icon On/Off control restored from commit `13aa334`, with the current audio buttons' hover, focus, sound and transition behavior. It is available for Chapter 1, level tests, Quick Match, and Chaos Mode. Difficulty is fixed when a battle starts and retained across retries, new maps and campaign progression. Hard doubles enemy planet ship production and uses a warmer background; AI decisions, maps and starting ships do not change with difficulty. It defaults to Off on page load.
+Hard Mode is the original skull-icon On/Off control restored from commit `13aa334`, with the current audio buttons' hover, focus, sound and transition behavior. It is available for Chapter 1, level tests, Quick Match, and Chaos Mode. Difficulty is fixed when a battle starts and retained across retries, new maps and campaign progression. Hard uses the current more aggressive AI and warmer background; maps and starting ships do not change with difficulty. It defaults to Off on page load.
 
 Only Quick Match and Chaos Mode use the generated-map result actions. Defeat shows New Map, Play Again and Main menu. Victory shows New Map and Main menu. New Map creates a new battlefield in the same mode and difficulty. Play Again resets the exact same opening. Campaign result actions and saved progression remain separate; generated victories never mark a campaign mission complete. Existing chapter-level test options remain in the mode picker.
 
@@ -77,7 +77,7 @@ A 2500 × 2500 static battlefield rotated into a west-to-east confrontation. Blu
 - Central route: capture the cheap neutral supply world to reach the western Overdrive site. The exact center planet is also a marked Overdrive world. Another marked site and a red gate lead toward the eastern capital.
 - Upper route: neutral harbour, entry, and relay worlds lead into the central ring or through the neutral bastion and approach toward the red outpost.
 - Lower route: a matching neutral flank leads into the ring or toward the red lookout.
-- All seven marked planets sit within 500 units of the map center and produce only Overdrive. Neither faction starts with a weapon source. One captured site generates a charge in 60 seconds, two take 30 seconds, and seven take about 9 seconds. Losing all sites pauses future generation; an already earned charge remains available. For 7.5 seconds, Overdrive sets one owned planet's total production to the combined normal production of all other currently owned producing planets, with its own normal rate as a minimum. Dyson spheres and active Overdrive bonuses are excluded from that total. The rate follows territory changes each production cycle, retains Hard Mode production bonuses, and respects the faction ship cap and low-garrison allowance.
+- All seven marked planets sit within 500 units of the map center and produce only Overdrive. Neither faction starts with a weapon source. One captured site generates a charge in 60 seconds, two take 30 seconds, and seven take about 9 seconds. Losing all sites pauses future generation; an already earned charge remains available. Overdrive multiplies production on one owned planet by seven for 7.5 seconds, yielding 50% more extra ships than the former triple-production burst lasting 15 seconds.
 
 Winning First Strike starts The Breach Line in the current run. Winning The Breach Line starts The Turning Tide. No tutorial prompts repeat after Mission 1.
 

@@ -2,7 +2,7 @@ import { Base, Pixel, type SuperweaponId } from './types';
 import { drawPlanetEffects, drawRepelledShips, type RepelledShip } from './planetEffects';
 import { canIssueFleetOrder, connectedFriendlyIds } from './logistics';
 import { TacticalAI } from './ai';
-import { assignQuickMatchSuperweaponPlanets, isPointAccessible, SUPERWEAPON_CHARGE_INTERVAL_SECONDS, SUPERWEAPON_IDS, SUPERWEAPON_MAX_CHARGES, OVERDRIVE_DURATION, REPULSE_DURATION, type SuperweaponTargetMode } from './superweapons';
+import { assignQuickMatchSuperweaponPlanets, isPointAccessible, SUPERWEAPON_CHARGE_INTERVAL_SECONDS, SUPERWEAPON_IDS, SUPERWEAPON_MAX_CHARGES, OVERDRIVE_DURATION, OVERDRIVE_MULTIPLIER, REPULSE_DURATION, type SuperweaponTargetMode } from './superweapons';
 import { superweaponIconLayout } from './superweaponVisuals';
 import { drawWeaponBadge } from './weaponBadges';
 import { galaxyAppearance, type GalaxyTheme } from './galaxy';
@@ -646,13 +646,6 @@ export class GameEngine {
         }
       }
       for (const [color, count] of factionCounts) this.updateShipLimit(color, count);
-      // Sum normal production once per cycle; active Overdrives never amplify each other.
-      const factionProduction = new Map<string, number>();
-      for (const base of this.bases.values()) {
-        if (base.color === '#6b7280' || base.isDysonSphere) continue;
-        const normalProduction = this.isHardMode && base.color !== '#3b82f6' ? 2 : 1;
-        factionProduction.set(base.color, (factionProduction.get(base.color) ?? 0) + normalProduction);
-      }
       for (const base of this.bases.values()) {
         if (base.color !== '#6b7280' && !base.isDysonSphere) {
           const factionCount = factionCounts.get(base.color) ?? 0;
@@ -661,11 +654,7 @@ export class GameEngine {
           // preserves the inclusive exception: a garrison of 40 can still grow.
           const allowance = Math.max(FACTION_SHIP_LIMIT - factionCount, LOW_GARRISON_THRESHOLD + 1 - garrisonCount, 0);
           if (allowance === 0) continue;
-          const normalProduction = this.isHardMode && base.color !== '#3b82f6' ? 2 : 1;
-          const production = base.overdrive
-            ? Math.max(normalProduction, (factionProduction.get(base.color) ?? 0) - normalProduction)
-            : normalProduction;
-          const count = Math.min(allowance, production);
+          const count = Math.min(allowance, base.overdrive ? OVERDRIVE_MULTIPLIER : 1);
           if (base.overdrive) {
             base.overdrive.pulse = 1;
             this.createExplosion(base.x, base.y, '#ffbd59', 8);

@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { Check, ChevronRight, Layers, Orbit, Swords, X } from 'lucide-react';
 import { playSound } from '../audio';
 import './ModeCard.css';
-import { HardModeButton } from './HardModeButton';
 import { progressLabel, type ModeId, type Progress } from '../game/campaign';
 
 type Mode = { id: ModeId; title: string; subtitle: string; description: string; accent: string; rgb: string; label: string };
@@ -34,7 +33,7 @@ function CardContent({ mode, compact = false }: { mode: Mode; compact?: boolean 
   </>;
 }
 
-export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress, isHardMode, setIsHardMode }: { isSoundEnabled: boolean; selectedMode: ModeId; onSelectMode: (mode: ModeId) => void; progress: Progress; isHardMode: boolean; setIsHardMode: (value: boolean) => void }) {
+export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress }: { isSoundEnabled: boolean; selectedMode: ModeId; onSelectMode: (mode: ModeId) => void; progress: Progress }) {
   const selected = mainModes.find(mode => mode.id === selectedMode) ?? mainModes[0];
   const dialog = useRef<HTMLDialogElement>(null);
   const changeButton = useRef<HTMLButtonElement>(null);
@@ -58,7 +57,7 @@ export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress,
   }, []);
 
   return <>
-    <section aria-label="Selected game mode" className={`mode-card mode-current ${selected.id === 'quick-match' ? 'mode-quick' : selected.id === 'chaos-mode' ? 'mode-chaos' : ''}`}>
+    <section aria-label="Selected game mode" className={`mode-card mode-current ${selected.id === 'chaos-mode' ? 'mode-chaos' : ''}`}>
       <Artwork mode={selected} />
       <CardContent mode={selected} />
       <div className="mode-footer">
@@ -67,25 +66,20 @@ export function ModeCard({ isSoundEnabled, selectedMode, onSelectMode, progress,
       </div>
     </section>
     {createPortal(<dialog ref={dialog} aria-labelledby="mode-picker-title" className="mode-dialog">
-      <div className="mode-dialog-panel">
-        <header className="mode-dialog-header">
-          <div><p className="mode-dialog-kicker">Your next operation</p><h2 id="mode-picker-title">Choose your battlefield</h2></div>
-          <div className="mode-dialog-actions">
-            <button type="button" aria-label="Close mode selection" onClick={() => dialog.current?.close()} className="mode-close"><X size={22} /></button>
-            <HardModeButton isHardMode={isHardMode} setIsHardMode={setIsHardMode} isSoundEnabled={isSoundEnabled} compact />
-          </div>
-        </header>
-        <div className="mode-grid">
-          {mainModes.map(mode => (
-            <button key={mode.id} type="button" aria-label={`Select ${mode.title}`} aria-pressed={selected.id === mode.id} onClick={() => { onSelectMode(mode.id); playSound('select', isSoundEnabled); dialog.current?.close(); }} className={`mode-card mode-option ${mode.id === 'quick-match' ? 'mode-quick' : mode.id === 'chaos-mode' ? 'mode-chaos' : ''} ${selected.id === mode.id ? 'is-selected' : ''}`}>
-              <Artwork mode={mode} />
-              <CardContent mode={mode} compact />
-              <div className="mode-footer"><span className="mode-meta">{progressLabel(mode.id, progress)}</span><span className="mode-select">{selected.id === mode.id ? <><Check size={15} /> Selected</> : <>Select <ChevronRight size={16} /></>}</span></div>
-            </button>
-          ))}
-        </div>
-        <p className="mode-dialog-hint">Select a mode, then launch from the main menu.</p>
+      <header className="mode-dialog-header">
+        <div><p className="mode-dialog-kicker">Your next operation</p><h2 id="mode-picker-title">Choose your battlefield</h2></div>
+        <button type="button" aria-label="Close mode selection" onClick={() => dialog.current?.close()} className="mode-close"><X size={22} /></button>
+      </header>
+      <div className="mode-grid">
+        {mainModes.map(mode => (
+          <button key={mode.id} type="button" aria-label={`Select ${mode.title}`} aria-pressed={selected.id === mode.id} onClick={() => { onSelectMode(mode.id); playSound('select', isSoundEnabled); dialog.current?.close(); }} className={`mode-card mode-option ${mode.id === 'chaos-mode' ? 'mode-chaos' : ''} ${selected.id === mode.id ? 'is-selected' : ''}`}>
+            <Artwork mode={mode} />
+            <CardContent mode={mode} compact />
+            <div className="mode-footer"><span className="mode-meta">{progressLabel(mode.id, progress)}</span><span className="mode-select">{selected.id === mode.id ? <><Check size={15} /> Selected</> : <>Select <ChevronRight size={16} /></>}</span></div>
+          </button>
+        ))}
       </div>
+      <p className="mode-dialog-hint">Select a mode, then launch from the main menu.</p>
     </dialog>, document.body)}
   </>;
 }

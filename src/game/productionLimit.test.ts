@@ -32,64 +32,6 @@ test('ordinary production stays unchanged below the limit, including neutral and
   assert.equal(count(RED), 100);
 });
 
-test('Hard mode doubles every enemy color while player, neutral and Dyson production stay unchanged', () => {
-  for (const hard of [false, true]) {
-    const { engine, tick, count } = match();
-    engine.isHardMode = hard;
-    const enemies = [RED, GREEN, YELLOW, '#ff8fc7'];
-    for (const [index, color] of [BLUE, ...enemies, NEUTRAL].entries()) {
-      engine.addBase(color, 1000 + index * 2500, 1000, color, 10);
-    }
-    engine.addBase('sphere', 1000, 5000, RED, 0);
-    engine.bases.get('sphere')!.isDysonSphere = true;
-    tick(); tick();
-    assert.equal(count(BLUE), 12);
-    assert.equal(count(NEUTRAL), 10);
-    for (const color of enemies) assert.equal(count(color), hard ? 14 : 12);
-    assert.equal(engine.bases.get('sphere')!.pixelCount, 0);
-  }
-});
-
-test('Hard mode doubles enemy Overdrive production and follows current planet ownership', () => {
-  const { engine, tick, stationed } = match();
-  engine.isHardMode = true;
-  engine.addBase('enemy', 1000, 1000, RED, 10);
-  engine.addBase('player', 5000, 1000, BLUE, 10);
-  for (const [index, color] of [RED, BLUE].entries()) {
-    for (let i = 0; i < 3; i++) engine.addBase(`support-${color}-${i}`, 1000 + i * 2500, 5000 + index * 3000, color, 0);
-  }
-  for (const base of engine.bases.values()) base.overdrive = { color: base.color, remaining: 7.5, pulse: 0 };
-  tick();
-  assert.equal(stationed('enemy'), 16);
-  assert.equal(stationed('player'), 13);
-  const captured = engine.bases.get('enemy')!;
-  captured.color = BLUE;
-  for (const ship of engine.pixels) if (ship.baseId === captured.id) ship.color = BLUE;
-  engine.recordPlanetCapture(captured.id, BLUE);
-  tick();
-  assert.equal(stationed('enemy'), 17);
-});
-
-test('Hard mode production respects the faction cap and stops the low-garrison exception at 41', () => {
-  for (const boosted of [false, true]) {
-    const { engine, tick, count, stationed } = match();
-    engine.isHardMode = true;
-    engine.addBase('stock', 1000, 1000, RED, FACTION_SHIP_LIMIT - 1);
-    engine.addBase('small', 5000, 1000, GREEN, 39);
-    engine.addBase('green-stock', 5000, 5000, GREEN, FACTION_SHIP_LIMIT);
-    if (boosted) {
-      for (const id of ['stock', 'small']) {
-        const base = engine.bases.get(id)!;
-        base.overdrive = { color: base.color, remaining: 7.5, pulse: 0 };
-      }
-    }
-    tick(); tick();
-    assert.equal(count(RED), FACTION_SHIP_LIMIT);
-    assert.equal(stationed('small'), 41);
-    assert.equal(stationed('green-stock'), FACTION_SHIP_LIMIT);
-  }
-});
-
 test('all four factions have independent 15,000-ship limits', () => {
   assert.equal(FACTION_SHIP_LIMIT, 15_000);
   const { engine, tick, count } = match();
@@ -168,8 +110,7 @@ test('garrison allowance uses live stationed ships rather than stale planet coun
 
 test('Overdrive production respects remaining faction allowance', () => {
   const { engine, tick, count } = match();
-  engine.addBase('boosted', 1000, 1000, BLUE, FACTION_SHIP_LIMIT - 2 - 5 * 41);
-  for (let i = 0; i < 5; i++) engine.addBase(`support-${i}`, 3000 + i * 1000, 1000, BLUE, 41);
+  engine.addBase('boosted', 1000, 1000, BLUE, FACTION_SHIP_LIMIT - 2);
   engine.bases.get('boosted')!.overdrive = { color: BLUE, remaining: 7.5, pulse: 0 };
   tick();
   assert.equal(count(BLUE), FACTION_SHIP_LIMIT);

@@ -3,10 +3,9 @@ import { createMatch } from './game/mapLoader';
 import { createGeneratedMap } from './game/generatedMaps';
 import { CHAPTERS, DYSON_SPHERE_ID, SIEGE_OF_HELIOS, completeMission, followingMission, getOutcome, isChapterOneTestMode, isGeneratedMode, launchMission, loadProgress, mapOrbits, nextMission, saveProgress, testLevelForMode, type MapDefinition, type ModeId, type Progress } from './game/campaign';
 import { motion } from 'motion/react';
-import { Maximize, Minimize, Volume2, VolumeX, Music, Pause, Play, Flag, Shield } from 'lucide-react';
+import { Maximize, Minimize, Volume2, VolumeX, Music, Pause, Play, Flag, Shield, Skull } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
 import { ModeCard } from './ui/ModeCard';
-import { HardModeButton } from './ui/HardModeButton';
 import { SuperweaponButton } from './ui/SuperweaponButton';
 import { AnimatedGamePopup } from './ui/AnimatedGamePopup';
 import { ChapterVictoryScreen, preloadChapterVictoryArtwork } from './ui/ChapterVictoryScreen';
@@ -152,7 +151,7 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
           </p>
         </motion.div>
 
-        <ModeCard isSoundEnabled={isSoundEnabled} selectedMode={selectedMode} onSelectMode={onSelectMode} progress={progress} isHardMode={isHardMode} setIsHardMode={setIsHardMode} />
+        <ModeCard isSoundEnabled={isSoundEnabled} selectedMode={selectedMode} onSelectMode={onSelectMode} progress={progress} />
         {saveWarning && <p className="mt-2 text-amber-300 text-xs">Progress cannot be saved in this browser session.</p>}
 
         {/* Action Button */}
@@ -234,7 +233,24 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
             {isSoundEnabled ? 'Sound: On' : 'Sound: Off'}
           </button>
 
-          <HardModeButton isHardMode={isHardMode} setIsHardMode={setIsHardMode} isSoundEnabled={isSoundEnabled} />
+          <button
+            type="button"
+            aria-pressed={isHardMode}
+            onMouseEnter={() => playSound('hover', isSoundEnabled)}
+            onClick={() => {
+              const newState = !isHardMode;
+              setIsHardMode(newState);
+              if (newState) playSound('click', isSoundEnabled);
+            }}
+            className={`flex items-center gap-2 px-4 py-2 border transition-all rounded-sm font-mono text-xs tracking-widest uppercase group ${
+              isHardMode
+                ? 'bg-red-900/30 border-red-500/50 text-red-400'
+                : 'bg-cyan-950/40 border-cyan-500/30 text-cyan-500/60 hover:text-cyan-400 hover:border-cyan-400/50 hover:bg-cyan-900/30'
+            }`}
+          >
+            <Skull size={14} className={`group-hover:scale-110 transition-transform ${!isHardMode && 'opacity-50'}`} />
+            {isHardMode ? 'Hard Mode: On' : 'Hard Mode: Off'}
+          </button>
 
         </motion.div>
         </div>
@@ -1683,7 +1699,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         const enemySelected = !!planet && planet.color !== '#3b82f6';
         const weapons = ['overdrive', 'omni', 'repulse'] as SuperweaponId[];
         const labels = { omni: 'Omni Strike', overdrive: 'Production Overdrive', repulse: 'Repulse Shield' };
-        const descriptions = { omni: 'Warp 30% of every idle fleet here', overdrive: 'Match all your other planets\u2019 combined normal production for 7.5 seconds; never below this planet\u2019s normal rate', repulse: 'Repel and destroy arrivals / 6 seconds' };
+        const descriptions = { omni: 'Warp 30% of every idle fleet here', overdrive: '7x production / 7.5 seconds', repulse: 'Repel and destroy arrivals / 6 seconds' };
         const renderBar = (state: 'normal' | 'enemy') => {
           const showSelectMode = state === 'normal' && engine.multiSelectEnabled;
           const shownPlanet = planet && (state === 'normal') === (planet.color === '#3b82f6') ? planet : undefined;
@@ -1691,7 +1707,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
             onPointerDown={event => event.stopPropagation()} onTouchStart={event => event.stopPropagation()}>
             <div className="planet-command-content">
           {showSelectMode && <div className="planet-selection-control">
-          <span id="select-mode-requirement" className="planet-control-label">{ownedPlanetCount} / {MIN_MULTI_SELECT_PLANETS} OWNED</span>
+          <span id="select-mode-requirement" className="planet-control-label">{Math.min(ownedPlanetCount, MIN_MULTI_SELECT_PLANETS)} / {MIN_MULTI_SELECT_PLANETS} OWNED</span>
           <button className="planet-multi-select" aria-label="Select mode: select friendly planets" aria-pressed={multiSelectMode}
             aria-describedby="select-mode-requirement" disabled={ownedPlanetCount < MIN_MULTI_SELECT_PLANETS}
             title={ownedPlanetCount < MIN_MULTI_SELECT_PLANETS ? `Requires ${MIN_MULTI_SELECT_PLANETS} owned planets. Currently ${ownedPlanetCount}.` : 'Drag to select friendly planets, then choose a friendly target. PC: right-click drag. Escape: cancel.'}
