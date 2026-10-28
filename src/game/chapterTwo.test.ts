@@ -10,8 +10,8 @@ test('Chapter 2 progresses through five distinct maps and introduces pink after 
   assert.deepEqual(CHAPTERS['chapter-2'].maps, CHAPTER_TWO_MAPS);
   assert.deepEqual(CHAPTER_TWO_MAPS.map(map => map.title), ['The Spiral Breach', 'The Pink Frontier', 'Shifting Fronts', 'The Three Fortresses', 'The Galactic Crown']);
   assert.equal(CHAPTER_TWO_MAPS[0].planets.length, 92);
-  assert.deepEqual(CHAPTER_TWO_MAPS.slice(1).map(map => map.planets.length), [79, 92, 101, 151]);
-  assert.deepEqual(CHAPTER_TWO_MAPS.map(map => mapOrbits(map).length), [3, 3, 3, 3, 6]);
+  assert.deepEqual(CHAPTER_TWO_MAPS.slice(1).map(map => map.planets.length), [149, 92, 101, 151]);
+  assert.deepEqual(CHAPTER_TWO_MAPS.map(map => mapOrbits(map).length), [3, 4, 3, 3, 6]);
   const first = CHAPTER_TWO_MAPS[0];
   assert.ok(!first.planets.some(planet => planet.owner === PINK));
   assert.deepEqual(first.planets.find(planet => planet.owner === PLAYER)!.superweaponUnlocks, ['conversion']);
@@ -188,8 +188,10 @@ test('an undocked ferry must have a real future boarding contact to pass map val
 
 test('chapter layouts place Pink then Blue at the center, preserve specialty systems, and put finale Pink on an edge', () => {
   const pinkMap = CHAPTER_TWO_MAPS[1], playerMap = CHAPTER_TWO_MAPS[2], fortress = CHAPTER_TWO_MAPS[3], finale = CHAPTER_TWO_MAPS[4];
-  const pinkOrbit = mapOrbits(pinkMap).find(orbit => orbit.planetIds.some(id => pinkMap.planets.some(planet => planet.id === id && planet.owner === PINK)))!;
-  assert.ok(Math.hypot(pinkOrbit.x - pinkMap.width / 2, pinkOrbit.y - pinkMap.height / 2) < 400);
+  const pink = pinkMap.planets.find(planet => planet.capital && planet.owner === PINK)!;
+  assert.equal(pink.x, pinkMap.width / 2);
+  assert.equal(pink.y, pinkMap.height / 2);
+  assert.ok(mapOrbits(pinkMap).every(orbit => !orbit.planetIds.includes(pink.id)));
   const player = playerMap.planets.find(planet => planet.owner === PLAYER)!;
   assert.ok(Math.hypot(player.x - playerMap.width / 2, player.y - playerMap.height / 2) < 250);
   assert.equal(playerMap.planets.filter(planet => planet.capital && planet.owner !== PLAYER).length, 3);
@@ -200,9 +202,45 @@ test('chapter layouts place Pink then Blue at the center, preserve specialty sys
     assert.equal(worlds.length, 24);
     assert.ok(worlds.every(planet => planet.superweaponUnlocks?.join() === CHAPTER_TWO_WEAPONS[index]));
   }
-  const pink = finale.planets.find(planet => planet.owner === PINK)!;
-  assert.ok(pink.x > finale.width * 0.85 && pink.y < finale.height * 0.25);
+  const edgePink = finale.planets.find(planet => planet.owner === PINK)!;
+  assert.ok(edgePink.x > finale.width * 0.85 && edgePink.y < finale.height * 0.25);
   assert.ok([...FACTIONS, PINK].every(color => finale.planets.some(planet => planet.owner === color && planet.capital)));
+});
+
+test('the Pink introduction has four edge arsenals, corner starts, and a stationary split center with permanent routes', () => {
+  const map = CHAPTER_TWO_MAPS[1], orbits = mapOrbits(map);
+  assert.equal(orbits.length, 4);
+  for (const orbit of orbits) {
+    const vertical = orbit.x === map.width / 2;
+    assert.ok(vertical ? orbit.y < map.height / 4 || orbit.y > map.height * 3 / 4
+      : orbit.y === map.height / 2 && (orbit.x < map.width / 4 || orbit.x > map.width * 3 / 4));
+    const worlds = map.planets.filter(planet => orbit.planetIds.includes(planet.id));
+    assert.equal(worlds.length, 12);
+    assert.ok(worlds.every(planet => planet.owner === NEUTRAL && !planet.capital
+      && planet.superweaponUnlocks?.join() === (vertical ? 'conversion' : 'omni')));
+  }
+  const core = map.planets.filter(planet => planet.id.includes('-core-'));
+  assert.equal(core.length, 24);
+  for (const planet of core) {
+    if (planet.y < map.height / 2 - 100) assert.deepEqual(planet.superweaponUnlocks, ['repulse']);
+    if (planet.y > map.height / 2 + 100) assert.deepEqual(planet.superweaponUnlocks, ['omni']);
+  }
+  assert.ok([...FACTIONS, PINK].every(color => map.planets.some(planet => planet.owner === color && planet.capital)));
+  for (const capital of map.planets.filter(planet => planet.capital && planet.owner !== PINK)) {
+    assert.ok((capital.x < map.width / 4 || capital.x > map.width * 3 / 4)
+      && (capital.y < map.height / 4 || capital.y > map.height * 3 / 4));
+  }
+  const moving = new Set(orbits.flatMap(orbit => orbit.planetIds));
+  const fixed = map.planets.filter(planet => !moving.has(planet.id));
+  const reached = new Set([fixed[0].id]), queue = [fixed[0]];
+  for (const planet of queue) for (const other of fixed) {
+    if (!reached.has(other.id) && Math.hypot(planet.x - other.x, planet.y - other.y) <= map.attackRange) {
+      reached.add(other.id); queue.push(other);
+    }
+  }
+  assert.equal(reached.size, fixed.length, 'corner approaches and the center stay connected without using an orbiting world');
+  const d = (a: typeof core[number], b: typeof core[number]) => Math.hypot(a.x - b.x, a.y - b.y);
+  assert.ok(core.filter(planet => map.planets.filter(other => other !== planet && d(planet, other) <= map.attackRange).length >= 3).length >= 20);
 });
 
 test('direct test starts launch every Chapter 2 level and retry clears probe and construction state', () => {

@@ -181,20 +181,63 @@ function spiralBreach() {
 }
 
 function pinkFrontier() {
-  const map = new Battlefield('frontier-purple-frontier', 7600, 7600);
-  const pink = { x: 3800, y: 3600 }, blue = { x: 1300, y: 6000 }, red = { x: 6300, y: 5600 };
-  map.system('pink-core', pink, PINK, 6, 'conversion', 210, { weapon: 'conversion' });
-  map.system('blue', blue, BLUE, 3, 'conversion', 270);
-  map.system('red', red, RED, 1, 'repulse', 300);
-  map.connect(blue, pink);
-  map.connect(red, pink);
-  // A southern bypass lets the outside factions meet without first conquering Pink.
-  map.lane([{ x: 1300, y: 6950 }, { x: 3100, y: 6900 }, { x: 5000, y: 6750 }, { x: 6300, y: 6550 }]);
-  // Longer flanks offer weapon sites and an alternative to the two direct core approaches.
-  map.lane([{ x: 1300, y: 5050 }, { x: 1400, y: 3600 }, { x: 1800, y: 2100 }, { x: 2800, y: 1900 }, { x: 3800, y: 2650 }], 'omni');
-  map.lane([{ x: 3800, y: 2650 }, { x: 4800, y: 1800 }, { x: 6000, y: 2100 }, { x: 6300, y: 3600 }, { x: 6300, y: 4650 }], 'repulse');
-  return map.finish('The Pink Frontier', 'Pink occupies the central conversion system. Blue and Red approach from the south, with long weapon-rich flanks around the core and a southern bypass between their home systems. Raid Pink’s new factories before they finish, or seize the outer weapons to force a breakthrough.', true,
-    'Pink transforms worlds it holds: existing weapon sources are stripped after 30 seconds, and Conversion Probe production begins after 60. Capture a world to interrupt construction. Completed conversion sites stay valuable when captured.');
+  const map = new Battlefield('frontier-purple-frontier', 6000, 6000);
+  const center = { x: 3000, y: 3000 };
+  // The four former corner systems now sit on the cardinal edges. Their
+  // arsenals stay homogeneous until Pink captures and transforms their worlds.
+  for (const system of [
+    { name: 'north', x: 3000, y: 1050, weapon: 'conversion' },
+    { name: 'south', x: 3000, y: 4950, weapon: 'conversion' },
+    { name: 'west', x: 1050, y: 3000, weapon: 'omni' },
+    { name: 'east', x: 4950, y: 3000, weapon: 'omni' },
+  ] as const) {
+    map.system(system.name, system, NEUTRAL, 0, undefined, 240, { weapon: system.weapon });
+    for (const planet of map.planets.filter(planet => planet.id.startsWith(`${map.id}-${system.name}-`))) planet.ships = 16;
+  }
+
+  // A broad stationary center replaces Helios's fifth star. Four-neighbor
+  // neighborhoods form upper Shield and lower Omni districts around Pink.
+  const random = seededRandom(0xc02f17);
+  for (let row = -2; row <= 2; row++) for (let col = -2; col <= 2; col++) {
+    const capital = row === 0 && col === 0;
+    const point = capital ? center : {
+      x: center.x + col * 470 + (random() - 0.5) * 30,
+      y: center.y + row * 470 + (random() - 0.5) * 30,
+    };
+    const weapon = capital ? 'conversion' : row < 0 || row === 0 && col < 0 ? 'repulse' : 'omni';
+    const planet = map.world(point, weapon, capital ? 280 : 18,
+      capital ? `${map.id}-pink-capital` : `${map.id}-core-${row + 2}-${col + 2}`);
+    if (capital) { planet.owner = PINK; planet.capital = true; }
+  }
+
+  const rotate = (point: Point, turns: number): Point => {
+    let result = point;
+    for (let turn = 0; turn < turns; turn++) result = { x: map.width - result.y, y: result.x };
+    return result;
+  };
+  // Each corner has a 3x3 starting district and two broad approaches. The
+  // inner ports also meet the center, preserving routes without boarding a star.
+  for (const [turns, faction] of ([
+    { name: 'red', owner: RED }, { name: 'green', owner: GREEN },
+    { name: 'yellow', owner: YELLOW }, { name: 'blue', owner: BLUE },
+  ] as const).entries()) {
+    for (let row = -1; row <= 1; row++) for (let col = -1; col <= 1; col++) {
+      const capital = row === 0 && col === 0;
+      const planet = map.world(rotate({ x: 950 + col * 450, y: 950 + row * 450 }, turns), undefined,
+        capital ? faction.owner === BLUE ? 320 : 240 : 16,
+        capital ? `${map.id}-${faction.name}-capital` : `${map.id}-${faction.name}-corner-${row + 1}-${col + 1}`);
+      if (capital) { planet.owner = faction.owner; planet.capital = true; }
+    }
+    const arm = [
+      { x: 1850, y: 600 }, { x: 1850, y: 1050 }, { x: 1850, y: 1500 },
+      { x: 2250, y: 550 }, { x: 2250, y: 1550 },
+    ];
+    for (const [index, point] of [...arm, ...arm.map(point => ({ x: point.y, y: point.x }))].entries()) {
+      map.world(rotate(point, turns), undefined, 18, `${map.id}-${faction.name}-approach-${index}`);
+    }
+  }
+  return map.finish('The Pink Frontier', 'Four corner factions surround Pink’s stationary central capital. The upper center produces Repulse Shields; the lower center produces Omni Strikes. Conversion systems rotate along the north and south edges, while the western and eastern systems produce Omni Strike. Expand through either neighboring arsenal, take the fixed routes into the center, and contest Pink’s spreading factories.', true,
+    'Pink transforms worlds it holds: existing weapon sources are stripped after 30 seconds, and Conversion Probe production begins after 60. Capture a world to interrupt construction. Completed conversion sites stay valuable when captured. Every faction begins with only its capital.');
 }
 
 function shiftingFronts() {
