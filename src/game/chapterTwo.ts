@@ -244,7 +244,7 @@ function pinkFrontier() {
     }
   }
   return map.finish('The Pink Frontier', 'Four corner factions surround Pink’s stationary central capital. The upper center produces Repulse Shields; the lower center produces Omni Strikes. Conversion systems rotate along the north and south edges, while the western and eastern systems produce Omni Strike. Expand through either neighboring arsenal, take the fixed routes into the center, and contest Pink’s spreading factories.', true,
-    'Pink transforms worlds it holds: existing weapon sources are stripped after 30 seconds, and Conversion Probe production begins after 60. Capture a world to interrupt construction. Completed conversion sites stay valuable when captured. Every faction begins with only its capital.');
+    'Pink changes one world every 5 seconds across its entire faction. Removing all existing weapon sources takes one action; adding Conversion Probe production takes another. A large pink burst marks each change. Capture a world to stop Pink from changing it. Completed conversion sites stay valuable when captured. Every faction begins with only its capital.');
 }
 
 function shiftingFronts() {

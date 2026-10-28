@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { GameEngine } from './engine';
 import { TacticalAI } from './ai';
-import { CHAPTER_TWO_WEAPONS, CONVERSION_PROBE_SPEED, PINK } from './superweapons';
+import { CHAPTER_TWO_WEAPONS, CONVERSION_PROBE_SPEED, PINK, PINK_TERRAFORM_INTERVAL_SECONDS } from './superweapons';
 import { resolveSuperweaponClick } from './popups';
-import { CONVERSION_ARRIVAL_DURATION } from './planetEffects';
+import { CONVERSION_ARRIVAL_DURATION, PINK_TERRAFORM_EFFECT_DURATION } from './planetEffects';
 
 const BLUE = '#3b82f6', RED = '#ef4444', NEUTRAL = '#6b7280';
 function match() {
@@ -217,42 +217,102 @@ test('conversion charging caps at four effective sites and stores only one charg
   engine.update(120); assert.equal(engine.getSuperweaponCharge(BLUE, 'conversion'), 1);
 });
 
-test('pink strips existing sources at 30 seconds and finishes an exclusive conversion source at 60', () => {
+test('pink strips all existing sources with one action, then builds a probe source on the next shared tick', () => {
+  assert.equal(PINK_TERRAFORM_INTERVAL_SECONDS, 5);
   const engine = match();
   engine.pinkTerraformingEnabled = true;
   const base = engine.bases.get('target')!;
   base.color = PINK; base.superweaponUnlocks = ['omni', 'repulse'];
-  engine.update(29);
+  engine.update(4);
   assert.deepEqual(base.superweaponUnlocks, ['omni', 'repulse']);
   engine.update(1); assert.deepEqual(base.superweaponUnlocks, []);
-  engine.update(29); assert.deepEqual(base.superweaponUnlocks, []);
+  assert.deepEqual(base.pinkTerraformEffect, { action: 'strip', remaining: PINK_TERRAFORM_EFFECT_DURATION });
+  engine.update(4); assert.deepEqual(base.superweaponUnlocks, []);
+  assert.equal(base.pinkTerraformEffect, undefined);
   engine.update(1); assert.deepEqual(base.superweaponUnlocks, ['conversion']);
+  assert.deepEqual(base.pinkTerraformEffect, { action: 'build', remaining: PINK_TERRAFORM_EFFECT_DURATION });
   assert.equal(engine.getSuperweaponCharge(PINK, 'conversion'), 0);
-  assert.equal(base.pinkTransformSeconds, undefined);
-  assert.equal(engine.getSuperweaponProgress(PINK, 'omni'), 0.5);
+  assert.equal(engine.getSuperweaponProgress(PINK, 'omni'), 5 / 60);
   engine.update(60); assert.equal(engine.getSuperweaponCharge(PINK, 'conversion'), 1);
-  assert.equal(engine.bases.get('blue')!.pinkTransformSeconds, undefined);
+  assert.equal(engine.bases.get('blue')!.pinkTerraformEffect, undefined);
+});
+
+test('multiple pink worlds share one action budget and already completed factories consume no actions', () => {
+  const engine = match(); engine.pinkTerraformingEnabled = true;
+  const first = engine.bases.get('target')!;
+  first.color = PINK; first.superweaponUnlocks = ['omni', 'repulse', 'conversion'];
+  engine.addBase('empty', 1500, 900, PINK, 0);
+  engine.addBase('complete', 1800, 900, PINK, 0);
+  const empty = engine.bases.get('empty')!, complete = engine.bases.get('complete')!;
+  complete.superweaponUnlocks = ['conversion'];
+  engine.update(5);
+  assert.deepEqual(first.superweaponUnlocks, []);
+  assert.equal(empty.superweaponUnlocks, undefined);
+  assert.equal(complete.pinkTerraformEffect, undefined);
+  engine.update(5);
+  assert.deepEqual(first.superweaponUnlocks, ['conversion']);
+  assert.equal(empty.superweaponUnlocks, undefined);
+  engine.update(5);
+  assert.deepEqual(empty.superweaponUnlocks, ['conversion'], 'an empty world needs only one action');
+  assert.equal(first.pinkTerraformEffect, undefined);
+  assert.equal(complete.pinkTerraformEffect, undefined);
+});
+
+test('new captures use the shared clock and idle intervals cannot be banked for simultaneous changes', () => {
+  const engine = match(); engine.pinkTerraformingEnabled = true;
+  engine.update(23);
+  const target = engine.bases.get('target')!, bridge = engine.bases.get('bridge')!;
+  target.color = PINK; bridge.color = PINK;
+  engine.recordPlanetCapture(target.id, PINK); engine.recordPlanetCapture(bridge.id, PINK);
+  engine.update(1);
+  assert.equal(target.superweaponUnlocks, undefined);
+  assert.equal(bridge.superweaponUnlocks, undefined);
+  engine.update(1);
+  assert.deepEqual(bridge.superweaponUnlocks, ['conversion']);
+  assert.equal(target.superweaponUnlocks, undefined, 'only one world changes after multiple idle ticks');
+  engine.update(5);
+  assert.deepEqual(target.superweaponUnlocks, ['conversion']);
 });
 
 test('large updates do not retroactively charge pink sources before they exist', () => {
   const engine = match(); engine.pinkTerraformingEnabled = true;
   engine.bases.get('target')!.color = PINK;
   engine.bases.get('target')!.superweaponUnlocks = ['repulse'];
-  engine.update(90);
-  assert.equal(engine.getSuperweaponProgress(PINK, 'repulse'), 0.5);
-  assert.equal(engine.getSuperweaponProgress(PINK, 'conversion'), 0.5);
+  engine.update(25);
+  assert.equal(engine.getSuperweaponProgress(PINK, 'repulse'), 5 / 60);
+  assert.equal(engine.getSuperweaponProgress(PINK, 'conversion'), 15 / 60);
+  assert.equal(engine.bases.get('target')!.pinkTerraformEffect, undefined, 'old animations expire within a large update');
 });
 
-test('captures reset unfinished pink construction and completed factories persist under new ownership', () => {
+test('shared actions keep their five-second cadence at 60 FPS and pause with a zero delta', () => {
   const engine = match(); engine.pinkTerraformingEnabled = true;
   const base = engine.bases.get('target')!;
-  base.color = PINK;
-  engine.update(40);
+  base.color = PINK; base.superweaponUnlocks = ['repulse'];
+  for (let frame = 0; frame < 299; frame++) engine.update(1 / 60);
+  assert.deepEqual(base.superweaponUnlocks, ['repulse']);
+  engine.update(1 / 60);
+  assert.deepEqual(base.superweaponUnlocks, []);
+  const frozenEffect = { ...base.pinkTerraformEffect };
+  engine.update(0);
+  assert.equal(engine.pinkTerraformSeconds, 0);
+  assert.deepEqual(base.pinkTerraformEffect, frozenEffect);
+  for (let frame = 0; frame < 300; frame++) engine.update(1 / 60);
+  assert.deepEqual(base.superweaponUnlocks, ['conversion']);
+});
+
+test('captures clear pink effects without resetting the faction clock and completed factories persist', () => {
+  const engine = match(); engine.pinkTerraformingEnabled = true;
+  const base = engine.bases.get('target')!;
+  base.color = PINK; base.superweaponUnlocks = ['repulse'];
+  engine.update(5);
+  assert.equal(base.pinkTerraformEffect?.action, 'strip');
+  engine.update(2);
   base.color = BLUE; engine.recordPlanetCapture(base.id, BLUE);
-  assert.equal(base.pinkTransformSeconds, undefined);
-  engine.update(60); assert.deepEqual(base.superweaponUnlocks, []);
+  assert.equal(base.pinkTerraformEffect, undefined);
+  assert.equal(engine.pinkTerraformSeconds, 2);
+  engine.update(1); assert.deepEqual(base.superweaponUnlocks, []);
   base.color = PINK; engine.recordPlanetCapture(base.id, PINK);
-  engine.update(59); assert.deepEqual(base.superweaponUnlocks, []);
+  engine.update(1); assert.deepEqual(base.superweaponUnlocks, []);
   engine.update(1); assert.deepEqual(base.superweaponUnlocks, ['conversion']);
   base.color = BLUE; engine.recordPlanetCapture(base.id, BLUE);
   engine.update(60);
@@ -260,16 +320,20 @@ test('captures reset unfinished pink construction and completed factories persis
   assert.equal(engine.getSuperweaponSourceCount(BLUE, 'conversion'), 2);
 });
 
-test('pink capitals are never retooled and transformation stays disabled on earlier maps', () => {
+test('pink capitals and Dyson spheres are never retooled and earlier maps keep the ability disabled', () => {
   const engine = match();
   const capital = engine.bases.get('red')!;
   capital.color = PINK; capital.superweaponUnlocks = ['repulse'];
+  engine.addBase('dyson', 2500, 500, PINK, 0);
+  const dyson = engine.bases.get('dyson')!; dyson.isDysonSphere = true; dyson.superweaponUnlocks = ['omni'];
   const normal = engine.bases.get('target')!; normal.color = PINK;
   engine.update(120); assert.equal(normal.superweaponUnlocks, undefined);
   engine.pinkTerraformingEnabled = true;
   engine.update(120);
   assert.deepEqual(capital.superweaponUnlocks, ['repulse']);
-  assert.equal(capital.pinkTransformSeconds, undefined);
+  assert.equal(capital.pinkTerraformEffect, undefined);
+  assert.deepEqual(dyson.superweaponUnlocks, ['omni']);
+  assert.equal(dyson.pinkTerraformEffect, undefined);
 });
 
 test('pink AI expands and targets shielded worlds with conversion without casting an ineffective shield', () => {

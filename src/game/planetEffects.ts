@@ -2,6 +2,7 @@ import type { Base } from './types';
 import { CONVERSION_COLOR, OVERDRIVE_DURATION, REPULSE_DURATION } from './superweapons';
 
 export const CONVERSION_ARRIVAL_DURATION = 1.2;
+export const PINK_TERRAFORM_EFFECT_DURATION = 2.4;
 
 export interface RepelledShip {
   x: number; y: number; vx: number; vy: number;
@@ -63,6 +64,69 @@ export function drawPlanetEffects(ctx: CanvasRenderingContext2D, base: Base, red
     ctx.restore();
   }
   drawConversionArrival(ctx, base, reducedMotion);
+}
+
+export function drawPinkTerraform(ctx: CanvasRenderingContext2D, base: Base, reducedMotion = false) {
+  const effect = base.pinkTerraformEffect;
+  if (!effect || effect.remaining <= 0 || base.color !== CONVERSION_COLOR) return;
+  const progress = Math.max(0, Math.min(1, 1 - effect.remaining / PINK_TERRAFORM_EFFECT_DURATION));
+  const building = effect.action === 'build';
+  const spread = reducedMotion ? 0.55 : 1 - Math.pow(1 - progress, 3);
+  const fade = Math.min(1, (1 - progress) * 3);
+  const radius = 42 + spread * 75;
+  ctx.save();
+  ctx.translate(base.x, base.y);
+  ctx.globalAlpha = fade;
+  ctx.shadowColor = CONVERSION_COLOR; ctx.shadowBlur = 28;
+  const halo = ctx.createRadialGradient(0, 0, 12, 0, 0, 145);
+  halo.addColorStop(0, '#fff0f8aa');
+  halo.addColorStop(0.3, '#ff8fc788');
+  halo.addColorStop(0.65, '#ec489944');
+  halo.addColorStop(1, '#ff8fc700');
+  ctx.fillStyle = halo;
+  ctx.beginPath(); ctx.arc(0, 0, 145, 0, Math.PI * 2); ctx.fill();
+
+  // Stripping blasts the old arsenal outward; building draws energy into the new factory.
+  ctx.strokeStyle = CONVERSION_COLOR; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.arc(0, 0, building ? 155 - radius : radius, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = '#ffe4f3'; ctx.lineWidth = 3;
+  ctx.save();
+  if (!reducedMotion) ctx.rotate((building ? -1 : 1) * progress * Math.PI * 1.5);
+  for (let index = 0; index < 3; index++) {
+    const angle = index * Math.PI * 2 / 3;
+    ctx.beginPath(); ctx.arc(0, 0, 62, angle, angle + Math.PI * 0.45); ctx.stroke();
+  }
+  ctx.restore();
+  if (!reducedMotion) {
+    ctx.fillStyle = '#ffd1e8'; ctx.strokeStyle = '#ff8fc7'; ctx.lineWidth = 3;
+    for (let index = 0; index < 12; index++) {
+      const angle = index * Math.PI / 6;
+      const r = building ? 138 - spread * 105 : 38 + spread * 100;
+      ctx.save(); ctx.rotate(angle);
+      if (building) {
+        ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(r + 28 * (1 - progress), 0); ctx.stroke();
+      } else {
+        ctx.translate(r, 0); ctx.rotate(progress * Math.PI);
+        ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(-5, 5); ctx.lineTo(-5, -5); ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  // A fixed central emblem and explicit label keep the two actions distinct at a glance.
+  ctx.shadowBlur = 12; ctx.strokeStyle = '#fff0f8'; ctx.lineWidth = 4;
+  ctx.beginPath();
+  if (building) {
+    ctx.moveTo(0, -24); ctx.lineTo(16, 12); ctx.lineTo(0, 5); ctx.lineTo(-16, 12); ctx.closePath();
+  } else {
+    ctx.moveTo(-14, -14); ctx.lineTo(14, 14); ctx.moveTo(14, -14); ctx.lineTo(-14, 14);
+  }
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#300c28'; ctx.fillRect(-128, 91, 256, 27);
+  ctx.fillStyle = '#ffe4f3'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText(building ? 'CONVERSION PROBE ONLINE' : 'SUPERWEAPONS REMOVED', 0, 110);
+  ctx.restore();
 }
 
 function drawConversionArrival(ctx: CanvasRenderingContext2D, base: Base, reducedMotion: boolean) {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { drawPlanetEffects } from './planetEffects';
+import { drawPlanetEffects, drawPinkTerraform } from './planetEffects';
 import { CONVERSION_COLOR } from './superweapons';
 import type { Base } from './types';
 
@@ -54,4 +54,38 @@ test('reduced motion removes arrival rotation and streaks, and stale effects do 
     drawPlanetEffects(inactive.ctx, base);
     assert.equal(inactive.calls.length, 0);
   }
+});
+
+test('pink removal and construction have large distinct bursts anchored to the live planet', () => {
+  for (const action of ['strip', 'build'] as const) {
+    const base: Base = { id: 'factory', x: 300, y: 400, color: CONVERSION_COLOR, pixelCount: 0,
+      pinkTerraformEffect: { action, remaining: 1.8 } };
+    const burst = recorder();
+    drawPinkTerraform(burst.ctx, base);
+    assert.ok(burst.colors.includes(CONVERSION_COLOR));
+    assert.deepEqual(burst.calls.find(call => call.method === 'translate')?.args, [300, 400]);
+    assert.ok(burst.calls.some(call => call.method === 'arc' && Number(call.args[2]) >= 100), 'burst extends well beyond the planet');
+    assert.equal(burst.calls.find(call => call.method === 'fillText')?.args[0],
+      action === 'strip' ? 'SUPERWEAPONS REMOVED' : 'CONVERSION PROBE ONLINE');
+    base.x = 500; base.y = 600;
+    const moved = recorder(); drawPinkTerraform(moved.ctx, base);
+    assert.deepEqual(moved.calls.find(call => call.method === 'translate')?.args, [500, 600]);
+    const reduced = recorder(); drawPinkTerraform(reduced.ctx, base, true);
+    assert.ok(!reduced.calls.some(call => call.method === 'rotate'));
+    assert.ok(reduced.calls.some(call => call.method === 'fillText'), 'reduced motion retains action feedback');
+    assert.ok(reduced.calls.length < burst.calls.length);
+  }
+});
+
+test('pink bursts stop after expiry or a change of ownership', () => {
+  const base: Base = { id: 'factory', x: 0, y: 0, color: CONVERSION_COLOR, pixelCount: 0 };
+  const absent = recorder(); drawPinkTerraform(absent.ctx, base);
+  assert.equal(absent.calls.length, 0);
+  base.pinkTerraformEffect = { action: 'strip', remaining: 0 };
+  const expired = recorder(); drawPinkTerraform(expired.ctx, base);
+  assert.equal(expired.calls.length, 0);
+  base.pinkTerraformEffect.remaining = 1;
+  base.color = '#3b82f6';
+  const captured = recorder(); drawPinkTerraform(captured.ctx, base);
+  assert.equal(captured.calls.length, 0);
 });

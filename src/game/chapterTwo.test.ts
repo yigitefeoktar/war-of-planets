@@ -250,12 +250,14 @@ test('direct test starts launch every Chapter 2 level and retry clears probe and
     assert.equal(launchMission(chapter, CHAPTER_TWO_MAPS.map(map => map.id)), CHAPTER_TWO_MAPS[index]);
   }
   const map = CHAPTER_TWO_MAPS[1], first = createMatch(map);
-  first.bases.values().next().value!.pinkTransformSeconds = 40;
+  first.pinkTerraformSeconds = 4;
+  first.bases.values().next().value!.pinkTerraformEffect = { action: 'strip', remaining: 2 };
   first.conversionProbes.push({ id: 0, capitalId: 'missing', targetId: 'missing', color: PLAYER, x: 0, y: 0 });
   const retry = createMatch(map);
   assert.equal(retry.conversionProbes.length, 0);
-  assert.ok([...retry.bases.values()].every(base => base.pinkTransformSeconds === undefined));
-  assert.ok(map.planets.every(planet => !('pinkTransformSeconds' in planet)));
+  assert.equal(retry.pinkTerraformSeconds, 0);
+  assert.ok([...retry.bases.values()].every(base => base.pinkTerraformEffect === undefined));
+  assert.ok(map.planets.every(planet => !('pinkTerraformEffect' in planet)));
 });
 
 test('map validation rejects four weapons and sources outside the selected three', () => {

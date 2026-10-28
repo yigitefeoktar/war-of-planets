@@ -1,9 +1,9 @@
 import { drawConversionShip, CONVERSION_TRAIL_SECONDS, type ConversionTrailPoint } from './conversionVisuals';
 import { Base, Pixel, type SuperweaponId } from './types';
-import { CONVERSION_ARRIVAL_DURATION, drawPlanetEffects, drawRepelledShips, type RepelledShip } from './planetEffects';
+import { CONVERSION_ARRIVAL_DURATION, PINK_TERRAFORM_EFFECT_DURATION, drawPinkTerraform, drawPlanetEffects, drawRepelledShips, type RepelledShip } from './planetEffects';
 import { canIssueFleetOrder, connectedFriendlyIds } from './logistics';
 import { TacticalAI } from './ai';
-import { ALL_SUPERWEAPON_IDS, PINK, PINK_STRIP_SECONDS, PINK_CONVERSION_SECONDS, CONVERSION_PROBE_SPEED, CONVERSION_MAX_EFFECTIVE_SOURCES, assignQuickMatchSuperweaponPlanets, isPointAccessible, SUPERWEAPON_CHARGE_INTERVAL_SECONDS, SUPERWEAPON_IDS, SUPERWEAPON_MAX_CHARGES, OVERDRIVE_DURATION, REPULSE_DURATION, type SuperweaponTargetMode } from './superweapons';
+import { ALL_SUPERWEAPON_IDS, PINK, PINK_TERRAFORM_INTERVAL_SECONDS, CONVERSION_PROBE_SPEED, CONVERSION_MAX_EFFECTIVE_SOURCES, assignQuickMatchSuperweaponPlanets, isPointAccessible, SUPERWEAPON_CHARGE_INTERVAL_SECONDS, SUPERWEAPON_IDS, SUPERWEAPON_MAX_CHARGES, OVERDRIVE_DURATION, REPULSE_DURATION, type SuperweaponTargetMode } from './superweapons';
 import { superweaponIconLayout } from './superweaponVisuals';
 import { drawWeaponBadge } from './weaponBadges';
 import { galaxyAppearance, type GalaxyTheme } from './galaxy';
@@ -89,6 +89,7 @@ export interface ConversionProbe {
 export class GameEngine {
   weaponPalette: readonly SuperweaponId[] = SUPERWEAPON_IDS;
   pinkTerraformingEnabled = false;
+  pinkTerraformSeconds = 0;
   conversionProbes: ConversionProbe[] = [];
   private nextProbeId = 0;
   onConversionLaunch?: (color: string, targetId: string) => void;
@@ -376,7 +377,7 @@ export class GameEngine {
 
   recordPlanetCapture(baseId: string, color: string) {
     const captured = this.bases.get(baseId);
-    if (captured) { captured.overdrive = undefined; captured.repulse = undefined; captured.pinkTransformSeconds = undefined; captured.conversionArrival = undefined; }
+    if (captured) { captured.overdrive = undefined; captured.repulse = undefined; captured.pinkTerraformEffect = undefined; captured.conversionArrival = undefined; }
     if (!this.superweaponUnlocksEnabled) return [];
     return this.bases.get(baseId)?.superweaponUnlocks ?? [];
   }
@@ -529,43 +530,42 @@ export class GameEngine {
 
   private updateSuperweaponSystems(dt: number) {
     if (!this.pinkTerraformingEnabled) {
+      this.pinkTerraformSeconds = 0;
+      this.updatePinkTerraformEffects(dt);
       if (this.superweaponUnlocksEnabled) this.updateSuperweaponCharges(dt);
       return;
     }
     let remaining = dt;
     while (remaining > 0) {
-      let step = remaining;
-      for (const base of this.bases.values()) {
-        if (base.color !== PINK || base.isCapital || base.isDysonSphere
-          || base.superweaponUnlocks?.length === 1 && base.superweaponUnlocks[0] === 'conversion') continue;
-        const elapsed = base.pinkTransformSeconds ?? 0;
-        step = Math.min(step, (elapsed < PINK_STRIP_SECONDS ? PINK_STRIP_SECONDS : PINK_CONVERSION_SECONDS) - elapsed);
-      }
+      // Charge only sources that exist during this slice, before the next shared action.
+      const step = Math.min(remaining, PINK_TERRAFORM_INTERVAL_SECONDS - this.pinkTerraformSeconds);
       if (this.superweaponUnlocksEnabled) this.updateSuperweaponCharges(step);
-      this.updatePinkTransformations(step);
+      this.updatePinkTerraformEffects(step);
+      this.pinkTerraformSeconds += step;
+      if (this.pinkTerraformSeconds >= PINK_TERRAFORM_INTERVAL_SECONDS - 1e-9) {
+        this.pinkTerraformSeconds = 0;
+        const target = this.getPinkTerraformTarget();
+        if (target) {
+          const action = target.superweaponUnlocks?.length ? 'strip' : 'build';
+          target.superweaponUnlocks = action === 'strip' ? [] : ['conversion'];
+          target.pinkTerraformEffect = { action, remaining: PINK_TERRAFORM_EFFECT_DURATION };
+        }
+      }
       remaining = Math.max(0, remaining - step);
     }
   }
 
-  private updatePinkTransformations(dt: number) {
-    if (!this.pinkTerraformingEnabled) return;
+  private getPinkTerraformTarget() {
+    return [...this.bases.values()].find(base => base.color === PINK && !base.isCapital && !base.isDysonSphere
+      && !(base.superweaponUnlocks?.length === 1 && base.superweaponUnlocks[0] === 'conversion'));
+  }
+
+  private updatePinkTerraformEffects(dt: number) {
     for (const base of this.bases.values()) {
-      if (base.color !== PINK || base.isCapital || base.isDysonSphere) {
-        base.pinkTransformSeconds = undefined;
-        continue;
-      }
-      if (base.superweaponUnlocks?.length === 1 && base.superweaponUnlocks[0] === 'conversion') {
-        base.pinkTransformSeconds = undefined;
-        continue;
-      }
-      base.pinkTransformSeconds = Math.min(PINK_CONVERSION_SECONDS, (base.pinkTransformSeconds ?? 0) + dt);
-      if (base.pinkTransformSeconds >= PINK_CONVERSION_SECONDS) {
-        base.superweaponUnlocks = ['conversion'];
-        base.pinkTransformSeconds = undefined;
-        this.createExplosion(base.x, base.y, '#ff8fc7', 24);
-      } else if (base.pinkTransformSeconds >= PINK_STRIP_SECONDS) {
-        base.superweaponUnlocks = [];
-      }
+      const effect = base.pinkTerraformEffect;
+      if (!effect) continue;
+      effect.remaining -= dt;
+      if (effect.remaining <= 0 || base.color !== PINK || !this.pinkTerraformingEnabled) base.pinkTerraformEffect = undefined;
     }
   }
 
@@ -1240,13 +1240,15 @@ export class GameEngine {
     const transform = ctx.getTransform();
     const zoom = Math.hypot(transform.a, transform.b);
     for (const probe of this.conversionProbes) drawConversionShip(ctx, probe, zoom);
-    for (const base of this.bases.values()) if (base.pinkTransformSeconds !== undefined) {
+    for (const planet of this.bases.values()) drawPinkTerraform(ctx, planet, this.reducedMotion);
+    const base = this.pinkTerraformingEnabled ? this.getPinkTerraformTarget() : undefined;
+    if (base) {
       const x = base.x - cameraX, y = base.y - cameraY;
-      const seconds = base.pinkTransformSeconds;
+      const seconds = this.pinkTerraformSeconds;
       ctx.strokeStyle = '#ff8fc7'; ctx.lineWidth = 4;
-      ctx.beginPath(); ctx.arc(x, y, 36, -Math.PI / 2, -Math.PI / 2 + seconds / PINK_CONVERSION_SECONDS * Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, 36, -Math.PI / 2, -Math.PI / 2 + seconds / PINK_TERRAFORM_INTERVAL_SECONDS * Math.PI * 2); ctx.stroke();
       ctx.fillStyle = '#ffd1e8'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText(`${seconds < PINK_STRIP_SECONDS ? 'RETOOL' : 'CONVERT'} ${Math.ceil(PINK_CONVERSION_SECONDS - seconds)}s`, x, y + 60);
+      ctx.fillText(`PINK ${base.superweaponUnlocks?.length ? 'STRIP' : 'BUILD'} ${Math.ceil(PINK_TERRAFORM_INTERVAL_SECONDS - seconds)}s`, x, y - (base.pinkTerraformEffect ? 165 : 55));
     }
     ctx.restore();
   }

@@ -16,7 +16,7 @@ export interface Base {
   isCapital?: boolean;
   isDysonSphere?: boolean;
   superweaponUnlocks?: SuperweaponId[];
-  pinkTransformSeconds?: number;
+  pinkTerraformEffect?: { action: 'strip' | 'build'; remaining: number };
   conversionArrival?: { color: string; remaining: number };
   overdrive?: PlanetEffect;
   repulse?: PlanetEffect;

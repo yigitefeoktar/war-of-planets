@@ -13,8 +13,7 @@ export const ALL_SUPERWEAPON_IDS: SuperweaponId[] = [...SUPERWEAPON_IDS, 'conver
 export const CHAPTER_TWO_WEAPONS: SuperweaponId[] = ['conversion', 'omni', 'repulse'];
 export const CONVERSION_COLOR = '#ff8fc7';
 export const PINK = CONVERSION_COLOR;
-export const PINK_STRIP_SECONDS = 30;
-export const PINK_CONVERSION_SECONDS = 60;
+export const PINK_TERRAFORM_INTERVAL_SECONDS = 5;
 // Twice the average attacking ship speed: 1.25 world units/frame * 1.5 * 60fps * 2.
 export const CONVERSION_PROBE_SPEED = 225;
 // Additional sites remain valuable without enabling near-continuous army theft.
