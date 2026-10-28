@@ -195,19 +195,21 @@ function pinkFrontier() {
     for (const planet of map.planets.filter(planet => planet.id.startsWith(`${map.id}-${system.name}-`))) planet.ships = 16;
   }
 
-  // A broad stationary center replaces Helios's fifth star. Four-neighbor
-  // neighborhoods form upper Shield and lower Omni districts around Pink.
+  // Uneven concentric neighborhoods round out the stationary center. These
+  // worlds do not orbit: their upper/lower weapon districts remain fixed.
   const random = seededRandom(0xc02f17);
-  for (let row = -2; row <= 2; row++) for (let col = -2; col <= 2; col++) {
-    const capital = row === 0 && col === 0;
-    const point = capital ? center : {
-      x: center.x + col * 470 + (random() - 0.5) * 30,
-      y: center.y + row * 470 + (random() - 0.5) * 30,
-    };
-    const weapon = capital ? 'conversion' : row < 0 || row === 0 && col < 0 ? 'repulse' : 'omni';
-    const planet = map.world(point, weapon, capital ? 280 : 18,
-      capital ? `${map.id}-pink-capital` : `${map.id}-core-${row + 2}-${col + 2}`);
-    if (capital) { planet.owner = PINK; planet.capital = true; }
+  const pink = map.world(center, 'conversion', 280, `${map.id}-pink-capital`);
+  pink.owner = PINK; pink.capital = true;
+  let coreIndex = 0;
+  for (const ring of [
+    { count: 12, radius: 995, variation: 55, phase: 0, angleVariation: 1.3 },
+    { count: 8, radius: 630, variation: 35, phase: 22.5, angleVariation: 3 },
+    { count: 4, radius: 325, variation: 15, phase: 5, angleVariation: 3 },
+  ]) for (let index = 0; index < ring.count; index++) {
+    const angle = (ring.phase + index * 360 / ring.count + (random() - 0.5) * ring.angleVariation * 2) * Math.PI / 180;
+    const radius = ring.radius + (random() - 0.5) * ring.variation * 2;
+    const point = { x: center.x + Math.cos(angle) * radius, y: center.y + Math.sin(angle) * radius };
+    map.world(point, point.y < center.y ? 'repulse' : 'omni', 18, `${map.id}-core-${coreIndex++}`);
   }
 
   const rotate = (point: Point, turns: number): Point => {
@@ -215,25 +217,30 @@ function pinkFrontier() {
     for (let turn = 0; turn < turns; turn++) result = { x: map.width - result.y, y: result.x };
     return result;
   };
-  // Each corner has a 3x3 starting district and two broad approaches. The
-  // inner ports also meet the center, preserving routes without boarding a star.
+  // Rounded, uneven home clusters replace square starting blocks. Curved
+  // approaches still offer two routes into the center and nearby edge systems.
   for (const [turns, faction] of ([
     { name: 'red', owner: RED }, { name: 'green', owner: GREEN },
     { name: 'yellow', owner: YELLOW }, { name: 'blue', owner: BLUE },
   ] as const).entries()) {
-    for (let row = -1; row <= 1; row++) for (let col = -1; col <= 1; col++) {
-      const capital = row === 0 && col === 0;
-      const planet = map.world(rotate({ x: 950 + col * 450, y: 950 + row * 450 }, turns), undefined,
-        capital ? faction.owner === BLUE ? 320 : 240 : 16,
-        capital ? `${map.id}-${faction.name}-capital` : `${map.id}-${faction.name}-corner-${row + 1}-${col + 1}`);
-      if (capital) { planet.owner = faction.owner; planet.capital = true; }
+    const home = rotate({ x: 950, y: 950 }, turns);
+    const capital = map.world(home, undefined, faction.owner === BLUE ? 320 : 240, `${map.id}-${faction.name}-capital`);
+    capital.owner = faction.owner; capital.capital = true;
+    for (let index = 0; index < 8; index++) {
+      const angle = (index * 45 + (random() - 0.5) * 8) * Math.PI / 180;
+      const radius = 525 + (random() - 0.5) * 70;
+      map.world({ x: home.x + Math.cos(angle) * radius, y: home.y + Math.sin(angle) * radius }, undefined, 16,
+        `${map.id}-${faction.name}-corner-${index}`);
     }
     const arm = [
-      { x: 1850, y: 600 }, { x: 1850, y: 1050 }, { x: 1850, y: 1500 },
-      { x: 2250, y: 550 }, { x: 2250, y: 1550 },
+      { x: 1760, y: 570 }, { x: 1920, y: 1030 }, { x: 1800, y: 1510 },
+      { x: 2260, y: 530 }, { x: 2290, y: 1700 },
     ];
     for (const [index, point] of [...arm, ...arm.map(point => ({ x: point.y, y: point.x }))].entries()) {
-      map.world(rotate(point, turns), undefined, 18, `${map.id}-${faction.name}-approach-${index}`);
+      const original = rotate(point, turns);
+      const scattered = { x: original.x + (random() - 0.5) * 50, y: original.y + (random() - 0.5) * 50 };
+      const clear = map.orbits.every(orbit => Math.abs(distance(scattered, orbit) - 620) >= 270);
+      map.world(clear ? scattered : original, undefined, 18, `${map.id}-${faction.name}-approach-${index}`);
     }
   }
   return map.finish('The Pink Frontier', 'Four corner factions surround Pink’s stationary central capital. The upper center produces Repulse Shields; the lower center produces Omni Strikes. Conversion systems rotate along the north and south edges, while the western and eastern systems produce Omni Strike. Expand through either neighboring arsenal, take the fixed routes into the center, and contest Pink’s spreading factories.', true,
