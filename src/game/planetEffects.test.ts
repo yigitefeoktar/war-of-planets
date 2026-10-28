@@ -39,14 +39,15 @@ test('the arrival halo is pink for every owner and follows the live planet witho
   }
 });
 
-test('pending conversion drains a pink ring and shows seconds independently of the arrival burst', () => {
+test('pending conversion drains a subtle pink ring without text, arrows, or a moving marker', () => {
   const base: Base = { id: 'target', x: 300, y: 400, color: '#ef4444', pixelCount: 60 };
   for (const remaining of [5, 2.5, 2.500000000000005, 0.1, 0.10000000000000037]) {
     const pending = recorder();
     drawConversionCountdown(pending.ctx, base, { color: '#3b82f6', remaining });
     assert.ok(pending.colors.includes(CONVERSION_COLOR));
     assert.deepEqual(pending.calls.find(call => call.method === 'translate')?.args, [300, 400]);
-    assert.equal(pending.calls.find(call => call.method === 'fillText')?.args[0], `CONVERT ${remaining.toFixed(1)}s`);
+    assert.ok(!pending.calls.some(call => ['fillText', 'strokeText', 'fillRect', 'rotate', 'fill', 'lineTo'].includes(call.method)));
+    assert.equal(pending.calls.filter(call => call.method === 'arc').length, 2, 'only a faint track and the remaining-time arc');
     const timer = pending.calls.filter(call => call.method === 'arc')[1];
     assert.ok(Math.abs(Number(timer.args[4]) - (-Math.PI / 2 + Math.PI * 2 * remaining / 5)) < 1e-9);
     assert.equal(base.conversionArrival, undefined, 'rendering a countdown cannot start the arrival burst');
@@ -57,17 +58,17 @@ test('pending conversion drains a pink ring and shows seconds independently of t
   assert.deepEqual(moved.calls.find(call => call.method === 'translate')?.args, [700, 800]);
 });
 
-test('pending conversion keeps its timer with reduced motion and separates competing faction rings', () => {
+test('pending conversion keeps compact world-space rings at every zoom and with reduced motion', () => {
   const base: Base = { id: 'target', x: 0, y: 0, color: '#6b7280', pixelCount: 60 };
   for (const zoom of [0.1, 0.35, 1, 3]) {
     const first = recorder(), second = recorder();
     drawConversionCountdown(first.ctx, base, { color: '#3b82f6', remaining: 4 }, true, zoom);
     drawConversionCountdown(second.ctx, base, { color: '#ef4444', remaining: 2 }, true, zoom, 1);
     assert.ok(!first.calls.some(call => call.method === 'rotate'));
-    assert.equal(first.calls.find(call => call.method === 'fillText')?.args[0], 'CONVERT 4.0s');
     const r1 = Number(first.calls.find(call => call.method === 'arc')!.args[2]);
     const r2 = Number(second.calls.find(call => call.method === 'arc')!.args[2]);
-    assert.ok(r1 >= 76 && r2 > r1);
+    assert.equal(r1, 34, 'the ring stays close to a normal planet and inside its shield');
+    assert.equal(r2, 40, 'another incoming conversion adds one closely spaced ring');
   }
   for (const incoming of [{ color: '#3b82f6', remaining: 0 }, { color: base.color, remaining: 3 }]) {
     const inactive = recorder(); drawConversionCountdown(inactive.ctx, base, incoming);

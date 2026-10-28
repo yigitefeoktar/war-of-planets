@@ -1426,7 +1426,7 @@ export class GameEngine {
       incomingConversions.set(target, incoming);
     }
     for (const [target, incoming] of incomingConversions) {
-      incoming.forEach((probe, slot) => drawConversionCountdown(ctx, target, probe, this.reducedMotion, zoom, slot, incoming.length));
+      incoming.forEach((probe, slot) => drawConversionCountdown(ctx, target, probe, this.reducedMotion, zoom, slot));
     }
     drawRepelledShips(ctx, this.repelledShips);
 

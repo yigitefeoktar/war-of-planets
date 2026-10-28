@@ -127,48 +127,24 @@ export function drawPinkTerraform(ctx: CanvasRenderingContext2D, base: Base, red
 
 /** Pending effects read the probe timer directly; cancelling or resolving removes the marker. */
 export function drawConversionCountdown(ctx: CanvasRenderingContext2D, base: Base,
-  incoming: { color: string; remaining: number }, reducedMotion = false, zoom = 1, slot = 0, total = slot + 1) {
+  incoming: { color: string; remaining: number }, reducedMotion = false, zoom = 1, slot = 0) {
   if (incoming.remaining <= 0 || incoming.color === base.color) return;
   const remaining = Math.min(CONVERSION_TRAVEL_SECONDS, incoming.remaining);
   const progress = 1 - remaining / CONVERSION_TRAVEL_SECONDS;
-  // Leave room for shields and planet badges; keep the timer legible at overview zoom.
-  const unit = 1 / zoom;
-  const radius = Math.max(76, 30 * unit) + slot * 18 * unit;
+  // Hug the planet in world space, inside shields and below the weapon badge.
+  // Extra incoming conversions get closely spaced, independent timer rings.
+  const radius = 34 + slot * 6;
+  const lineWidth = Math.min(3, Math.max(1.8, 1 / zoom));
   ctx.save();
   ctx.translate(base.x, base.y);
   ctx.lineCap = 'round'; ctx.setLineDash([]);
-  ctx.shadowColor = CONVERSION_COLOR; ctx.shadowBlur = 12;
-  ctx.strokeStyle = '#ff8fc733'; ctx.lineWidth = 2 * unit;
+  ctx.strokeStyle = CONVERSION_COLOR; ctx.lineWidth = lineWidth;
+  ctx.shadowColor = CONVERSION_COLOR;
+  ctx.shadowBlur = reducedMotion ? 5 : 5 + progress * 3;
+  ctx.globalAlpha = 0.14;
   ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.stroke();
-  ctx.strokeStyle = CONVERSION_COLOR; ctx.lineWidth = 3 * unit;
+  ctx.globalAlpha = 0.75 + progress * 0.25;
   ctx.beginPath(); ctx.arc(0, 0, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * remaining / CONVERSION_TRAVEL_SECONDS); ctx.stroke();
-
-  // The icon's paired turning arcs gather inward; impact replaces them with an outward wave.
-  if (slot === 0) {
-    ctx.save();
-    if (!reducedMotion) ctx.rotate(progress * Math.PI * 2);
-    ctx.strokeStyle = '#ffd1e8'; ctx.lineWidth = 2;
-    const orbit = 44 + (1 - progress) * 12;
-    for (let side = 0; side < 2; side++) {
-      const start = side * Math.PI, end = start + Math.PI * 0.72;
-      ctx.beginPath(); ctx.arc(0, 0, orbit, start, end); ctx.stroke();
-      const x = Math.cos(end) * orbit, y = Math.sin(end) * orbit;
-      const tx = -Math.sin(end), ty = Math.cos(end);
-      ctx.beginPath(); ctx.moveTo(x - tx * 8 + Math.cos(end) * 5, y - ty * 8 + Math.sin(end) * 5);
-      ctx.lineTo(x, y); ctx.lineTo(x - tx * 8 - Math.cos(end) * 5, y - ty * 8 - Math.sin(end) * 5); ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  // Faction-colored marker identifies the sender when multiple conversions target one world.
-  const angle = -Math.PI / 2 + Math.PI * 2 * remaining / CONVERSION_TRAVEL_SECONDS;
-  ctx.fillStyle = incoming.color;
-  ctx.beginPath(); ctx.arc(Math.cos(angle) * radius, Math.sin(angle) * radius, 4 * unit, 0, Math.PI * 2); ctx.fill();
-  ctx.shadowBlur = 0;
-  const labelY = Math.max(76, 30 * unit) + (total - 1 + slot) * 18 * unit + 16 * unit;
-  ctx.fillStyle = '#300c28e6'; ctx.fillRect(-53 * unit, labelY - 11 * unit, 106 * unit, 17 * unit);
-  ctx.fillStyle = CONVERSION_COLOR; ctx.font = `bold ${11 * unit}px monospace`; ctx.textAlign = 'center';
-  ctx.fillText(`CONVERT ${(Math.ceil(remaining * 10 - 1e-8) / 10).toFixed(1)}s`, 0, labelY);
   ctx.restore();
 }
 
