@@ -253,7 +253,7 @@ test('direct test starts launch every Chapter 2 level and retry clears probe and
   const map = CHAPTER_TWO_MAPS[1], first = createMatch(map);
   first.pinkTerraformSeconds = 4;
   first.bases.values().next().value!.pinkTerraformEffect = { action: 'strip', remaining: 2 };
-  first.conversionProbes.push({ id: 0, capitalId: 'missing', targetId: 'missing', color: PLAYER, x: 0, y: 0 });
+  first.conversionProbes.push({ id: 0, capitalId: 'missing', targetId: 'missing', color: PLAYER, x: 0, y: 0, remaining: 5 });
   const retry = createMatch(map);
   assert.equal(retry.conversionProbes.length, 0);
   assert.equal(retry.pinkTerraformSeconds, 0);

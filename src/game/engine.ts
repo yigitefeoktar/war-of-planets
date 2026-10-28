@@ -1,9 +1,9 @@
 import { drawConversionShip, CONVERSION_TRAIL_SECONDS, type ConversionTrailPoint } from './conversionVisuals';
 import { Base, Pixel, type SuperweaponId } from './types';
-import { CONVERSION_ARRIVAL_DURATION, PINK_TERRAFORM_EFFECT_DURATION, drawPinkTerraform, drawPlanetEffects, drawRepelledShips, type RepelledShip } from './planetEffects';
+import { CONVERSION_ARRIVAL_DURATION, PINK_TERRAFORM_EFFECT_DURATION, drawConversionCountdown, drawPinkTerraform, drawPlanetEffects, drawRepelledShips, type RepelledShip } from './planetEffects';
 import { canIssueFleetOrder, connectedFriendlyIds } from './logistics';
 import { TacticalAI } from './ai';
-import { ALL_SUPERWEAPON_IDS, PINK, PINK_TERRAFORM_INTERVAL_SECONDS, CONVERSION_PROBE_SPEED, CONVERSION_MAX_EFFECTIVE_SOURCES, assignQuickMatchSuperweaponPlanets, isPointAccessible, SUPERWEAPON_CHARGE_INTERVAL_SECONDS, SUPERWEAPON_IDS, SUPERWEAPON_MAX_CHARGES, OVERDRIVE_DURATION, REPULSE_DURATION, type SuperweaponTargetMode } from './superweapons';
+import { ALL_SUPERWEAPON_IDS, PINK, PINK_TERRAFORM_INTERVAL_SECONDS, CONVERSION_TRAVEL_SECONDS, CONVERSION_MAX_EFFECTIVE_SOURCES, assignQuickMatchSuperweaponPlanets, isPointAccessible, SUPERWEAPON_CHARGE_INTERVAL_SECONDS, SUPERWEAPON_IDS, SUPERWEAPON_MAX_CHARGES, OVERDRIVE_DURATION, REPULSE_DURATION, type SuperweaponTargetMode } from './superweapons';
 import { superweaponIconLayout } from './superweaponVisuals';
 import { drawWeaponBadge } from './weaponBadges';
 import { galaxyAppearance, type GalaxyTheme } from './galaxy';
@@ -76,6 +76,7 @@ type GameEngineOptions = {
 };
 
 export interface ConversionProbe {
+  remaining: number;
   angle?: number;
   trail?: ConversionTrailPoint[];
   id: number;
@@ -520,7 +521,7 @@ export class GameEngine {
     if (!this.hasSuperweaponCharge(color, 'conversion') || !this.canConversionProbe(color, targetId)) return false;
     const capital = [...this.bases.values()].find(base => base.color === color && base.isCapital)!;
     if (!this.spendSuperweaponCharge(color, 'conversion')) return false;
-    this.conversionProbes.push({ id: this.nextProbeId++, color, capitalId: capital.id, targetId, x: capital.x, y: capital.y,
+    this.conversionProbes.push({ id: this.nextProbeId++, color, capitalId: capital.id, targetId, x: capital.x, y: capital.y, remaining: CONVERSION_TRAVEL_SECONDS,
       angle: Math.atan2(this.bases.get(targetId)!.y - capital.y, this.bases.get(targetId)!.x - capital.x),
       trail: [{ x: capital.x, y: capital.y, age: 0 }],
     });
@@ -577,9 +578,12 @@ export class GameEngine {
         this.createExplosion(probe.x, probe.y, probe.color, 22);
         return false;
       }
-      const dx = target.x - probe.x, dy = target.y - probe.y, distance = Math.hypot(dx, dy);
-      const travel = CONVERSION_PROBE_SPEED * dt;
-      if (distance <= travel) {
+      const dx = target.x - probe.x, dy = target.y - probe.y;
+      // The timer owns conversion. Recalculate visual speed against the live target
+      // and time left so orbiting worlds cannot delay (or accelerate) impact.
+      const fraction = Math.min(1, dt / probe.remaining);
+      probe.remaining = Math.max(0, probe.remaining - dt);
+      if (probe.remaining < 1e-9) {
         target.color = probe.color;
         this.recordPlanetCapture(target.id, probe.color);
         // Only the current stationed garrison converts; launched fleets retain their allegiance.
@@ -595,8 +599,8 @@ export class GameEngine {
       for (const point of trail) point.age += dt;
       probe.trail = trail.filter(point => point.age < CONVERSION_TRAIL_SECONDS);
       probe.angle = Math.atan2(dy, dx);
-      probe.x += dx / distance * travel;
-      probe.y += dy / distance * travel;
+      probe.x += dx * fraction;
+      probe.y += dy * fraction;
       const last = probe.trail.at(-1);
       if (dt > 0 && (!last || Math.hypot(probe.x - last.x, probe.y - last.y) >= 4)) {
         probe.trail.push({ x: probe.x, y: probe.y, age: 0 });
@@ -1412,6 +1416,18 @@ export class GameEngine {
 
     // Keep active barriers and production pulses legible over dense idle fleets.
     for (const base of this.bases.values()) if (visibleBase(base)) drawPlanetEffects(ctx, base, this.reducedMotion);
+    const incomingConversions = new Map<Base, ConversionProbe[]>();
+    for (const probe of this.conversionProbes) {
+      const target = this.bases.get(probe.targetId), capital = this.bases.get(probe.capitalId);
+      if (!target || target.color === probe.color || target.isCapital || target.isDysonSphere
+        || !capital?.isCapital || capital.color !== probe.color || !visibleBase(target)) continue;
+      const incoming = incomingConversions.get(target) ?? [];
+      incoming.push(probe);
+      incomingConversions.set(target, incoming);
+    }
+    for (const [target, incoming] of incomingConversions) {
+      incoming.forEach((probe, slot) => drawConversionCountdown(ctx, target, probe, this.reducedMotion, zoom, slot, incoming.length));
+    }
     drawRepelledShips(ctx, this.repelledShips);
 
     // Draw bases (planets)

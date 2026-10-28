@@ -1688,7 +1688,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         const enemySelected = !!planet && planet.color !== '#3b82f6';
         const weapons: SuperweaponId[] = engine.weaponPalette.includes('conversion') ? ['conversion', 'omni', 'repulse'] : ['overdrive', 'omni', 'repulse'];
         const labels = SUPERWEAPON_LABELS;
-        const descriptions = { omni: 'Warp 30% of every idle fleet here', overdrive: 'Match all your other planets\u2019 combined normal production for 7.5 seconds; never below this planet\u2019s normal rate', repulse: 'Repel and destroy arrivals / 6 seconds', conversion: 'Steal a neighboring non-capital world and its stationed ships. A large ship in your faction color travels from your capital at twice normal fleet speed; it passes through Repulse Shields. One charge per 60 seconds per site, capped at four effective sites' };
+        const descriptions = { omni: 'Warp 30% of every idle fleet here', overdrive: 'Match all your other planets\u2019 combined normal production for 7.5 seconds; never below this planet\u2019s normal rate', repulse: 'Repel and destroy arrivals / 6 seconds', conversion: 'Steal a neighboring non-capital world and its stationed ships exactly 5 seconds after launch, regardless of distance. A large ship in your faction color travels from your capital while a pink countdown marks the target; Repulse Shields cannot stop it. One charge per 60 seconds per site, capped at four effective sites' };
         const renderBar = (state: 'normal' | 'enemy') => {
           const showSelectMode = state === 'normal' && engine.multiSelectEnabled;
           const shownPlanet = planet && (state === 'normal') === (planet.color === '#3b82f6') ? planet : undefined;

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { drawPlanetEffects, drawPinkTerraform } from './planetEffects';
+import { drawConversionCountdown, drawPlanetEffects, drawPinkTerraform } from './planetEffects';
 import { CONVERSION_COLOR } from './superweapons';
 import type { Base } from './types';
 
@@ -19,7 +19,7 @@ function recorder() {
   return { ctx, calls, colors };
 }
 
-test('the arrival halo is pink for every owner and follows the live planet without a flight marker', () => {
+test('the arrival halo is pink for every owner and follows the live planet without a countdown label', () => {
   for (const color of ['#3b82f6', '#ef4444', '#ff8fc7']) {
     const base: Base = { id: 'target', x: 300, y: 400, color, pixelCount: 60 };
     const before = recorder();
@@ -36,6 +36,42 @@ test('the arrival halo is pink for every owner and follows the live planet witho
     const moved = recorder();
     drawPlanetEffects(moved.ctx, base);
     assert.deepEqual(moved.calls.find(call => call.method === 'translate')?.args, [450, 525], 'orbit movement carries the halo');
+  }
+});
+
+test('pending conversion drains a pink ring and shows seconds independently of the arrival burst', () => {
+  const base: Base = { id: 'target', x: 300, y: 400, color: '#ef4444', pixelCount: 60 };
+  for (const remaining of [5, 2.5, 2.500000000000005, 0.1, 0.10000000000000037]) {
+    const pending = recorder();
+    drawConversionCountdown(pending.ctx, base, { color: '#3b82f6', remaining });
+    assert.ok(pending.colors.includes(CONVERSION_COLOR));
+    assert.deepEqual(pending.calls.find(call => call.method === 'translate')?.args, [300, 400]);
+    assert.equal(pending.calls.find(call => call.method === 'fillText')?.args[0], `CONVERT ${remaining.toFixed(1)}s`);
+    const timer = pending.calls.filter(call => call.method === 'arc')[1];
+    assert.ok(Math.abs(Number(timer.args[4]) - (-Math.PI / 2 + Math.PI * 2 * remaining / 5)) < 1e-9);
+    assert.equal(base.conversionArrival, undefined, 'rendering a countdown cannot start the arrival burst');
+  }
+  base.x = 700; base.y = 800;
+  const moved = recorder();
+  drawConversionCountdown(moved.ctx, base, { color: '#3b82f6', remaining: 1 });
+  assert.deepEqual(moved.calls.find(call => call.method === 'translate')?.args, [700, 800]);
+});
+
+test('pending conversion keeps its timer with reduced motion and separates competing faction rings', () => {
+  const base: Base = { id: 'target', x: 0, y: 0, color: '#6b7280', pixelCount: 60 };
+  for (const zoom of [0.1, 0.35, 1, 3]) {
+    const first = recorder(), second = recorder();
+    drawConversionCountdown(first.ctx, base, { color: '#3b82f6', remaining: 4 }, true, zoom);
+    drawConversionCountdown(second.ctx, base, { color: '#ef4444', remaining: 2 }, true, zoom, 1);
+    assert.ok(!first.calls.some(call => call.method === 'rotate'));
+    assert.equal(first.calls.find(call => call.method === 'fillText')?.args[0], 'CONVERT 4.0s');
+    const r1 = Number(first.calls.find(call => call.method === 'arc')!.args[2]);
+    const r2 = Number(second.calls.find(call => call.method === 'arc')!.args[2]);
+    assert.ok(r1 >= 76 && r2 > r1);
+  }
+  for (const incoming of [{ color: '#3b82f6', remaining: 0 }, { color: base.color, remaining: 3 }]) {
+    const inactive = recorder(); drawConversionCountdown(inactive.ctx, base, incoming);
+    assert.equal(inactive.calls.length, 0, 'expired or friendly countdowns never render');
   }
 });
 

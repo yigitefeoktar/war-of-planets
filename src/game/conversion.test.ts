@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { GameEngine } from './engine';
 import { TacticalAI } from './ai';
-import { CHAPTER_TWO_WEAPONS, CONVERSION_PROBE_SPEED, PINK, PINK_TERRAFORM_INTERVAL_SECONDS } from './superweapons';
+import { CHAPTER_TWO_WEAPONS, CONVERSION_TRAVEL_SECONDS, PINK, PINK_TERRAFORM_INTERVAL_SECONDS } from './superweapons';
 import { resolveSuperweaponClick } from './popups';
 import { CONVERSION_ARRIVAL_DURATION, PINK_TERRAFORM_EFFECT_DURATION } from './planetEffects';
 
@@ -40,7 +40,7 @@ test('conversion requires a full charge and a hostile neighboring non-capital ta
   assert.equal(engine.activateConversionProbe(BLUE, 'target'), false, 'no duplicate in-flight conversion from the same faction');
 });
 
-test('a probe travels from the capital at twice normal fleet speed and converts the current garrison', () => {
+test('a probe adjusts its visual speed for five-second conversion and converts the current garrison', () => {
   const engine = match();
   engine.setSuperweaponCharge(BLUE, 'conversion', 1);
   engine.sendUnits('target', 'red', 0.25);
@@ -51,8 +51,9 @@ test('a probe travels from the capital at twice normal fleet speed and converts 
   assert.equal(engine.activateConversionProbe(BLUE, 'target'), true);
   assert.deepEqual([engine.conversionProbes[0].x, engine.conversionProbes[0].y], [200, 500]);
   engine.update(1);
-  assert.equal(CONVERSION_PROBE_SPEED, 225);
-  assert.equal(engine.conversionProbes[0].x, 425, 'travels 225 world units in one second');
+  assert.equal(CONVERSION_TRAVEL_SECONDS, 5);
+  assert.equal(engine.conversionProbes[0].x, 400, 'covers one fifth of the launch distance in one second');
+  assert.equal(engine.conversionProbes[0].remaining, 4);
   assert.equal(engine.bases.get('target')!.color, RED);
   assert.equal(captures, 0);
   // An additional defender that arrives before impact must also convert.
@@ -69,6 +70,68 @@ test('a probe travels from the capital at twice normal fleet speed and converts 
   assert.equal(engine.bases.get('target')!.pixelCount, 61);
 });
 
+test('conversion resolves at five seconds at every distance, never when its visual ship happens to touch the target', () => {
+  for (const distance of [0, 1, 1000, 20_000]) {
+    const engine = match(), target = engine.bases.get('target')!;
+    target.x = 200 + distance;
+    engine.bases.get('bridge')!.x = target.x;
+    engine.setSuperweaponCharge(BLUE, 'conversion', 1);
+    assert.equal(engine.activateConversionProbe(BLUE, target.id), true);
+    engine.update(2.5);
+    const probe = engine.conversionProbes[0];
+    assert.ok(Math.abs(probe.x - (200 + distance / 2)) < 1e-8);
+    // Visual contact alone must not trigger an early conversion.
+    probe.x = target.x; probe.y = target.y;
+    engine.update(2.499);
+    assert.equal(target.color, RED);
+    assert.equal(target.conversionArrival, undefined);
+    engine.update(0);
+    assert.ok(engine.conversionProbes[0].remaining > 0);
+    engine.update(0.001);
+    assert.equal(target.color, BLUE);
+    assert.equal(engine.conversionProbes.length, 0);
+    assert.equal(target.conversionArrival!.remaining, CONVERSION_ARRIVAL_DURATION);
+  }
+});
+
+test('moving targets and variable frame lengths keep the same five-second deadline', () => {
+  for (const steps of [Array(300).fill(1 / 60), [0.01, 0.49, 1.3, 0.7, 2, 0.5]]) {
+    const engine = match(), target = engine.bases.get('target')!;
+    engine.setSuperweaponCharge(BLUE, 'conversion', 1);
+    engine.activateConversionProbe(BLUE, target.id);
+    let elapsed = 0;
+    for (const dt of steps) {
+      target.x += 30; target.y += 10;
+      engine.update(dt);
+      elapsed += dt;
+      if (elapsed < 5 - 1e-9) {
+        assert.equal(target.color, RED);
+        assert.ok(Math.abs(engine.conversionProbes[0].remaining - (5 - elapsed)) < 1e-9);
+      }
+    }
+    assert.equal(target.color, BLUE);
+    assert.equal(engine.conversionProbes.length, 0);
+  }
+});
+
+test('competing factions keep independent countdowns and a later conversion can take the new garrison', () => {
+  const engine = match(), target = engine.bases.get('target')!;
+  target.color = NEUTRAL;
+  for (const ship of engine.pixels.filter(ship => ship.baseId === target.id)) ship.color = NEUTRAL;
+  engine.setSuperweaponCharge(BLUE, 'conversion', 1);
+  engine.setSuperweaponCharge(RED, 'conversion', 1);
+  assert.equal(engine.activateConversionProbe(BLUE, target.id), true);
+  engine.update(1);
+  assert.equal(engine.activateConversionProbe(RED, target.id), true);
+  engine.update(4);
+  assert.equal(target.color, BLUE);
+  assert.equal(engine.conversionProbes[0].color, RED);
+  assert.equal(engine.conversionProbes[0].remaining, 1);
+  engine.update(1);
+  assert.equal(target.color, RED);
+  assert.equal(engine.conversionProbes.length, 0);
+});
+
 test('conversion passes through an active Repulse Shield and takes the full stationed garrison', () => {
   const engine = match();
   engine.setSuperweaponCharge(BLUE, 'conversion', 1);
@@ -80,7 +143,7 @@ test('conversion passes through an active Repulse Shield and takes the full stat
   assert.ok(engine.bases.get('target')!.repulse!.remaining > 0);
   assert.equal(engine.bases.get('target')!.color, RED);
   assert.equal(engine.conversionProbes.length, 1, 'crossing the shield barrier cannot intercept the ship');
-  engine.update(0.5);
+  engine.update(1);
   assert.equal(engine.bases.get('target')!.color, BLUE);
   assert.equal(engine.conversionProbes.length, 0);
   assert.equal(engine.getSuperweaponCharge(BLUE, 'conversion'), 0);
@@ -95,8 +158,9 @@ test('conversion arrival animation starts only on impact, pauses with dt zero, a
   engine.activateConversionProbe(BLUE, target.id);
   assert.equal(target.conversionArrival, undefined);
   engine.update(4);
-  assert.equal(target.conversionArrival, undefined, 'no effect reveals the destination during flight');
-  engine.update(0.5);
+  assert.equal(target.conversionArrival, undefined, 'the arrival burst stays separate from the pending countdown');
+  assert.equal(engine.conversionProbes[0].remaining, 1);
+  engine.update(1);
   assert.equal(target.color, BLUE);
   assert.deepEqual(target.conversionArrival, { color: BLUE, remaining: CONVERSION_ARRIVAL_DURATION });
   engine.update(0);
@@ -128,11 +192,11 @@ test('conversion records a bounded fading history of the ship movement in its se
   engine.bases.get('bridge')!.x = 19_500;
   engine.setSuperweaponCharge(BLUE, 'conversion', 1);
   engine.activateConversionProbe(BLUE, 'target');
-  for (let frame = 0; frame < 1200; frame++) engine.update(1 / 60);
+  for (let frame = 0; frame < 240; frame++) engine.update(1 / 60);
   const probe = engine.conversionProbes[0];
   assert.equal(probe.color, BLUE);
   assert.equal(probe.angle, 0);
-  const maxTrailPoints = Math.ceil(CONVERSION_PROBE_SPEED * 1.6 / 4) + 1;
+  const maxTrailPoints = Math.ceil(60 * 1.6) + 1;
   assert.ok(probe.trail!.length >= 20 && probe.trail!.length <= maxTrailPoints);
   assert.ok(probe.trail!.every(point => point.x <= probe.x && point.y === probe.y && point.age < 1.6));
   assert.ok(probe.trail![0].x > 200, 'old launch coordinates cannot grow into a permanent flight path');
