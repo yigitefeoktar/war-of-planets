@@ -148,16 +148,24 @@
   animation-delay: .58s;
 }
 .chapter-victory-action svg { flex-shrink: 0; transition: transform .2s; }
-.chapter-victory-action:hover { background: #0e74904d; color: #fff; box-shadow: 0 0 28px #06b6d42e; }
-.chapter-victory-action:hover svg { transform: translateX(-4px); }
+@media (hover: hover) and (pointer: fine) {
+  .chapter-victory-action:hover:where(:root:not([data-touch-input]) *) { background: #0e74904d; color: #fff; box-shadow: 0 0 28px #06b6d42e; }
+}
+@media (hover: hover) and (pointer: fine) {
+  .chapter-victory-action:hover:where(:root:not([data-touch-input]) *) svg { transform: translateX(-4px); }
+}
 .chapter-victory-action:active { background: #0e749070; }
 .chapter-victory-action:focus-visible { outline: 2px solid #cffafe; outline-offset: 5px; }
-.chapter-victory-hard-mode:hover {
-  background: linear-gradient(135deg, #8bf1fb, #38dbed);
-  color: #062331;
-  box-shadow: 0 0 28px #67e8f94d;
+@media (hover: hover) and (pointer: fine) {
+  .chapter-victory-hard-mode:hover:where(:root:not([data-touch-input]) *) {
+    background: linear-gradient(135deg, #8bf1fb, #38dbed);
+    color: #062331;
+    box-shadow: 0 0 28px #67e8f94d;
+  }
 }
-.chapter-victory-hard-mode:hover svg { transform: scale(1.08); }
+@media (hover: hover) and (pointer: fine) {
+  .chapter-victory-hard-mode:hover:where(:root:not([data-touch-input]) *) svg { transform: scale(1.08); }
+}
 .chapter-victory-hard-mode:active { background: linear-gradient(135deg, #38dff0, #06b6d4); }
 
 @keyframes chapter-victory-reveal { from { opacity: 0; } to { opacity: 1; } }
@@ -186,5 +194,7 @@
   .chapter-victory, .chapter-victory-art, .chapter-victory-emblem, .chapter-victory-halo,
   .chapter-victory-label, .chapter-victory-title, .chapter-victory-challenge-label, .chapter-victory-action { animation: none; }
   .chapter-victory-action, .chapter-victory-action svg { transition: none; }
-  .chapter-victory-action:hover svg { transform: none; }
+  @media (hover: hover) and (pointer: fine) {
+    .chapter-victory-action:hover:where(:root:not([data-touch-input]) *) svg { transform: none; }
+  }
 }

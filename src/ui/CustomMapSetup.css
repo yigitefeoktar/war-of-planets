@@ -25,9 +25,13 @@
 .custom-map-shell { width: min(1440px, 100%); margin: 0 auto; padding: 0 36px 124px; }
 .custom-map-heading { --map-title-size: clamp(27px, 3.3vw, 43px); --map-title-leading: 1.08; display: grid; grid-template-columns: minmax(0, 1fr) 44px; column-gap: 16px; padding: 24px 0 22px; }
 .map-close { grid-column: 2; grid-row: 2 / 4; align-self: start; display: grid; place-items: center; width: 44px; height: 44px; margin-top: calc((var(--map-title-size) * var(--map-title-leading) - 44px) / 2); padding: 0; border: 1px solid #06b6d44d; border-radius: 2px; background: #08334466; color: #22d3ee; }
-.map-close:hover { background: #06b6d433; border-color: #22d3ee; color: white; }
+@media (hover: hover) and (pointer: fine) {
+  .map-close:hover:where(:root:not([data-touch-input]) *) { background: #06b6d433; border-color: #22d3ee; color: white; }
+}
 .map-icon-button { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid #47849e45; background: #09203360; border-radius: 3px; color: #8ebbd4; flex-shrink: 0; }
-.map-icon-button:hover { color: #cffafe; background: #16445a80; border-color: #55b6cc; }
+@media (hover: hover) and (pointer: fine) {
+  .map-icon-button:hover:where(:root:not([data-touch-input]) *) { color: #cffafe; background: #16445a80; border-color: #55b6cc; }
+}
 .custom-map-title { display: contents; }
 .custom-map-title > * { grid-column: 1; min-width: 0; }
 .map-kicker { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; color: #67cfe0; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; }
@@ -42,7 +46,9 @@
 .map-style-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border: 1px solid #417b944a; border-radius: 4px; background: #030d17; margin-bottom: 16px; }
 .map-style-switch button { display: flex; gap: 8px; align-items: center; justify-content: center; min-height: 42px; padding: 8px; border: 1px solid transparent; border-radius: 2px; color: #819eb6; background: transparent; font-size: 12px; font-weight: 700; }
 .map-style-switch button[aria-pressed="true"] { background: #22d3ee; color: #04202d; border-color: #67e8f9; box-shadow: 0 0 22px #22d3ee18; }
-.map-style-switch button:not([aria-pressed="true"]):hover { background: #0b293b; color: #d3edf9; }
+@media (hover: hover) and (pointer: fine) {
+  .map-style-switch button:not([aria-pressed="true"]):hover:where(:root:not([data-touch-input]) *) { background: #0b293b; color: #d3edf9; }
+}
 .map-layout-setting { margin: 0 0 17px; padding: 0; border: 0; min-width: 0; }
 .map-layout-setting > legend { padding: 0; margin-bottom: 12px; color: #a8c6d9; font-size: 10px; text-transform: uppercase; letter-spacing: .13em; font-weight: 700; }
 .map-layout-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
@@ -53,7 +59,9 @@
 .map-layout-card > span { margin-bottom: 9px; font-size: 10px; line-height: 1.3; }
 .map-layout-option > input:checked + .map-layout-card { border-color: #22d3ee; background: radial-gradient(ellipse at center, #0d38474d, #061822); color: #67e8f9; box-shadow: inset 0 0 0 1px #22d3ee24, 0 0 18px #22d3ee08; }
 .map-layout-option > input:focus-visible + .map-layout-card, .map-choice > input:focus-visible + span { outline: 2px solid #a5f3fc; outline-offset: 3px; }
-.map-layout-option:hover .map-layout-card { border-color: #5bb6c9; }
+@media (hover: hover) and (pointer: fine) {
+  .map-layout-option:hover:where(:root:not([data-touch-input]) *) .map-layout-card { border-color: #5bb6c9; }
+}
 .map-layout-check { position: absolute; right: 7px; top: 7px; color: #67e8f9; }
 .map-settings-list { border-top: 1px solid var(--map-line); }
 .map-setting { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(140px, 1.2fr); column-gap: 10px; align-items: center; margin: 0; padding: 8px 0; border: 0; border-bottom: 1px solid #366b842d; min-width: 0; }
@@ -66,12 +74,16 @@
 .map-choice-random { flex: 0 0 100%; border-top: 1px solid #417b944a; }
 .map-choice-random > span { gap: 6px; min-height: 32px; font-size: 10px; }
 .map-choice > input:checked + span { background: #22d3ee; color: #03212c; font-weight: 800; box-shadow: 0 0 12px #22d3ee15; }
-.map-choice:not(.is-disabled):hover > span { color: #e8f9ff; background: #15445b; }
+@media (hover: hover) and (pointer: fine) {
+  .map-choice:not(.is-disabled):hover:where(:root:not([data-touch-input]) *) > span { color: #e8f9ff; background: #15445b; }
+}
 .map-choice.is-disabled { opacity: .27; cursor: not-allowed; }
 .map-choice.is-disabled > input:checked + span { opacity: 1; }
 .map-select-wrap { position: relative; min-width: 0; }
 .map-select-wrap select { width: 100%; appearance: none; min-height: 39px; background: #061521; border: 1px solid #417b9459; border-radius: 3px; padding: 8px 29px 8px 10px; font-size: 11px; line-height: 1.3; color: #b8d5e9; cursor: pointer; text-overflow: ellipsis; }
-.map-select-wrap select:hover { border-color: #5bb6c9; }
+@media (hover: hover) and (pointer: fine) {
+  .map-select-wrap select:hover:where(:root:not([data-touch-input]) *) { border-color: #5bb6c9; }
+}
 .map-select-wrap > svg { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; color: #779fb9; }
 .map-setting-hint { grid-column: 1 / -1; margin: 7px 0 0; color: #738fa5; font-size: 10px; line-height: 1.65; }
 .map-fixed-setting > strong { font-size: 11px; font-weight: 400; color: #b8d5e9; text-align: right; }
@@ -110,18 +122,28 @@
 .map-seed-field input[aria-invalid="true"] { border-color: #fb7185; }
 .map-seed-auto { min-height: 42px; padding: 8px 10px; border: 1px solid #417b9459; border-radius: 3px; background: #071624; color: #91acc1; font-size: 10px !important; white-space: nowrap; }
 .map-seed-auto[aria-pressed="true"] { border-color: #22d3ee99; background: #0b3543; color: #a5f3fc; }
-.map-seed-auto:hover { border-color: #22d3ee; color: #cffafe; }
+@media (hover: hover) and (pointer: fine) {
+  .map-seed-auto:hover:where(:root:not([data-touch-input]) *) { border-color: #22d3ee; color: #cffafe; }
+}
 .map-randomize, .map-save, .map-launch { display: flex; align-items: center; justify-content: center; gap: 10px; border: 1px solid #417b9459; border-radius: 3px; background: #071624; color: #a7c9de; min-height: 47px; padding: 10px 19px; font-size: 11px !important; white-space: nowrap; }
 .map-randomize { padding: 10px 0; border-color: transparent; background: transparent; color: #67cddd; }
-.map-randomize:hover { color: #e0faff; }
-.map-save:hover { border-color: #22d3ee; color: #cffafe; }
+@media (hover: hover) and (pointer: fine) {
+  .map-randomize:hover:where(:root:not([data-touch-input]) *) { color: #e0faff; }
+}
+@media (hover: hover) and (pointer: fine) {
+  .map-save:hover:where(:root:not([data-touch-input]) *) { border-color: #22d3ee; color: #cffafe; }
+}
 .map-save[aria-pressed="true"] { border-color: #22d3eeb3; background: #0b3543; color: #a5f3fc; box-shadow: inset 0 0 0 1px #22d3ee14, 0 0 16px #22d3ee12; }
 .map-save[aria-pressed="true"] > svg { fill: #22d3ee18; }
-.map-save[aria-pressed="true"]:hover { border-color: #67e8f9; background: #104858; color: #e0faff; }
+@media (hover: hover) and (pointer: fine) {
+  .map-save[aria-pressed="true"]:hover:where(:root:not([data-touch-input]) *) { border-color: #67e8f9; background: #104858; color: #e0faff; }
+}
 .map-save.map-save-error { border-color: #fbbf2480; color: #fcd34d; }
 .map-footer-actions { display: flex; align-items: center; gap: 12px; }
 .map-launch { min-width: 203px; color: #03212c; background: #22d3ee; border-color: #67e8f9; text-transform: uppercase; font-weight: 800 !important; font-size: 12px !important; letter-spacing: .07em; box-shadow: 0 0 25px #22d3ee12; }
-.map-launch:hover { background: #67e8f9; box-shadow: 0 0 25px #22d3ee30; }
+@media (hover: hover) and (pointer: fine) {
+  .map-launch:hover:where(:root:not([data-touch-input]) *) { background: #67e8f9; box-shadow: 0 0 25px #22d3ee30; }
+}
 .map-footer-notice { flex-basis: 100%; margin: 0; color: #8bc6d7; font-size: 10px; line-height: 1.5; }
 .map-preview-dialog { position: fixed; inset: 0; width: min(1200px, 94vw); height: min(900px, 90dvh); max-width: none; max-height: none; margin: auto; padding: 0; border: 1px solid #22d3ee77; border-radius: 4px; background: #030c15; color: #c6e6f3; overflow: hidden; }
 .map-preview-dialog::backdrop { background: #01060beb; backdrop-filter: blur(8px); }
