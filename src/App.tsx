@@ -448,7 +448,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     engineRef.current = engine;
     // Availability includes weapons that can be produced later in this match.
     setAvailableWeapons(new Set<SuperweaponId>(engine.superweaponUnlocksEnabled
-      ? orbits.some(orbit => orbit.dysonSphere)
+      ? engine.pinkTerraformingEnabled || orbits.some(orbit => orbit.dysonSphere)
         ? engine.weaponPalette
         : Array.from(engine.bases.values()).flatMap(base => base.superweaponUnlocks ?? [])
       : []));

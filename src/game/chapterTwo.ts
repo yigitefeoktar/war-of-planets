@@ -186,8 +186,8 @@ function pinkFrontier() {
   // The four former corner systems now sit on the cardinal edges. Their
   // arsenals stay homogeneous until Pink captures and transforms their worlds.
   for (const system of [
-    { name: 'north', x: 3000, y: 1050, weapon: 'conversion' },
-    { name: 'south', x: 3000, y: 4950, weapon: 'conversion' },
+    { name: 'north', x: 3000, y: 1050, weapon: 'repulse' },
+    { name: 'south', x: 3000, y: 4950, weapon: 'repulse' },
     { name: 'west', x: 1050, y: 3000, weapon: 'omni' },
     { name: 'east', x: 4950, y: 3000, weapon: 'omni' },
   ] as const) {
@@ -196,9 +196,9 @@ function pinkFrontier() {
   }
 
   // Uneven concentric neighborhoods round out the stationary center. These
-  // worlds do not orbit: their upper/lower weapon districts remain fixed.
+  // worlds do not orbit and start without weapons, including Pink's capital.
   const random = seededRandom(0xc02f17);
-  const pink = map.world(center, 'conversion', 280, `${map.id}-pink-capital`);
+  const pink = map.world(center, undefined, 280, `${map.id}-pink-capital`);
   pink.owner = PINK; pink.capital = true;
   let coreIndex = 0;
   for (const ring of [
@@ -209,7 +209,7 @@ function pinkFrontier() {
     const angle = (ring.phase + index * 360 / ring.count + (random() - 0.5) * ring.angleVariation * 2) * Math.PI / 180;
     const radius = ring.radius + (random() - 0.5) * ring.variation * 2;
     const point = { x: center.x + Math.cos(angle) * radius, y: center.y + Math.sin(angle) * radius };
-    map.world(point, point.y < center.y ? 'repulse' : 'omni', 18, `${map.id}-core-${coreIndex++}`);
+    map.world(point, undefined, 18, `${map.id}-core-${coreIndex++}`);
   }
 
   const rotate = (point: Point, turns: number): Point => {
@@ -243,7 +243,7 @@ function pinkFrontier() {
       map.world(clear ? scattered : original, undefined, 18, `${map.id}-${faction.name}-approach-${index}`);
     }
   }
-  return map.finish('The Pink Frontier', 'Four corner factions surround Pink’s stationary central capital. The upper center produces Repulse Shields; the lower center produces Omni Strikes. Conversion systems rotate along the north and south edges, while the western and eastern systems produce Omni Strike. Expand through either neighboring arsenal, take the fixed routes into the center, and contest Pink’s spreading factories.', true,
+  return map.finish('The Pink Frontier', 'Four corner factions surround Pink’s stationary central capital. Every central world starts without a superweapon. Repulse Shield systems rotate along the north and south edges, while the western and eastern systems produce Omni Strike. Expand through either neighboring arsenal, take the fixed routes into the center, and contest the Conversion factories Pink builds there.', true,
     'Pink changes one world every 5 seconds across its entire faction. Removing all existing weapon sources takes one action; adding Conversion Probe production takes another. A large pink burst marks each change. Capture a world to stop Pink from changing it. Completed conversion sites stay valuable when captured. Every faction begins with only its capital.');
 }
 

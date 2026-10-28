@@ -30,7 +30,9 @@ test('each Chapter 2 map loads with three permitted weapons, one planet per fact
     validateMap(map);
     assert.deepEqual(map.weapons, CHAPTER_TWO_WEAPONS);
     assert.ok(map.planets.every(planet => !planet.superweaponUnlocks?.includes('overdrive')));
-    assert.deepEqual([...new Set(map.planets.flatMap(planet => planet.superweaponUnlocks ?? []))].sort(), [...CHAPTER_TWO_WEAPONS].sort());
+    const producible = new Set(map.planets.flatMap(planet => planet.superweaponUnlocks ?? []));
+    if (map.pinkTerraforming) producible.add('conversion');
+    assert.deepEqual([...producible].sort(), [...CHAPTER_TWO_WEAPONS].sort());
     const engine = createMatch(map);
     assert.equal(engine.bases.size, map.planets.length);
     assert.deepEqual(engine.weaponPalette, CHAPTER_TWO_WEAPONS);
@@ -207,7 +209,7 @@ test('chapter layouts place Pink then Blue at the center, preserve specialty sys
   assert.ok([...FACTIONS, PINK].every(color => finale.planets.some(planet => planet.owner === color && planet.capital)));
 });
 
-test('the Pink introduction has four edge arsenals, corner starts, and a stationary split center with permanent routes', () => {
+test('the Pink introduction has Shield and Omni edge arsenals and an unarmed stationary center with permanent routes', () => {
   const map = CHAPTER_TWO_MAPS[1], orbits = mapOrbits(map);
   assert.equal(orbits.length, 4);
   for (const orbit of orbits) {
@@ -217,14 +219,13 @@ test('the Pink introduction has four edge arsenals, corner starts, and a station
     const worlds = map.planets.filter(planet => orbit.planetIds.includes(planet.id));
     assert.equal(worlds.length, 12);
     assert.ok(worlds.every(planet => planet.owner === NEUTRAL && !planet.capital
-      && planet.superweaponUnlocks?.join() === (vertical ? 'conversion' : 'omni')));
+      && planet.superweaponUnlocks?.join() === (vertical ? 'repulse' : 'omni')));
   }
   const core = map.planets.filter(planet => planet.id.includes('-core-'));
   assert.equal(core.length, 24);
-  for (const planet of core) {
-    if (planet.y < map.height / 2 - 100) assert.deepEqual(planet.superweaponUnlocks, ['repulse']);
-    if (planet.y > map.height / 2 + 100) assert.deepEqual(planet.superweaponUnlocks, ['omni']);
-  }
+  assert.ok(core.every(planet => !planet.superweaponUnlocks?.length));
+  assert.ok(!map.planets.find(planet => planet.owner === PINK)!.superweaponUnlocks?.length);
+  assert.ok(!map.planets.some(planet => planet.superweaponUnlocks?.includes('conversion')));
   assert.ok([...FACTIONS, PINK].every(color => map.planets.some(planet => planet.owner === color && planet.capital)));
   for (const capital of map.planets.filter(planet => planet.capital && planet.owner !== PINK)) {
     assert.ok((capital.x < map.width / 4 || capital.x > map.width * 3 / 4)
