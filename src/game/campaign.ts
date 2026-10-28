@@ -1,18 +1,25 @@
-import { SUPERWEAPON_IDS } from './superweapons';
+import { CHAPTER_TWO_MAPS } from './chapterTwo';
+import { ALL_SUPERWEAPON_IDS, PINK } from './superweapons';
 import type { SuperweaponId } from './types';
 import type { GalaxyTheme } from './galaxy';
 
 export const PLAYER = '#3b82f6';
 export const NEUTRAL = '#6b7280';
 export const FACTIONS = [PLAYER, '#ef4444', '#22c55e', '#eab308'] as const;
+export const ALL_FACTIONS = [...FACTIONS, PINK] as const;
+export const CHAPTER_TWO_TEST_MODE_IDS = ['chapter-2-test-1', 'chapter-2-test-2', 'chapter-2-test-3', 'chapter-2-test-4', 'chapter-2-test-5'] as const;
+export type ChapterTwoTestModeId = typeof CHAPTER_TWO_TEST_MODE_IDS[number];
 export const DYSON_SPHERE_ID = 'dyson-sphere';
 export const CHAPTER_ONE_TEST_MODE_IDS = [
   'chapter-1-test-1', 'chapter-1-test-2', 'chapter-1-test-3', 'chapter-1-test-4', 'chapter-1-test-5',
 ] as const;
 export type ChapterOneTestModeId = typeof CHAPTER_ONE_TEST_MODE_IDS[number];
 export type GeneratedMode = 'quick-match' | 'chaos-mode';
-export type ModeId = 'chapter-1' | ChapterOneTestModeId | 'chapter-2' | GeneratedMode;
-export type ChapterId = Exclude<ModeId, GeneratedMode>;
+export type ModeId = 'chapter-1' | ChapterOneTestModeId | 'chapter-2' | ChapterTwoTestModeId | GeneratedMode | 'custom-map';
+export type ChapterId = Exclude<ModeId, GeneratedMode | 'custom-map'>;
+export function isCampaignMode(mode: ModeId): mode is ChapterId {
+  return mode !== 'custom-map' && !isGeneratedMode(mode);
+}
 export function isGeneratedMode(mode: ModeId): mode is GeneratedMode {
   return mode === 'quick-match' || mode === 'chaos-mode';
 }
@@ -22,7 +29,13 @@ export function isChapterOneTestMode(mode: ModeId): mode is ChapterOneTestModeId
 export function testLevelForMode(mode: ChapterOneTestModeId): number {
   return CHAPTER_ONE_TEST_MODE_IDS.indexOf(mode) + 1;
 }
-export type PlanetDefinition = { id: string; x: number; y: number; owner: typeof FACTIONS[number] | typeof NEUTRAL; ships: number; capital?: boolean; superweaponUnlocks?: SuperweaponId[] };
+export function isChapterTestMode(mode: ModeId): mode is ChapterOneTestModeId | ChapterTwoTestModeId {
+  return isChapterOneTestMode(mode) || (CHAPTER_TWO_TEST_MODE_IDS as readonly string[]).includes(mode);
+}
+export function chapterTestLevel(mode: ModeId): number {
+  return Number(mode.slice(-1));
+}
+export type PlanetDefinition = { id: string; x: number; y: number; owner: typeof ALL_FACTIONS[number] | typeof NEUTRAL; ships: number; capital?: boolean; superweaponUnlocks?: SuperweaponId[] };
 export type DysonSphereDefinition = { chargeIntervalSeconds: number };
 export type OrbitDefinition = { x: number; y: number; periodSeconds: number; planetIds: string[]; dysonSphere?: DysonSphereDefinition };
 export type GeneratedMapModule = {
@@ -46,6 +59,9 @@ export type MapDefinition = {
   height: number;
   attackRange: number;
   galaxyTheme?: GalaxyTheme;
+  weapons?: SuperweaponId[];
+  pinkTerraforming?: boolean;
+  lesson?: string;
   overviewScale?: number;
   capitalFocusY?: number;
   objective: { type: 'eliminate-capitals'; description: string };
@@ -309,7 +325,12 @@ export const CHAPTERS: Record<ChapterId, Chapter> = {
   'chapter-1-test-3': { id: 'chapter-1-test-3', plannedLevels: 3, maps: CHAPTER_ONE_MAPS.slice(2) },
   'chapter-1-test-4': { id: 'chapter-1-test-4', plannedLevels: 2, maps: CHAPTER_ONE_MAPS.slice(3) },
   'chapter-1-test-5': { id: 'chapter-1-test-5', plannedLevels: 1, maps: CHAPTER_ONE_MAPS.slice(4) },
-  'chapter-2': { id: 'chapter-2', plannedLevels: 5, maps: [] },
+  'chapter-2': { id: 'chapter-2', plannedLevels: 5, maps: CHAPTER_TWO_MAPS },
+  'chapter-2-test-1': { id: 'chapter-2-test-1', plannedLevels: 5, maps: CHAPTER_TWO_MAPS.slice(0) },
+  'chapter-2-test-2': { id: 'chapter-2-test-2', plannedLevels: 4, maps: CHAPTER_TWO_MAPS.slice(1) },
+  'chapter-2-test-3': { id: 'chapter-2-test-3', plannedLevels: 3, maps: CHAPTER_TWO_MAPS.slice(2) },
+  'chapter-2-test-4': { id: 'chapter-2-test-4', plannedLevels: 2, maps: CHAPTER_TWO_MAPS.slice(3) },
+  'chapter-2-test-5': { id: 'chapter-2-test-5', plannedLevels: 1, maps: CHAPTER_TWO_MAPS.slice(4) },
 };
 
 export type Progress = { version: 1; selectedMode: ModeId; completed: string[] };
@@ -339,7 +360,7 @@ export function nextMission(chapter: Chapter, completed: readonly string[]): Map
 export function launchMission(chapter: Chapter, completed: readonly string[]): MapDefinition | undefined {
   // A new Chapter 1 run always teaches the basics before the larger map.
   // In-run advancement still uses followingMission, not saved completion IDs.
-  if (chapter.id === 'chapter-1' || isChapterOneTestMode(chapter.id)) return chapter.maps[0];
+  if (chapter.id === 'chapter-1' || isChapterTestMode(chapter.id)) return chapter.maps[0];
   return nextMission(chapter, completed) ?? chapter.maps[0];
 }
 export function followingMission(chapter: Chapter, currentId: string): MapDefinition | undefined {
@@ -347,14 +368,16 @@ export function followingMission(chapter: Chapter, currentId: string): MapDefini
   return index < 0 ? undefined : chapter.maps[index + 1];
 }
 export function progressLabel(mode: ModeId, progress: Progress): string {
+  if (mode === 'custom-map') return 'Your layout · Your rules';
   if (mode === 'quick-match') return 'Instant action';
   if (mode === 'chaos-mode') return 'Orbiting worlds · Weapons everywhere';
   if (isChapterOneTestMode(mode)) return `Testing · starts at Level ${testLevelForMode(mode)}`;
+  if (isChapterTestMode(mode)) return `Testing · starts at Level ${chapterTestLevel(mode)}`;
   const chapter = CHAPTERS[mode];
   if (!chapter.maps.length) return 'Coming soon';
   if (mode === 'chapter-1') return 'Tutorial first · Breach Line next';
   const next = nextMission(chapter, progress.completed);
-  return next ? `Mission ${chapter.maps.indexOf(next) + 1} · ${chapter.plannedLevels} planned` : `${chapter.maps.length}/${chapter.plannedLevels} complete · More coming soon`;
+  return next ? `Mission ${chapter.maps.indexOf(next) + 1} of ${chapter.maps.length}` : `${chapter.maps.length}/${chapter.plannedLevels} complete`;
 }
 
 export function validateMap(map: MapDefinition): void {
@@ -362,12 +385,17 @@ export function validateMap(map: MapDefinition): void {
   if (map.overviewScale !== undefined && (!Number.isFinite(map.overviewScale) || map.overviewScale <= 0 || map.overviewScale > 1)) throw new Error('Invalid overview scale');
   if (map.capitalFocusY !== undefined && (!Number.isFinite(map.capitalFocusY) || map.capitalFocusY < 0 || map.capitalFocusY > 1)) throw new Error('Invalid capital camera position');
   if (map.objective.type !== 'eliminate-capitals') throw new Error('Unsupported map objective');
+  const weaponSet = new Set(map.weapons ?? map.planets.flatMap(planet => planet.superweaponUnlocks ?? []));
+  if (weaponSet.size > 3 || [...weaponSet].some(weapon => !ALL_SUPERWEAPON_IDS.includes(weapon))
+    || map.weapons && new Set(map.weapons).size !== map.weapons.length) throw new Error('Map must have at most three distinct weapons');
+  if (map.pinkTerraforming && !weaponSet.has('conversion')) throw new Error('Pink transformation requires Conversion Probe');
   const ids = new Set<string>();
   for (const p of map.planets) {
     if (!p.id || ids.has(p.id)) throw new Error('Planet IDs must be unique');
     ids.add(p.id);
-    if (![...FACTIONS, NEUTRAL].includes(p.owner) || !Number.isInteger(p.ships) || p.ships < 0) throw new Error('Invalid planet owner or ships');
-    if (p.superweaponUnlocks && (new Set(p.superweaponUnlocks).size !== p.superweaponUnlocks.length || p.superweaponUnlocks.some(weapon => !SUPERWEAPON_IDS.includes(weapon)))) throw new Error('Invalid planet superweapons');
+    if (![...ALL_FACTIONS, NEUTRAL].includes(p.owner) || !Number.isInteger(p.ships) || p.ships < 0) throw new Error('Invalid planet owner or ships');
+    if (p.superweaponUnlocks && (new Set(p.superweaponUnlocks).size !== p.superweaponUnlocks.length || p.superweaponUnlocks.some(weapon => !ALL_SUPERWEAPON_IDS.includes(weapon)))) throw new Error('Invalid planet superweapons');
+    if (p.superweaponUnlocks?.some(weapon => !weaponSet.has(weapon))) throw new Error('Planet weapon is outside map selection');
     if (!Number.isFinite(p.x) || !Number.isFinite(p.y) || p.x < 0 || p.x > map.width || p.y < 0 || p.y > map.height) throw new Error('Planet outside map');
     if (p.capital && p.owner === NEUTRAL) throw new Error('Neutral capital is not supported');
   }

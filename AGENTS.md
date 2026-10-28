@@ -20,3 +20,15 @@ For every requested code or UI change:
    - the verification and Vercel deployment result
 
 Never commit generated videos, screenshots, prototype artifacts, credentials, or unrelated local files unless the user explicitly places them in scope.
+
+## Production deployment contract
+
+- Repository: `https://github.com/yigitefeoktar/war-of-planets.git`; release branch: `main`.
+- Vercel project: `war-of-planets` under `yigits-projects-96bf526b`.
+- Production URL: https://war-of-planets.vercel.app/
+- Frontend: Vite; build with `npm run build`, output directory `dist`.
+- Deployment is triggered by `git push origin main`. Verify the `Vercel` commit status on that exact SHA, then check the public production site. GitHub deployment statuses provide deployment URLs and status evidence when the Vercel connector is unavailable.
+- No `deployment.json` or backend contract is configured. Deploy only the frontend; do not install, start, or expose a backend or reuse another game's service.
+- Use the checks listed above before pushing. Inspect failed checks and deployment logs, repair the issue, and push a normal follow-up commit. Never force-push or roll back unrelated user work.
+- Do not enable Google Cloud billing or automatic deployment triggers; this workflow uses Vercel.
+- The user resumed normal deployments on 2026-10-28. Earlier local-only instructions for Chapter 2 are superseded. Follow this workflow for future requested code and UI changes.

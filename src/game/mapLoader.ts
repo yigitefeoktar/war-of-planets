@@ -9,13 +9,15 @@ import type { GeneratedMode } from './campaign';
 export function createMatch(map?: MapDefinition, options: { hardMode?: boolean; mode?: GeneratedMode } = {}): GameEngine {
   const battlefield = map ?? createGeneratedMap(options.mode ?? 'quick-match');
   validateMap(battlefield);
-  const multiSelectEnabled = !!battlefield.generated || battlefield.id === SIEGE_OF_HELIOS.id;
+  const multiSelectEnabled = !!battlefield.generated || battlefield.id === SIEGE_OF_HELIOS.id || battlefield.id.startsWith('frontier-');
   const hasWeaponPlanets = battlefield.planets.some(planet => planet.superweaponUnlocks?.length);
   const galaxyTheme = options.hardMode ? 'hard' : battlefield.galaxyTheme;
   const orbits = mapOrbits(battlefield);
   const engine = orbits.length
     ? new OrbitingGameEngine(battlefield.width, battlefield.height, orbits, hasWeaponPlanets, galaxyTheme, multiSelectEnabled)
     : new GameEngine(battlefield.width, battlefield.height, { superweaponUnlocksEnabled: hasWeaponPlanets, galaxyTheme, multiSelectEnabled });
+  engine.weaponPalette = battlefield.weapons ?? engine.weaponPalette;
+  engine.pinkTerraformingEnabled = battlefield.pinkTerraforming ?? false;
   engine.isHardMode = options.hardMode ?? false;
   engine.bases.clear();
   engine.pixels = [];

@@ -295,3 +295,9 @@ html, body {
     font-size: 12px;
   }
 }
+
+/* Five factions retain full ship counts and reachable controls on narrow phones. */
+@media (max-width: 639px) {
+  .game-faction-strip-five { gap: 6px; padding-left: 8px; padding-right: 8px; }
+  .game-faction-strip-five .faction-stat { gap: 4px; }
+}

@@ -4,7 +4,7 @@ import { SUPERWEAPON_VISUALS } from '../game/superweaponVisuals';
 import type { SuperweaponId } from '../game/types';
 
 const COMPACT_LABELS: Record<SuperweaponId, string> = {
-  overdrive: 'Overdrive', omni: 'Omni', repulse: 'Repulse',
+  overdrive: 'Overdrive', omni: 'Omni', repulse: 'Repulse', conversion: 'Convert',
 };
 
 type SuperweaponButtonProps = {

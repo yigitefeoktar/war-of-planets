@@ -1,11 +1,13 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createMatch } from './game/mapLoader';
 import { createGeneratedMap } from './game/generatedMaps';
-import { CHAPTERS, DYSON_SPHERE_ID, SIEGE_OF_HELIOS, completeMission, followingMission, getOutcome, isChapterOneTestMode, isGeneratedMode, launchMission, loadProgress, mapOrbits, nextMission, saveProgress, testLevelForMode, type MapDefinition, type ModeId, type Progress } from './game/campaign';
+import { CHAPTERS, DYSON_SPHERE_ID, SIEGE_OF_HELIOS, completeMission, followingMission, getOutcome, isCampaignMode, isChapterTestMode, chapterTestLevel, isGeneratedMode, launchMission, loadProgress, mapOrbits, nextMission, saveProgress, type MapDefinition, type ModeId, type Progress } from './game/campaign';
+import { loadCustomMapPreset, saveCustomMapPreset, type CustomMapSettings } from './game/customMaps';
 import { motion } from 'motion/react';
-import { Maximize, Minimize, Volume2, VolumeX, Music, Pause, Play, Flag, Shield, Skull } from 'lucide-react';
+import { Maximize, Minimize, Volume2, VolumeX, Music, Pause, Play, Flag, Shield } from 'lucide-react';
 import { playSound, startMusic, stopMusic, setMusicEnabled, SoundType, resumeAudioContext } from './audio';
 import { ModeCard } from './ui/ModeCard';
+import { HardModeButton } from './ui/HardModeButton';
 import { SuperweaponButton } from './ui/SuperweaponButton';
 import { AnimatedGamePopup } from './ui/AnimatedGamePopup';
 import { ChapterVictoryScreen, preloadChapterVictoryArtwork } from './ui/ChapterVictoryScreen';
@@ -14,7 +16,7 @@ import { advanceTutorial, drawTutorialHighlights, tutorialTargets, type Tutorial
 import { hasIncomingHostile, issueFleetOrder, issueFriendlyGroupOrder } from './game/logistics';
 import { MIN_MULTI_SELECT_PLANETS, canUseMultiSelect, countOwnedPlanets, friendlyPlanetsInRectangle, type SelectionPoint } from './game/selection';
 import { FACTION_SHIP_LIMIT, GameEngine } from './game/engine';
-import { SUPERWEAPON_IDS, type SuperweaponId } from './game/superweapons';
+import { ALL_SUPERWEAPON_IDS, PINK, type SuperweaponId } from './game/superweapons';
 import { SUPERWEAPON_VISUALS } from './game/superweaponVisuals';
 import { activeGamePopup, IMPOSSIBLE_PLANET_NOTICE_MS, resolveSuperweaponClick } from './game/popups';
 import {
@@ -24,9 +26,10 @@ import {
 import type { Base } from './game/types';
 
 const MUSIC_SRC = '/audio/bg-music.mp3';
+const CustomMapSetup = React.lazy(() => import('./ui/CustomMapSetup').then(module => ({ default: module.CustomMapSetup })));
 
 const SUPERWEAPON_LABELS: Record<SuperweaponId, string> = {
-  omni: 'Omni Strike', overdrive: 'Production Overdrive', repulse: 'Repulse Shield',
+  omni: 'Omni Strike', overdrive: 'Production Overdrive', repulse: 'Repulse Shield', conversion: 'Conversion Probe',
 };
 
 function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay, isSoundEnabled, setIsSoundEnabled, isMusicEnabled, setIsMusicEnabled, isHardMode, setIsHardMode }: { selectedMode: ModeId, onSelectMode: (mode: ModeId) => void, progress: Progress, saveWarning: boolean, onPlay: () => void, isSoundEnabled: boolean, setIsSoundEnabled: (val: boolean) => void, isMusicEnabled: boolean, setIsMusicEnabled: (val: boolean) => void, isHardMode: boolean, setIsHardMode: (val: boolean) => void }) {
@@ -151,7 +154,7 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
           </p>
         </motion.div>
 
-        <ModeCard isSoundEnabled={isSoundEnabled} selectedMode={selectedMode} onSelectMode={onSelectMode} progress={progress} />
+        <ModeCard isSoundEnabled={isSoundEnabled} selectedMode={selectedMode} onSelectMode={onSelectMode} progress={progress} isHardMode={isHardMode} setIsHardMode={setIsHardMode} />
         {saveWarning && <p className="mt-2 text-amber-300 text-xs">Progress cannot be saved in this browser session.</p>}
 
         {/* Action Button */}
@@ -163,7 +166,7 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
           whileTap={{ scale: 0.95 }}
           onMouseEnter={() => playSound('hover', isSoundEnabled)}
           onClick={handlePlay}
-          disabled={!isGeneratedMode(selectedMode) && CHAPTERS[selectedMode].maps.length === 0}
+          disabled={isCampaignMode(selectedMode) && CHAPTERS[selectedMode].maps.length === 0}
           className="mt-12 group relative px-12 py-5 bg-cyan-950/60 border border-cyan-400 text-cyan-300 font-bold tracking-[0.3em] uppercase transition-colors transition-shadow duration-300 overflow-hidden shadow-[0_0_20px_rgba(6,182,212,0.2)] hover:shadow-[0_0_40px_rgba(6,182,212,0.4)] hover:text-white cursor-pointer rounded-sm"
         >
           <div className="absolute inset-0 bg-cyan-400/20 translate-y-[100%] group-hover:translate-y-0 transition-transform duration-300 ease-out" />
@@ -173,7 +176,7 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
           <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <span className="relative z-10 flex items-center gap-3">
-            {!isGeneratedMode(selectedMode) && CHAPTERS[selectedMode].maps.length === 0 ? 'Coming soon' : selectedMode === 'chaos-mode' ? 'Launch Chaos Mode' : selectedMode === 'quick-match' ? 'Initialize Launch' : selectedMode === 'chapter-1' ? 'Start Chapter 1' : isChapterOneTestMode(selectedMode) ? `Start Level ${testLevelForMode(selectedMode)}` : nextMission(CHAPTERS[selectedMode], progress.completed) ? 'Continue Campaign' : 'Replay Mission'}
+            {selectedMode === 'custom-map' ? 'Customize Map' : isCampaignMode(selectedMode) && CHAPTERS[selectedMode].maps.length === 0 ? 'Coming soon' : selectedMode === 'chaos-mode' ? 'Launch Chaos Mode' : selectedMode === 'quick-match' ? 'Initialize Launch' : selectedMode === 'chapter-1' ? 'Start Chapter 1' : isChapterTestMode(selectedMode) ? `Start Level ${chapterTestLevel(selectedMode)}` : selectedMode === 'chapter-2' && !CHAPTERS['chapter-2'].maps.some(map => progress.completed.includes(map.id)) ? 'Start Chapter 2' : isCampaignMode(selectedMode) && nextMission(CHAPTERS[selectedMode], progress.completed) ? 'Continue Campaign' : 'Replay Mission'}
             <svg className="w-5 h-5 group-hover:translate-x-2 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="square" strokeLinejoin="miter" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
             </svg>
@@ -233,24 +236,7 @@ function LandingPage({ selectedMode, onSelectMode, progress, saveWarning, onPlay
             {isSoundEnabled ? 'Sound: On' : 'Sound: Off'}
           </button>
 
-          <button
-            type="button"
-            aria-pressed={isHardMode}
-            onMouseEnter={() => playSound('hover', isSoundEnabled)}
-            onClick={() => {
-              const newState = !isHardMode;
-              setIsHardMode(newState);
-              if (newState) playSound('click', isSoundEnabled);
-            }}
-            className={`flex items-center gap-2 px-4 py-2 border transition-all rounded-sm font-mono text-xs tracking-widest uppercase group ${
-              isHardMode
-                ? 'bg-red-900/30 border-red-500/50 text-red-400'
-                : 'bg-cyan-950/40 border-cyan-500/30 text-cyan-500/60 hover:text-cyan-400 hover:border-cyan-400/50 hover:bg-cyan-900/30'
-            }`}
-          >
-            <Skull size={14} className={`group-hover:scale-110 transition-transform ${!isHardMode && 'opacity-50'}`} />
-            {isHardMode ? 'Hard Mode: On' : 'Hard Mode: Off'}
-          </button>
+          <HardModeButton isHardMode={isHardMode} setIsHardMode={setIsHardMode} isSoundEnabled={isSoundEnabled} />
 
         </motion.div>
         </div>
@@ -290,7 +276,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   const fleetSizeRef = useRef<number>(1.0);
   const [availableWeapons, setAvailableWeapons] = useState<Set<SuperweaponId>>(() => new Set());
   const [chargeState, setChargeState] = useState(() => ({
-    weapons: Object.fromEntries(SUPERWEAPON_IDS.map(weapon => [weapon, { charge: 0, progress: 0, sources: 0, secondsRemaining: null as number | null }])) as Record<SuperweaponId, { charge: number; progress: number; sources: number; secondsRemaining: number | null }>,
+    weapons: Object.fromEntries(ALL_SUPERWEAPON_IDS.map(weapon => [weapon, { charge: 0, progress: 0, sources: 0, secondsRemaining: null as number | null }])) as Record<SuperweaponId, { charge: number; progress: number; sources: number; secondsRemaining: number | null }>,
     universalCharge: 0,
     universalProgress: 0,
     dysonOwned: false,
@@ -409,7 +395,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
   };
 
   useEffect(() => {
-    const isReady = SUPERWEAPON_IDS.some(weapon => availableWeapons.has(weapon)
+    const isReady = ALL_SUPERWEAPON_IDS.some(weapon => availableWeapons.has(weapon)
       && (chargeState.weapons[weapon].charge > 0 || chargeState.universalCharge > 0));
     if (isReady && !wasWeaponReady && showUI) {
       playSound('select', isSoundEnabled);
@@ -463,7 +449,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     // Availability includes weapons that can be produced later in this match.
     setAvailableWeapons(new Set<SuperweaponId>(engine.superweaponUnlocksEnabled
       ? orbits.some(orbit => orbit.dysonSphere)
-        ? SUPERWEAPON_IDS
+        ? engine.weaponPalette
         : Array.from(engine.bases.values()).flatMap(base => base.superweaponUnlocks ?? [])
       : []));
     let tutorialTime = 0; // Active play time; pauses do not consume lesson delays.
@@ -474,7 +460,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       const color = '#3b82f6';
       setOwnedPlanetCount(countOwnedPlanets(engine.bases.values(), color));
       setChargeState({
-        weapons: Object.fromEntries(SUPERWEAPON_IDS.map(weapon => [weapon, {
+        weapons: Object.fromEntries(ALL_SUPERWEAPON_IDS.map(weapon => [weapon, {
           charge: engine.getSuperweaponCharge(color, weapon),
           progress: engine.getSuperweaponProgress(color, weapon),
           sources: engine.getSuperweaponSourceCount(color, weapon),
@@ -507,6 +493,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
       playSound('omniLaunch', isSoundEnabledRef.current);
     };
 
+    engine.onConversionLaunch = () => playSound('launch', isSoundEnabledRef.current);
     engine.onSuperweapon = (weapon) => {
       playSound(weapon, isSoundEnabledRef.current);
     };
@@ -1470,6 +1457,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
           { color: '#ef4444', isPlayer: false, isAlive: false, shipCount: 0, name: 'AI RED' },
           { color: '#22c55e', isPlayer: false, isAlive: false, shipCount: 0, name: 'AI GREEN' },
           { color: '#eab308', isPlayer: false, isAlive: false, shipCount: 0, name: 'AI YELLOW' },
+          { color: PINK, isPlayer: false, isAlive: false, shipCount: 0, name: 'AI PINK' },
         ].filter(f => activeFactionColors.has(f.color));
 
         let playerAlive = false;
@@ -1568,7 +1556,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
     <div className="fixed inset-0 w-full h-[100dvh] overflow-hidden bg-[#05050a] touch-none overscroll-none select-none">
       {/* Domination UI */}
       <div ref={topHudRef} inert={!showUI} className={`game-hud game-hud-top absolute top-0 left-0 right-0 p-2 sm:p-4 md:p-6 pointer-events-none z-40 flex justify-center ${showUI ? 'game-hud-visible' : ''}`}>
-        <div className="bg-cyan-950/40 backdrop-blur-md px-3 py-2 sm:px-6 sm:py-3 border border-cyan-500/30 shadow-[0_0_30px_rgba(6,182,212,0.1)] relative rounded-sm flex items-center gap-3 sm:gap-6 md:gap-8 pointer-events-auto">
+        <div className={`game-faction-strip ${factions.length > 4 ? 'game-faction-strip-five' : ''} bg-cyan-950/40 backdrop-blur-md px-3 py-2 sm:px-6 sm:py-3 border border-cyan-500/30 shadow-[0_0_30px_rgba(6,182,212,0.1)] relative rounded-sm flex items-center gap-3 sm:gap-6 md:gap-8 pointer-events-auto`}>
           {/* Corner accents */}
           <div className="absolute -top-[1px] -left-[1px] w-2 h-2 border-t-2 border-l-2 border-cyan-400" />
           <div className="absolute -top-[1px] -right-[1px] w-2 h-2 border-t-2 border-r-2 border-cyan-400" />
@@ -1577,8 +1565,9 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
           {factions.map((faction) => (
             <div 
-              key={faction.color} 
-              className={`flex items-center gap-1.5 sm:gap-3 transition-all duration-300 ${faction.isAlive ? 'opacity-100' : 'opacity-30 grayscale'}`}
+              key={faction.color}
+              role="group" aria-label={`${faction.name}: ${faction.isAlive ? faction.shipCount + ' ships' : 'eliminated'}`}
+              className={`faction-stat flex items-center gap-1.5 sm:gap-3 transition-all duration-300 ${faction.isAlive ? 'opacity-100' : 'opacity-30 grayscale'}`}
             >
               <div 
                 className="w-2 h-2 sm:w-3 sm:h-3 rounded-sm shrink-0" 
@@ -1697,9 +1686,9 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
         const planet = commandPlanet ? engine?.bases.get(commandPlanet) : undefined;
         if (!engine) return null;
         const enemySelected = !!planet && planet.color !== '#3b82f6';
-        const weapons = ['overdrive', 'omni', 'repulse'] as SuperweaponId[];
-        const labels = { omni: 'Omni Strike', overdrive: 'Production Overdrive', repulse: 'Repulse Shield' };
-        const descriptions = { omni: 'Warp 30% of every idle fleet here', overdrive: '7x production / 7.5 seconds', repulse: 'Repel and destroy arrivals / 6 seconds' };
+        const weapons: SuperweaponId[] = engine.weaponPalette.includes('conversion') ? ['conversion', 'omni', 'repulse'] : ['overdrive', 'omni', 'repulse'];
+        const labels = SUPERWEAPON_LABELS;
+        const descriptions = { omni: 'Warp 30% of every idle fleet here', overdrive: 'Match all your other planets\u2019 combined normal production for 7.5 seconds; never below this planet\u2019s normal rate', repulse: 'Repel and destroy arrivals / 6 seconds', conversion: 'Steal a neighboring non-capital world and its stationed ships. A large ship in your faction color travels from your capital at twice normal fleet speed; it passes through Repulse Shields. One charge per 60 seconds per site, capped at four effective sites' };
         const renderBar = (state: 'normal' | 'enemy') => {
           const showSelectMode = state === 'normal' && engine.multiSelectEnabled;
           const shownPlanet = planet && (state === 'normal') === (planet.color === '#3b82f6') ? planet : undefined;
@@ -1707,7 +1696,7 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
             onPointerDown={event => event.stopPropagation()} onTouchStart={event => event.stopPropagation()}>
             <div className="planet-command-content">
           {showSelectMode && <div className="planet-selection-control">
-          <span id="select-mode-requirement" className="planet-control-label">{Math.min(ownedPlanetCount, MIN_MULTI_SELECT_PLANETS)} / {MIN_MULTI_SELECT_PLANETS} OWNED</span>
+          <span id="select-mode-requirement" className="planet-control-label">{ownedPlanetCount} / {MIN_MULTI_SELECT_PLANETS} OWNED</span>
           <button className="planet-multi-select" aria-label="Select mode: select friendly planets" aria-pressed={multiSelectMode}
             aria-describedby="select-mode-requirement" disabled={ownedPlanetCount < MIN_MULTI_SELECT_PLANETS}
             title={ownedPlanetCount < MIN_MULTI_SELECT_PLANETS ? `Requires ${MIN_MULTI_SELECT_PLANETS} owned planets. Currently ${ownedPlanetCount}.` : 'Drag to select friendly planets, then choose a friendly target. PC: right-click drag. Escape: cancel.'}
@@ -1733,8 +1722,8 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
           {state === 'normal' && availableWeapons.size > 0 && <>
             <div className="planet-abilities">
               {weapons.filter(weapon => availableWeapons.has(weapon)).map(weapon => {
-                const targets = [...engine.bases.values()].filter(target => weapon === 'omni' ? engine.canOmniStrike('#3b82f6', target.id) : engine.canActivatePlanetAbility('#3b82f6', target.id, weapon));
-                const active = weapon === 'omni' ? [] : [...engine.bases.values()].filter(target => target.color === '#3b82f6' && target[weapon]).map(target => Math.ceil(target[weapon]!.remaining));
+                const targets = [...engine.bases.values()].filter(target => weapon === 'omni' ? engine.canOmniStrike('#3b82f6', target.id) : weapon === 'conversion' ? engine.canConversionProbe('#3b82f6', target.id) : engine.canActivatePlanetAbility('#3b82f6', target.id, weapon));
+                const active = weapon === 'omni' || weapon === 'conversion' ? [] : [...engine.bases.values()].filter(target => target.color === '#3b82f6' && target[weapon]).map(target => Math.ceil(target[weapon]!.remaining));
                 const charge = chargeState.weapons[weapon];
                 const ready = charge.charge > 0 || chargeState.universalCharge > 0;
                 const canProduce = charge.sources > 0 || chargeState.dysonOwned;
@@ -1881,22 +1870,37 @@ function Game({ isSoundEnabled, isMusicEnabled, isHardMode, map, onResult, onRet
 
 export default function App() {
   const [progress, setProgress] = useState(loadProgress);
+  const [customPreset, setCustomPreset] = useState(loadCustomMapPreset);
+  const [presetSaveFailed, setPresetSaveFailed] = useState(false);
+  const customSettings = customPreset.settings;
+  const setCustomSettings = (settings: CustomMapSettings) => setCustomPreset(previous => ({ ...previous, settings }));
+  const [showCustomSetup, setShowCustomSetup] = useState(false);
   const [saveWarning, setSaveWarning] = useState(false);
   const [session, setSession] = useState<{ mode: ModeId; map?: MapDefinition; hardMode: boolean; attempt: number } | null>(null);
-  const [isHardMode, setIsHardMode] = useState(false);
+  const [isHardMode, setIsHardMode] = useState(customPreset.hardMode);
   const [result, setResult] = useState<boolean | null>(null);
   useEffect(() => { setSaveWarning(!saveProgress(progress)); }, [progress]);
+  // App stays mounted across setup, matches and the main menu.
+  useEffect(() => {
+    if (customPreset.enabled) setPresetSaveFailed(!saveCustomMapPreset({ ...customPreset, hardMode: isHardMode }));
+  }, [customPreset, isHardMode]);
+  const togglePresetSaving = () => {
+    const next = { ...customPreset, enabled: !customPreset.enabled, hardMode: isHardMode };
+    // Persist opt-out immediately; subsequent edits while off remain in memory.
+    setPresetSaveFailed(!saveCustomMapPreset(next));
+    setCustomPreset(next);
+  };
   const begin = (mode: ModeId, map?: MapDefinition, hardMode = isHardMode) => {
     const battlefield = map ?? (isGeneratedMode(mode) ? createGeneratedMap(mode) : undefined);
     setResult(null);
     setSession(previous => ({ mode, map: battlefield, hardMode, attempt: (previous?.attempt ?? 0) + 1 }));
   };
-  const followingMap = session && !isGeneratedMode(session.mode)
+  const followingMap = session && isCampaignMode(session.mode)
     ? followingMission(CHAPTERS[session.mode], session.map?.id ?? '')
     : undefined;
   const onResult = (won: boolean) => {
     setResult(won);
-    if (won && session?.map && !isGeneratedMode(session.mode) && !isChapterOneTestMode(session.mode)) setProgress(previous => completeMission(previous, session.map!.id));
+    if (won && session?.map && isCampaignMode(session.mode) && !isChapterTestMode(session.mode)) setProgress(previous => completeMission(previous, session.map!.id));
   };
   const [isSoundEnabled, setIsSoundEnabled] = useState(true);
   const [isMusicEnabled, setIsMusicEnabled] = useState(false);
@@ -1934,12 +1938,21 @@ export default function App() {
     setIsMusicEnabled(enabled);
   };
 
-  const restartChapterOneInHardMode = () => {
+  const restartChapterInHardMode = () => {
     setIsHardMode(true);
-    setProgress(previous => ({ ...previous, selectedMode: 'chapter-1' }));
+    const chapterMode = session?.mode.startsWith('chapter-2') ? 'chapter-2' : 'chapter-1';
+    setProgress(previous => ({ ...previous, selectedMode: chapterMode }));
     startMusic(MUSIC_SRC, isMusicEnabled);
-    begin('chapter-1', CHAPTERS['chapter-1'].maps[0], true);
+    begin(chapterMode, CHAPTERS[chapterMode].maps[0], true);
   };
+
+  if (!session && showCustomSetup) {
+    return <React.Suspense fallback={<div role="status" className="fixed inset-0 grid place-items-center bg-[#030910] font-mono text-cyan-200">Preparing your battlefield…</div>}><CustomMapSetup settings={customSettings} onChange={setCustomSettings}
+      presetSavingEnabled={customPreset.enabled} presetSaveFailed={presetSaveFailed} onTogglePresetSaving={togglePresetSaving}
+      onLaunch={map => { startMusic(MUSIC_SRC, isMusicEnabled); setShowCustomSetup(false); begin('custom-map', map); }}
+      onBack={() => setShowCustomSetup(false)} isHardMode={isHardMode} setIsHardMode={setIsHardMode}
+      isSoundEnabled={isSoundEnabled} /></React.Suspense>;
+  }
 
   if (!session) {
     return (
@@ -1951,6 +1964,7 @@ export default function App() {
         onPlay={() => {
           startMusic(MUSIC_SRC, isMusicEnabled);
           const mode = progress.selectedMode;
+          if (mode === 'custom-map') { setShowCustomSetup(true); return; }
           const map = isGeneratedMode(mode) ? undefined : launchMission(CHAPTERS[mode], progress.completed);
           if (isGeneratedMode(mode) || map) begin(mode, map);
         }}
@@ -1965,7 +1979,7 @@ export default function App() {
   }
 
 
-  const chapter = isGeneratedMode(session.mode) ? undefined : CHAPTERS[session.mode];
+  const chapter = isCampaignMode(session.mode) ? CHAPTERS[session.mode] : undefined;
   const isLastChapterLevel = Boolean(chapter && session.map && chapter.maps.at(-1)?.id === session.map.id);
   const isChapterComplete = isLastChapterLevel && result === true;
   const isChapterFinale = session.map?.id === SIEGE_OF_HELIOS.id;
@@ -1977,9 +1991,9 @@ export default function App() {
     isSoundEnabled={isSoundEnabled} isMusicEnabled={isMusicEnabled} isHardMode={session.hardMode}
     onResult={onResult} resultDetail={resultDetail} victoryTitle={isChapterFinale ? 'HELIOS SECURED' : undefined}
     isChapterComplete={isChapterComplete}
-    actionLabel={isGeneratedMode(session.mode) ? 'New Map' : isChapterComplete ? 'Back to Main Menu' : result && followingMap ? 'Next Mission' : result ? 'Replay Mission' : 'Retry Mission'}
+    actionLabel={session.mode === 'custom-map' ? 'Edit Map' : isGeneratedMode(session.mode) ? 'New Map' : isChapterComplete ? 'Back to Main Menu' : result && followingMap ? 'Next Mission' : result ? 'Replay Mission' : 'Retry Mission'}
     onRetry={() => begin(session.mode, result && followingMap ? followingMap : session.map, session.hardMode)}
-    onNewMap={isGeneratedMode(session.mode) ? () => begin(session.mode, undefined, session.hardMode) : undefined}
-    onTryHardMode={restartChapterOneInHardMode}
+    onNewMap={session.mode === 'custom-map' ? () => { setIsHardMode(session.hardMode); setSession(null); setResult(null); setShowCustomSetup(true); } : isGeneratedMode(session.mode) ? () => begin(session.mode, undefined, session.hardMode) : undefined}
+    onTryHardMode={restartChapterInHardMode}
     onMenu={() => { setSession(null); setResult(null); setMusicEnabled(isMusicEnabled); }} /></React.Fragment>;
 }

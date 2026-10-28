@@ -1,8 +1,9 @@
+import { drawConversionShip, CONVERSION_TRAIL_SECONDS, type ConversionTrailPoint } from './conversionVisuals';
 import { Base, Pixel, type SuperweaponId } from './types';
-import { drawPlanetEffects, drawRepelledShips, type RepelledShip } from './planetEffects';
+import { CONVERSION_ARRIVAL_DURATION, drawPlanetEffects, drawRepelledShips, type RepelledShip } from './planetEffects';
 import { canIssueFleetOrder, connectedFriendlyIds } from './logistics';
 import { TacticalAI } from './ai';
-import { assignQuickMatchSuperweaponPlanets, isPointAccessible, SUPERWEAPON_CHARGE_INTERVAL_SECONDS, SUPERWEAPON_IDS, SUPERWEAPON_MAX_CHARGES, OVERDRIVE_DURATION, OVERDRIVE_MULTIPLIER, REPULSE_DURATION, type SuperweaponTargetMode } from './superweapons';
+import { ALL_SUPERWEAPON_IDS, PINK, PINK_STRIP_SECONDS, PINK_CONVERSION_SECONDS, CONVERSION_PROBE_SPEED, CONVERSION_MAX_EFFECTIVE_SOURCES, assignQuickMatchSuperweaponPlanets, isPointAccessible, SUPERWEAPON_CHARGE_INTERVAL_SECONDS, SUPERWEAPON_IDS, SUPERWEAPON_MAX_CHARGES, OVERDRIVE_DURATION, REPULSE_DURATION, type SuperweaponTargetMode } from './superweapons';
 import { superweaponIconLayout } from './superweaponVisuals';
 import { drawWeaponBadge } from './weaponBadges';
 import { galaxyAppearance, type GalaxyTheme } from './galaxy';
@@ -74,7 +75,23 @@ type GameEngineOptions = {
   galaxyTheme?: GalaxyTheme;
 };
 
+export interface ConversionProbe {
+  angle?: number;
+  trail?: ConversionTrailPoint[];
+  id: number;
+  color: string;
+  capitalId: string;
+  targetId: string;
+  x: number;
+  y: number;
+}
+
 export class GameEngine {
+  weaponPalette: readonly SuperweaponId[] = SUPERWEAPON_IDS;
+  pinkTerraformingEnabled = false;
+  conversionProbes: ConversionProbe[] = [];
+  private nextProbeId = 0;
+  onConversionLaunch?: (color: string, targetId: string) => void;
   bases: Map<string, Base> = new Map();
   pixels: Pixel[] = [];
   stars: Star[] = [];
@@ -291,7 +308,7 @@ export class GameEngine {
   private weaponMap(store: Map<string, Map<SuperweaponId, number>>, color: string) {
     let values = store.get(color);
     if (!values) {
-      values = new Map<SuperweaponId, number>(SUPERWEAPON_IDS.map(weapon => [weapon, 0]));
+      values = new Map<SuperweaponId, number>(ALL_SUPERWEAPON_IDS.map(weapon => [weapon, 0]));
       store.set(color, values);
     }
     return values;
@@ -333,7 +350,7 @@ export class GameEngine {
     const owned = new Set<SuperweaponId>();
     for (const base of this.bases.values()) if (base.color === color) {
       for (const weapon of base.superweaponUnlocks ?? []) owned.add(weapon);
-      if (base.isDysonSphere) for (const weapon of SUPERWEAPON_IDS) owned.add(weapon);
+      if (base.isDysonSphere) for (const weapon of this.weaponPalette) owned.add(weapon);
     }
     return owned;
   }
@@ -344,7 +361,7 @@ export class GameEngine {
 
   getSuperweaponSecondsRemaining(color: string, weapon: SuperweaponId) {
     if (this.hasSuperweaponCharge(color, weapon)) return 0;
-    const sourceCount = this.getSuperweaponSourceCount(color, weapon);
+    const sourceCount = this.effectiveSourceCount(weapon, this.getSuperweaponSourceCount(color, weapon));
     const specialistSeconds = sourceCount > 0
       ? (1 - this.getSuperweaponProgress(color, weapon)) * SUPERWEAPON_CHARGE_INTERVAL_SECONDS / sourceCount
       : Number.POSITIVE_INFINITY;
@@ -359,7 +376,7 @@ export class GameEngine {
 
   recordPlanetCapture(baseId: string, color: string) {
     const captured = this.bases.get(baseId);
-    if (captured) { captured.overdrive = undefined; captured.repulse = undefined; }
+    if (captured) { captured.overdrive = undefined; captured.repulse = undefined; captured.pinkTransformSeconds = undefined; captured.conversionArrival = undefined; }
     if (!this.superweaponUnlocksEnabled) return [];
     return this.bases.get(baseId)?.superweaponUnlocks ?? [];
   }
@@ -398,7 +415,7 @@ export class GameEngine {
       for (const [weapon, count] of counts) {
         if (this.getSuperweaponCharge(color, weapon) >= SUPERWEAPON_MAX_CHARGES) continue;
         const progress = this.getSuperweaponProgress(color, weapon)
-          + dt * count / SUPERWEAPON_CHARGE_INTERVAL_SECONDS;
+          + dt * this.effectiveSourceCount(weapon, count) / SUPERWEAPON_CHARGE_INTERVAL_SECONDS;
         if (progress >= 1 - Number.EPSILON * 8) {
           this.setSuperweaponCharge(color, weapon, SUPERWEAPON_MAX_CHARGES);
           this.weaponMap(this.factionSuperweaponProgress, color).set(weapon, 0);
@@ -424,7 +441,7 @@ export class GameEngine {
 
   canOmniStrike(playerColor: string, toId: string) {
     const targetBase = this.bases.get(toId);
-    if (!targetBase || targetBase.color === playerColor) return false;
+    if (!this.weaponPalette.includes('omni') || !targetBase || targetBase.color === playerColor) return false;
     return isPointAccessible(this.bases.values(), playerColor, targetBase.x, targetBase.y, this.MAX_ATTACK_RANGE);
   }
 
@@ -485,9 +502,112 @@ export class GameEngine {
     return false;
   }
 
+  private effectiveSourceCount(weapon: SuperweaponId, count: number) {
+    return weapon === 'conversion' ? Math.min(count, CONVERSION_MAX_EFFECTIVE_SOURCES) : count;
+  }
+
+  canConversionProbe(color: string, targetId: string) {
+    const target = this.bases.get(targetId);
+    return this.weaponPalette.includes('conversion') && !!target && target.color !== color
+      && !target.isCapital && !target.isDysonSphere
+      && [...this.bases.values()].some(base => base.color === color && base.isCapital)
+      && !this.conversionProbes.some(probe => probe.color === color && probe.targetId === targetId)
+      && isPointAccessible(this.bases.values(), color, target.x, target.y, this.MAX_ATTACK_RANGE);
+  }
+
+  activateConversionProbe(color: string, targetId: string) {
+    if (!this.hasSuperweaponCharge(color, 'conversion') || !this.canConversionProbe(color, targetId)) return false;
+    const capital = [...this.bases.values()].find(base => base.color === color && base.isCapital)!;
+    if (!this.spendSuperweaponCharge(color, 'conversion')) return false;
+    this.conversionProbes.push({ id: this.nextProbeId++, color, capitalId: capital.id, targetId, x: capital.x, y: capital.y,
+      angle: Math.atan2(this.bases.get(targetId)!.y - capital.y, this.bases.get(targetId)!.x - capital.x),
+      trail: [{ x: capital.x, y: capital.y, age: 0 }],
+    });
+    this.onConversionLaunch?.(color, targetId);
+    return true;
+  }
+
+  private updateSuperweaponSystems(dt: number) {
+    if (!this.pinkTerraformingEnabled) {
+      if (this.superweaponUnlocksEnabled) this.updateSuperweaponCharges(dt);
+      return;
+    }
+    let remaining = dt;
+    while (remaining > 0) {
+      let step = remaining;
+      for (const base of this.bases.values()) {
+        if (base.color !== PINK || base.isCapital || base.isDysonSphere
+          || base.superweaponUnlocks?.length === 1 && base.superweaponUnlocks[0] === 'conversion') continue;
+        const elapsed = base.pinkTransformSeconds ?? 0;
+        step = Math.min(step, (elapsed < PINK_STRIP_SECONDS ? PINK_STRIP_SECONDS : PINK_CONVERSION_SECONDS) - elapsed);
+      }
+      if (this.superweaponUnlocksEnabled) this.updateSuperweaponCharges(step);
+      this.updatePinkTransformations(step);
+      remaining = Math.max(0, remaining - step);
+    }
+  }
+
+  private updatePinkTransformations(dt: number) {
+    if (!this.pinkTerraformingEnabled) return;
+    for (const base of this.bases.values()) {
+      if (base.color !== PINK || base.isCapital || base.isDysonSphere) {
+        base.pinkTransformSeconds = undefined;
+        continue;
+      }
+      if (base.superweaponUnlocks?.length === 1 && base.superweaponUnlocks[0] === 'conversion') {
+        base.pinkTransformSeconds = undefined;
+        continue;
+      }
+      base.pinkTransformSeconds = Math.min(PINK_CONVERSION_SECONDS, (base.pinkTransformSeconds ?? 0) + dt);
+      if (base.pinkTransformSeconds >= PINK_CONVERSION_SECONDS) {
+        base.superweaponUnlocks = ['conversion'];
+        base.pinkTransformSeconds = undefined;
+        this.createExplosion(base.x, base.y, '#ff8fc7', 24);
+      } else if (base.pinkTransformSeconds >= PINK_STRIP_SECONDS) {
+        base.superweaponUnlocks = [];
+      }
+    }
+  }
+
+  private updateConversionProbes(dt: number) {
+    this.conversionProbes = this.conversionProbes.filter(probe => {
+      const capital = this.bases.get(probe.capitalId), target = this.bases.get(probe.targetId);
+      if (!capital?.isCapital || capital.color !== probe.color || !target || target.isCapital || target.isDysonSphere) return false;
+      if (target.color === probe.color) {
+        this.createExplosion(probe.x, probe.y, probe.color, 22);
+        return false;
+      }
+      const dx = target.x - probe.x, dy = target.y - probe.y, distance = Math.hypot(dx, dy);
+      const travel = CONVERSION_PROBE_SPEED * dt;
+      if (distance <= travel) {
+        target.color = probe.color;
+        this.recordPlanetCapture(target.id, probe.color);
+        // Only the current stationed garrison converts; launched fleets retain their allegiance.
+        for (const ship of this.pixels) if (!ship.dead && ship.state === 'idle' && ship.baseId === target.id) ship.color = probe.color;
+        target.pixelCount = this.pixels.filter(ship => !ship.dead && ship.state === 'idle' && ship.baseId === target.id).length;
+        target.lastAttackedTime = this.now();
+        target.conversionArrival = { color: probe.color, remaining: CONVERSION_ARRIVAL_DURATION };
+        this.createExplosion(target.x, target.y, '#ff8fc7', 28);
+        this.onCapture?.(target.id, probe.color);
+        return false;
+      }
+      const trail = probe.trail ??= [];
+      for (const point of trail) point.age += dt;
+      probe.trail = trail.filter(point => point.age < CONVERSION_TRAIL_SECONDS);
+      probe.angle = Math.atan2(dy, dx);
+      probe.x += dx / distance * travel;
+      probe.y += dy / distance * travel;
+      const last = probe.trail.at(-1);
+      if (dt > 0 && (!last || Math.hypot(probe.x - last.x, probe.y - last.y) >= 4)) {
+        probe.trail.push({ x: probe.x, y: probe.y, age: 0 });
+      }
+      return true;
+    });
+  }
+
   canActivatePlanetAbility(color: string, id: string, weapon: 'overdrive' | 'repulse') {
     const base = this.bases.get(id);
-    return !!base && base.color === color && !(weapon === 'overdrive' && base.isDysonSphere)
+    return this.weaponPalette.includes(weapon) && !!base && base.color === color && !(weapon === 'overdrive' && base.isDysonSphere)
       && !base[weapon] && this.hasSuperweaponCharge(color, weapon);
   }
 
@@ -570,6 +690,7 @@ export class GameEngine {
   }
 
   update(dt: number) {
+    if (!Number.isFinite(dt) || dt < 0) return;
     const now = this.now();
     const timeScale = dt * 60; // Normalize to 60 FPS
 
@@ -588,9 +709,13 @@ export class GameEngine {
       }
     }
 
-    if (this.superweaponUnlocksEnabled) this.updateSuperweaponCharges(dt);
+    this.updateSuperweaponSystems(dt);
 
     for (const base of this.bases.values()) {
+      if (base.conversionArrival) {
+        base.conversionArrival.remaining -= dt;
+        if (base.conversionArrival.remaining <= 0 || base.conversionArrival.color !== base.color) base.conversionArrival = undefined;
+      }
       for (const weapon of ['overdrive', 'repulse'] as const) {
         const effect = base[weapon];
         if (!effect) continue;
@@ -602,6 +727,7 @@ export class GameEngine {
         }
       }
     }
+    this.updateConversionProbes(dt);
     for (let i = this.repelledShips.length - 1; i >= 0; i--) {
       const ship = this.repelledShips[i];
       ship.x += ship.vx * dt; ship.y += ship.vy * dt;
@@ -646,6 +772,13 @@ export class GameEngine {
         }
       }
       for (const [color, count] of factionCounts) this.updateShipLimit(color, count);
+      // Sum normal production once per cycle; active Overdrives never amplify each other.
+      const factionProduction = new Map<string, number>();
+      for (const base of this.bases.values()) {
+        if (base.color === '#6b7280' || base.isDysonSphere) continue;
+        const normalProduction = this.isHardMode && base.color !== '#3b82f6' ? 2 : 1;
+        factionProduction.set(base.color, (factionProduction.get(base.color) ?? 0) + normalProduction);
+      }
       for (const base of this.bases.values()) {
         if (base.color !== '#6b7280' && !base.isDysonSphere) {
           const factionCount = factionCounts.get(base.color) ?? 0;
@@ -654,7 +787,11 @@ export class GameEngine {
           // preserves the inclusive exception: a garrison of 40 can still grow.
           const allowance = Math.max(FACTION_SHIP_LIMIT - factionCount, LOW_GARRISON_THRESHOLD + 1 - garrisonCount, 0);
           if (allowance === 0) continue;
-          const count = Math.min(allowance, base.overdrive ? OVERDRIVE_MULTIPLIER : 1);
+          const normalProduction = this.isHardMode && base.color !== '#3b82f6' ? 2 : 1;
+          const production = base.overdrive
+            ? Math.max(normalProduction, (factionProduction.get(base.color) ?? 0) - normalProduction)
+            : normalProduction;
+          const count = Math.min(allowance, production);
           if (base.overdrive) {
             base.overdrive.pulse = 1;
             this.createExplosion(base.x, base.y, '#ffbd59', 8);
@@ -674,12 +811,14 @@ export class GameEngine {
         bases: [...this.bases.values()], pixels: this.pixels,
         range: this.MAX_ATTACK_RANGE, seconds: this.aiSeconds, hard: this.isHardMode,
         canOmni: color => this.hasSuperweaponCharge(color, 'omni'),
+        canConversion: (color, id) => this.hasSuperweaponCharge(color, 'conversion') && this.canConversionProbe(color, id),
         canAbility: (color, id, weapon) => this.canActivatePlanetAbility(color, id, weapon),
         random: () => this.random(),
         recentOmniCaptureId: now - this.lastOmniCaptureTime < 10000 ? this.lastOmniCaptureBaseId : null,
         recentOmniCaptureTime: this.lastOmniCaptureTime,
       });
       for (const [color, plan] of plans) {
+        if (plan.conversionTarget) this.activateConversionProbe(color, plan.conversionTarget);
         if (plan.repulseTarget) this.activatePlanetAbility(color, plan.repulseTarget, 'repulse');
         if (plan.omniTarget) this.activateOmniStrike(color, plan.omniTarget);
         if (plan.overdriveTarget) this.activatePlanetAbility(color, plan.overdriveTarget, 'overdrive');
@@ -1096,6 +1235,22 @@ export class GameEngine {
     ctx.restore();
   }
 
+  private drawConversionActivity(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number) {
+    ctx.save();
+    const transform = ctx.getTransform();
+    const zoom = Math.hypot(transform.a, transform.b);
+    for (const probe of this.conversionProbes) drawConversionShip(ctx, probe, zoom);
+    for (const base of this.bases.values()) if (base.pinkTransformSeconds !== undefined) {
+      const x = base.x - cameraX, y = base.y - cameraY;
+      const seconds = base.pinkTransformSeconds;
+      ctx.strokeStyle = '#ff8fc7'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(x, y, 36, -Math.PI / 2, -Math.PI / 2 + seconds / PINK_CONVERSION_SECONDS * Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#ffd1e8'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(`${seconds < PINK_STRIP_SECONDS ? 'RETOOL' : 'CONVERT'} ${Math.ceil(PINK_CONVERSION_SECONDS - seconds)}s`, x, y + 60);
+    }
+    ctx.restore();
+  }
+
   draw(ctx: CanvasRenderingContext2D, selectedBaseId: string | null, cameraX: number, cameraY: number, targetingMode: SuperweaponTargetMode = null, selectedGroup?: ReadonlySet<string>) {
     ctx.save();
 
@@ -1256,7 +1411,7 @@ export class GameEngine {
     }
 
     // Keep active barriers and production pulses legible over dense idle fleets.
-    for (const base of this.bases.values()) if (visibleBase(base)) drawPlanetEffects(ctx, base);
+    for (const base of this.bases.values()) if (visibleBase(base)) drawPlanetEffects(ctx, base, this.reducedMotion);
     drawRepelledShips(ctx, this.repelledShips);
 
     // Draw bases (planets)
@@ -1300,6 +1455,7 @@ export class GameEngine {
       if (!isSelected && targetingMode) {
         const valid = targetingMode === 'omni'
           ? this.canOmniStrike('#3b82f6', base.id)
+          : targetingMode === 'conversion' ? this.canConversionProbe('#3b82f6', base.id)
           : this.canActivatePlanetAbility('#3b82f6', base.id, targetingMode);
         if (valid) {
           ctx.save();
@@ -1308,7 +1464,7 @@ export class GameEngine {
           const fleetRadius = planetRadius + 25 + Math.sqrt(base.pixelCount) * 5;
           ctx.beginPath();
           ctx.arc(0, 0, fleetRadius, 0, Math.PI * 2);
-          ctx.strokeStyle = targetingMode === 'omni' ? '#67e8f9' : targetingMode === 'overdrive' ? '#ffbd59' : '#a5e8ff';
+          ctx.strokeStyle = targetingMode === 'conversion' ? '#ff8fc7' : targetingMode === 'omni' ? '#67e8f9' : targetingMode === 'overdrive' ? '#ffbd59' : '#a5e8ff';
           ctx.lineWidth = 3;
           ctx.setLineDash(targetingMode === 'omni' ? [10, 5] : targetingMode === 'overdrive' ? [3, 6] : []);
           ctx.stroke();
@@ -1418,6 +1574,7 @@ export class GameEngine {
       ctx.restore();
     }
 
+    this.drawConversionActivity(ctx, 0, 0);
     ctx.restore(); // Restore from screen shake
   }
 

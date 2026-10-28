@@ -1,22 +1,24 @@
+import { PINK } from './superweapons';
 import { connectedFriendlyIds } from './logistics';
 import type { Base, Pixel } from './types';
 
 const NEUTRAL = '#6b7280';
-const FACTIONS = ['#ef4444', '#22c55e', '#eab308'];
+const FACTIONS = ['#ef4444', '#22c55e', '#eab308', PINK];
 const distance = (a: Base, b: Base) => Math.hypot(a.x - b.x, a.y - b.y);
 type Command = { from: string; to: string; count: number };
-export type AIPlan = { orders: Command[]; omniTarget?: string; repulseTarget?: string; overdriveTarget?: string };
+export type AIPlan = { orders: Command[]; omniTarget?: string; repulseTarget?: string; overdriveTarget?: string; conversionTarget?: string };
 type FactionState = { lastAttack: number; nextOmni: number; nextAbility: number; lastRevengeSeen?: string };
 type World = {
   bases: Base[]; pixels: Pixel[]; range: number; seconds: number; hard: boolean;
   canOmni: (color: string) => boolean;
+  canConversion?: (color: string, id: string) => boolean;
   canAbility?: (color: string, id: string, weapon: 'overdrive' | 'repulse') => boolean;
   random?: () => number;
   recentOmniCaptureId?: string | null;
   recentOmniCaptureTime?: number;
 };
 
-/** The original per-planet, high-commitment AI with narrow capital and waste guards. */
+/** Shared tactics for both difficulties; Hard mode only doubles enemy production. */
 export class TacticalAI {
   private states = new Map<string, FactionState>();
 
@@ -45,7 +47,7 @@ export class TacticalAI {
       if (!owned.length) { this.states.delete(color); continue; }
       const state = this.states.get(color) ?? {
         lastAttack: world.seconds, nextOmni: world.seconds + 8,
-        nextAbility: world.seconds + (world.hard ? 6 : 10),
+        nextAbility: world.seconds + 10,
       };
       this.states.set(color, state);
       const plan: AIPlan = { orders: [] };
@@ -78,10 +80,10 @@ export class TacticalAI {
           }).length;
           return { base, soon, danger: threat(base) - ships(base) - arriving(base, color) };
         }).filter(({ base, soon, danger }) => world.canAbility!(color, base.id, 'repulse')
-          && soon >= (world.hard ? 12 : 18)
+          && soon >= 18
           && (danger >= -Math.max(12, ships(base) * 0.4) || base.isCapital && soon >= 30))
           .sort((a, b) => b.danger - a.danger || Number(b.base.isCapital) - Number(a.base.isCapital));
-        if (endangered.length && (world.hard || random() < 0.8)) {
+        if (endangered.length && random() < 0.8) {
           plan.repulseTarget = endangered[0].base.id;
         } else {
           const productive = owned.filter(base => !base.isDysonSphere && !base.overdrive
@@ -89,13 +91,20 @@ export class TacticalAI {
             .map(base => ({ base, front: Math.min(...targets.map(target => distance(base, target))) }))
             .filter(({ front }) => front <= world.range * 1.5)
             .sort((a, b) => a.front - b.front || ships(b.base) - ships(a.base));
-          if (productive.length && random() < (world.hard ? 0.7 : 0.4)) {
+          if (productive.length && random() < 0.4) {
             plan.overdriveTarget = productive[0].base.id;
           }
         }
         if (plan.repulseTarget || plan.overdriveTarget) {
-          state.nextAbility = world.seconds + (world.hard ? 8 : 14);
+          state.nextAbility = world.seconds + 14;
         }
+      }
+
+      if (world.canConversion) {
+        const viable = targets.filter(base => !base.isCapital && !base.isDysonSphere
+          && world.canConversion!(color, base.id));
+        viable.sort((a, b) => (ships(b) + (b.superweaponUnlocks?.length ? 45 : 0)) - (ships(a) + (a.superweaponUnlocks?.length ? 45 : 0)));
+        if (viable.length) plan.conversionTarget = viable[0].id;
       }
 
       // A capital under attack draws help before its neighbours make new attacks.
@@ -114,7 +123,7 @@ export class TacticalAI {
       // Keep the original 70% chance per planet and large, independent launches.
       for (const source of owned) {
         const idle = ships(source);
-        if (idle <= (world.hard ? 110 : 120) || random() <= (world.hard ? 0.15 : 0.3)) continue;
+        if (idle <= 120 || random() <= 0.3) continue;
         const count = Math.min(Math.floor(idle * 0.9), available.get(source.id) ?? 0);
         if (count <= 0) continue;
         const reachable = targets.filter(target => {

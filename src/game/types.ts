@@ -1,4 +1,4 @@
-export type SuperweaponId = 'overdrive' | 'repulse' | 'omni';
+export type SuperweaponId = 'overdrive' | 'repulse' | 'omni' | 'conversion';
 
 export interface PlanetEffect {
   color: string;
@@ -16,6 +16,8 @@ export interface Base {
   isCapital?: boolean;
   isDysonSphere?: boolean;
   superweaponUnlocks?: SuperweaponId[];
+  pinkTransformSeconds?: number;
+  conversionArrival?: { color: string; remaining: number };
   overdrive?: PlanetEffect;
   repulse?: PlanetEffect;
 }

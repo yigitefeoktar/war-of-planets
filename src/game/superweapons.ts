@@ -7,7 +7,18 @@ export const SUPERWEAPON_MAX_CHARGES = 1;
 
 export type SuperweaponTargetMode = SuperweaponId | null;
 
+// Legacy maps and random modes retain their original three-weapon selection.
 export const SUPERWEAPON_IDS: SuperweaponId[] = ['omni', 'overdrive', 'repulse'];
+export const ALL_SUPERWEAPON_IDS: SuperweaponId[] = [...SUPERWEAPON_IDS, 'conversion'];
+export const CHAPTER_TWO_WEAPONS: SuperweaponId[] = ['conversion', 'omni', 'repulse'];
+export const CONVERSION_COLOR = '#ff8fc7';
+export const PINK = CONVERSION_COLOR;
+export const PINK_STRIP_SECONDS = 30;
+export const PINK_CONVERSION_SECONDS = 60;
+// Twice the average attacking ship speed: 1.25 world units/frame * 1.5 * 60fps * 2.
+export const CONVERSION_PROBE_SPEED = 225;
+// Additional sites remain valuable without enabling near-continuous army theft.
+export const CONVERSION_MAX_EFFECTIVE_SOURCES = 4;
 
 const QUICK_MATCH_UNLOCK_GROUPS: SuperweaponId[][] = [
   ['overdrive'], ['repulse'], ['omni'],
@@ -15,8 +26,6 @@ const QUICK_MATCH_UNLOCK_GROUPS: SuperweaponId[][] = [
 ];
 
 export const OVERDRIVE_DURATION = 7.5;
-// The former 3x total rate added 2x production; tripling that bonus gives 7x total.
-export const OVERDRIVE_MULTIPLIER = 7;
 export const REPULSE_DURATION = 6;
 
 /** Spread three specialist sites and one rare combined arsenal across Quick Match. */

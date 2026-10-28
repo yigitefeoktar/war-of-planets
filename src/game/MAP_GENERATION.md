@@ -1,22 +1,26 @@
 # Generated battlefield requirements
 
-Chapter 1 uses authored maps and is outside these generators. Hard Mode changes AI difficulty; it uses the same geometry requirements as normal difficulty.
+Chapter 1 uses authored maps and is outside these generators. Hard Mode doubles enemy planet ship production; AI decisions and geometry requirements are the same as normal difficulty.
 
 ## Quick Match
 
-Build strategic networks before placing modules. Divided territories favour regional crossings; branching fronts have sparse paths and occasional loops; outer circuits join modules around a circuit; linked arenas favour connected rooms. Seed variation changes route structure, module composition, specialist regions and geometry.
+Quick Match has four layout families, each with three seed-selected route plans (`QUICK_ROUTE_VARIANTS`). Crossroads retains four inward approaches; Twin Fronts separates two orbital fronts and varies its public crossing/bypass; Outer Arsenals has two inward approaches and offset perimeter entrances; Linked Arenas connects two public arenas with different inward shortcuts, including a perimeter-only variant. The seed selects a plan independently of the four-family selection (`(seed >>> 2) % 3`). Tests compare permanent route graphs without IDs, coordinates, colors, costs or weapons and require twelve different foundations.
 
-The attack range remains 600 world units. All planets stay at least 500 apart throughout rotation. Static route steps are 500–503. Orbital gateways can have longer attack links, certified below 599 at the worst phase. Only declared fixed gateways may enter an orbit's attack envelope; other fixed worlds and other swept systems remain beyond it. Home gates remain mandatory entrances to rear territory.
+The attack range remains 600 world units, and maps contain 35–50 planets. All planets stay at least 270 apart throughout rotation. Only declared fixed gateways may enter an orbit's attack envelope. The fixed network must survive removal of every capital and any single crossing. Independent-phase tests also retain the existing neighbor-density and maximum-neighbor requirements.
 
-Each faction starts with 200 ships and two equal-cost expansion choices. Four equivalent home modules use an eight-world loop or nine-world crossing. All homes share a single starter specialty with equal first-weapon capture costs. Other specialties occur in public regions; their routes can be asymmetric. Capital elimination must leave the remaining routes connected.
+Each faction starts with 200 ships in an unchanged five-world home module. All four homes have three equally priced affordable expansion choices, four internal capital neighbors, no initial weapon world, and at least two exits. Public routes and specialist regions may be asymmetric, but cannot bypass a capital's protected opening.
 
 ### Module recipe and specialist groups
 
+Quick Match assigns costs and rewards by layout, rather than shuffling the same specialties across every map. Crossroads has a guarded production center and cheaper perimeter raids. Twin Fronts separates production and strike systems, with fortified cross-front crossings and an outer support bypass. Outer Arsenals places its strike specialty on a guarded flank while the inner defensive route stays cheaper. Linked Arenas pairs an expensive assault arena with a cheaper support staging arena. Custom weapon focus can change specialties, while the route cost tradeoffs and protected home openings remain. The preview and match briefing explain each layout's decision.
+
 `quickMapGenerator.ts` composes home territories, junctions, fixed arenas, one or two star systems, specialist regions and shared fixed gateways. `generated.modules` records each module's interior worlds, location and port IDs. Port worlds belong to corridor modules and are shared references, so neighboring modules cannot duplicate them.
 
-Star modules have twelve worlds on a rigid ring, radius twice the route unit, with fixed ports three units from the star. The regular ring's worst nearest-planet distance proves each port stays connected for all angles. A fixed skeleton with certified virtual links between each star's ports proves the whole map stays connected even after all capitals disappear. Map bounds include fixed home worlds and full orbital paths.
+Star modules have 5–7 worlds on a rigid ring, with binary layouts using five per star. The regular ring's worst nearest-planet distance proves at least two fixed ports stay connected for all angles. A fixed skeleton connects each star's ports even after all capitals disappear. Map bounds include fixed home worlds and full orbital paths.
 
 Every weapon planet belongs to exactly one connected group of 3–5 worlds. `generated.weaponGroups` stores membership and allowed weapon types: production (Overdrive), defense (Repulse), strike (Omni), or support (Overdrive/Repulse). A group stays entirely within one module and is entirely fixed or rotates rigidly together. Public groups occupy both stationary modules and orbiting arcs. No isolated weapon assignment is permitted. Every map offers all three weapons overall.
+
+Custom Quick Match has an Automatic seed option, enabled by default when migrating older setups. Each setup visit resolves a fresh seed before generating the preview; Launch uses that exact map. Entering a seed or turning Automatic seed off preserves reproducibility. The option does not alter Chaos seeds, generation, controls or campaign maps.
 
 ## Chaos Mode
 

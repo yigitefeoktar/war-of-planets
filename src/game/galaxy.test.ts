@@ -9,8 +9,9 @@ test('galaxy backgrounds grow with map size and hard mode uses a warmer red pale
   const breach = createMatch(BREACH_LINE);
   const orbit = createMatch(TURNING_TIDE);
   const pincer = createMatch(THE_PINCER);
-  const quick = createMatch();
-  const hard = createMatch(undefined, { hardMode: true });
+  const battlefield = generateMap('quick-match', 4);
+  const quick = createMatch(battlefield);
+  const hard = createMatch(battlefield, { hardMode: true });
 
   assert.ok(tutorial.nebulae.length <= 1);
   assert.ok(tutorial.nebulae.length < breach.nebulae.length);

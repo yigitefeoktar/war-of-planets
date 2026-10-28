@@ -18,6 +18,12 @@ const LARGE: readonly Recipe[] = [
   { count: 11, radius: 670, inner: 7, innerRadius: 400, pattern: 'woven-rings', size: 'large', capSlots: [0, 3] },
 ];
 const population = (recipe: Recipe) => recipe.count + recipe.inner;
+export type ChaosMapOptions = {
+  composition: 0 | 1 | 2 | 3;
+  smallPlanets: 5 | 6 | 7;
+  normalPattern: 'classic' | 'scattered' | 'pentagon-web';
+  weaponsPerWorld: 'mixed' | 1 | 2;
+};
 
 /** The two exact distance constraints let differently sized systems share a
  * front without leaving oversized gaps around their smaller neighbors. */
@@ -63,17 +69,17 @@ function formation(recipe: Recipe, random: () => number) {
   return points;
 }
 
-export function buildChaosMap(seed: number, family: number): MapDefinition {
-  const random = seededRandom(seed), composition = integer(random, 0, 3);
+export function buildChaosMap(seed: number, family: number, options?: ChaosMapOptions): MapDefinition {
+  const random = seededRandom(seed), composition = options?.composition ?? integer(random, 0, 3);
   const choose = <T,>(recipes: readonly T[]) => recipes[integer(random, 0, recipes.length - 1)];
-  const small = (): Recipe => { const count = integer(random, 5, 7); return { count, radius: count === 5 ? 280 : count === 6 ? 310 : 330, inner: 0, innerRadius: 0, pattern: random() < 0.5 ? 'ring' : 'scattered', size: 'small' }; };
+  const small = (): Recipe => { const count = options?.smallPlanets ?? integer(random, 5, 7); return { count, radius: count === 5 ? 280 : count === 6 ? 310 : 330, inner: 0, innerRadius: 0, pattern: options ? 'ring' : random() < 0.5 ? 'ring' : 'scattered', size: 'small' }; };
   const publicSystems = composition === 2 ? [small()] : composition === 3 ? [small(), small()] : [];
-  const homes: Recipe[] = composition === 0 ? Array.from({ length: 4 }, () => CLASSIC) : composition >= 2 ? [choose(LARGE)] : [];
-  if (composition === 3) homes.push(choose(LARGE));
+  const homes: Recipe[] = composition === 0 ? Array.from({ length: 4 }, () => CLASSIC) : composition >= 2 ? [options ? LARGE[0] : choose(LARGE)] : [];
+  if (composition === 3) homes.push(options ? LARGE[0] : choose(LARGE));
   let budget = 50 - [...homes, ...publicSystems].reduce((sum, recipe) => sum + population(recipe), 0);
   const normalCount = composition === 1 ? 4 : composition === 2 ? 2 : 0;
   for (let i = 0; i < normalCount; i++) {
-    const recipe = choose(NORMAL.filter(recipe => population(recipe) <= budget - (normalCount - i - 1) * 12));
+    const recipe = options ? NORMAL.find(recipe => recipe.pattern === options.normalPattern)! : choose(NORMAL.filter(recipe => population(recipe) <= budget - (normalCount - i - 1) * 12));
     homes.push(recipe); budget -= population(recipe);
   }
   // Four classic systems remain a full recipe option. Other maps can combine
@@ -88,7 +94,7 @@ export function buildChaosMap(seed: number, family: number): MapDefinition {
     if (!candidates.length) throw new Error('No safe public system placement');
     centers.push(choose(candidates)); selected.push(recipe);
   }
-  const factions = shuffle(FACTIONS, random), weapons = () => shuffle(SUPERWEAPON_IDS, random).slice(0, random() < 0.5 ? 1 : 2), capitalWeapons = weapons();
+  const factions = shuffle(FACTIONS, random), weapons = () => shuffle(SUPERWEAPON_IDS, random).slice(0, options && options.weaponsPerWorld !== 'mixed' ? options.weaponsPerWorld : random() < 0.5 ? 1 : 2), capitalWeapons = weapons();
   const planets: PlanetDefinition[] = [], orbits: OrbitDefinition[] = [], systems: GeneratedStarSystem[] = [];
   let factionIndex = 0;
   selected.forEach((recipe, index) => {

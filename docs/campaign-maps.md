@@ -24,13 +24,13 @@ A deterministic seed reproduces the complete map definition, including faction a
 
 ## Difficulty and result screens
 
-Hard Mode is the original skull-icon On/Off control restored from commit `13aa334`, with the current audio buttons' hover, focus, sound and transition behavior. It is available for Chapter 1, level tests, Quick Match, and Chaos Mode. Difficulty is fixed when a battle starts and retained across retries, new maps and campaign progression. Hard uses the current more aggressive AI and warmer background; maps and starting ships do not change with difficulty. It defaults to Off on page load.
+Hard Mode is the original skull-icon On/Off control restored from commit `13aa334`, with the current audio buttons' hover, focus, sound and transition behavior. It is available for Chapter 1, level tests, Quick Match, and Chaos Mode. Difficulty is fixed when a battle starts and retained across retries, new maps and campaign progression. Hard doubles enemy planet ship production and uses a warmer background; AI decisions, maps and starting ships do not change with difficulty. It defaults to Off on page load.
 
 Only Quick Match and Chaos Mode use the generated-map result actions. Defeat shows New Map, Play Again and Main menu. Victory shows New Map and Main menu. New Map creates a new battlefield in the same mode and difficulty. Play Again resets the exact same opening. Campaign result actions and saved progression remain separate; generated victories never mark a campaign mission complete. Existing chapter-level test options remain in the mode picker.
 
 Each map defines a stable ID, title, briefing, world size, attack range, objective, and planets. Planet coordinates are world units; ships are non-negative integers. Supported owners are the four existing faction colors and neutral gray. Planets can optionally list the superweapons they produce while owned. The current objective is enemy-capital elimination; the player's capital must survive. Validation rejects duplicate IDs, invalid dimensions or owners, invalid weapon lists, missing capitals, and unreachable planets.
 
-To add a level, create another `MapDefinition` and place it at the intended position in the chapter's `maps` array. Do not rename released map IDs. Winning records the ID; selecting Next Mission starts the next array entry. If no next map is released, the player can replay or return to the menu. Chapter 2 remains unavailable until its first map is added.
+To add a level, create another `MapDefinition` and place it at the intended position in the chapter's `maps` array. Do not rename released map IDs. Winning records the ID; selecting Next Mission starts the next array entry. If no next map is released, the player can replay or return to the menu. Chapter 2 contains the five Fractured Galaxy maps described below.
 
 The versioned browser save stores completed map IDs; its legacy selected-mode field is ignored when loading, so every page opening selects Chapter 1. Players can still choose another mode for the current session. Start Chapter 1 always begins with First Strike's tutorial, regardless of previous wins, then victories advance through The Breach Line (Level 2), The Turning Tide (Level 3), The Pincer (Level 4), and The Battle for Helios (Level 5). Retrying a defeat stays on the current level. Starting another run from the menu or refreshing returns to the tutorial, without deleting completed-level records. Existing completion IDs remain valid when a new map is inserted. Invalid saves reset safely; unavailable browser storage shows a warning.
 
@@ -44,7 +44,7 @@ The 600-world-unit range remains a strict source-to-target limit for attacks aga
 
 Connectivity is recalculated when the order is issued, using current ownership and live positions. Capturing a bridge can join or split networks, and moving planets can create temporary connections. Once launched, a transfer continues to its destination even if the connection later breaks. Mouse and touch orders share the same rule. Selection and range visuals remain the existing game visuals; this feature adds no network lines or destination rings. Hostile AI logic, Omni-Strike range, and ordinary attack range are unchanged.
 
-Current content: Chapter 1 / First Strike (9 fixed planets), The Breach Line (23 fixed planets and seven Overdrive sites), The Turning Tide (24 planets, one orbiting system and a decorative star), The Pincer (58 fixed planets, a Repulse Shield hub, and six isolated outer branches), and The Battle for Helios (108 planets across five normal stars with 60 orbiting worlds and 48 fixed connecting worlds). Blue and red appear throughout the chapter, green appears in Level 3, and yellow appears in Level 4. Chapter 2 is not released yet.
+Current content: Chapter 1 / First Strike (9 fixed planets), The Breach Line (23 fixed planets and seven Overdrive sites), The Turning Tide (24 planets, one orbiting system and a decorative star), The Pincer (58 fixed planets, a Repulse Shield hub, and six isolated outer branches), and The Battle for Helios (108 planets across five normal stars with 60 orbiting worlds and 48 fixed connecting worlds). Blue and red appear throughout the chapter, green appears in Level 3, and yellow appears in Level 4. Chapter 2 adds Conversion Probe and introduces pink after its first mission.
 
 ## Select Mode availability
 
@@ -77,7 +77,7 @@ A 2500 × 2500 static battlefield rotated into a west-to-east confrontation. Blu
 - Central route: capture the cheap neutral supply world to reach the western Overdrive site. The exact center planet is also a marked Overdrive world. Another marked site and a red gate lead toward the eastern capital.
 - Upper route: neutral harbour, entry, and relay worlds lead into the central ring or through the neutral bastion and approach toward the red outpost.
 - Lower route: a matching neutral flank leads into the ring or toward the red lookout.
-- All seven marked planets sit within 500 units of the map center and produce only Overdrive. Neither faction starts with a weapon source. One captured site generates a charge in 60 seconds, two take 30 seconds, and seven take about 9 seconds. Losing all sites pauses future generation; an already earned charge remains available. Overdrive multiplies production on one owned planet by seven for 7.5 seconds, yielding 50% more extra ships than the former triple-production burst lasting 15 seconds.
+- All seven marked planets sit within 500 units of the map center and produce only Overdrive. Neither faction starts with a weapon source. One captured site generates a charge in 60 seconds, two take 30 seconds, and seven take about 9 seconds. Losing all sites pauses future generation; an already earned charge remains available. For 7.5 seconds, Overdrive sets one owned planet's total production to the combined normal production of all other currently owned producing planets, with its own normal rate as a minimum. Dyson spheres and active Overdrive bonuses are excluded from that total. The rate follows territory changes each production cycle, retains Hard Mode production bonuses, and respects the faction ship cap and low-garrison allowance.
 
 Winning First Strike starts The Breach Line in the current run. Winning The Breach Line starts The Turning Tide. No tutorial prompts repeat after Mission 1.
 
@@ -130,3 +130,44 @@ The top and bottom HUD panels enter together with transform/opacity transitions.
 An optional `orbit` defines a single fixed star center (`x`, `y`), clockwise period in simulation seconds (`periodSeconds`), and participating `planetIds`. Maps with several stars use `orbits` instead. The Turning Tide retains its single 180-second system; The Battle for Helios uses five independent systems. Members of each system share angular speed, preserving spacing and mutual attack ranges. Decorative stars have no effect on gravity, collision, damage, or victory. An optional `dysonSphere` still supports one legacy capturable sphere per map, though no current Chapter 1 map uses it.
 
 Stationed ships and their local movement targets rotate with their own system. Launched ships pursue moving targets in world space; captures do not stop rotation. Pausing stops rotation, retry resets positions, and end-of-battle slow motion applies to all systems. Quick Match generates fixed home areas around one or two moving orbital circuits; Chaos Mode generates fully orbiting star systems. Validation rejects mixed single/multiple definitions, empty systems, duplicate or shared membership, invalid periods, star intersections, and swept map-edge intersections. Regression tests cover independent rotation rates, fleets, central weapon charges, opening captures, clearance, connectivity, and all three rival capitals.
+
+
+## Chapter 2: The Fractured Galaxy
+
+Map layouts live in `src/game/chapterTwo.ts`. All five share Conversion Probe, Omni Strike, and Repulse Shield. Chapter 1 and generated modes retain Production Overdrive, Omni Strike, and Repulse Shield. Each Chapter 2 faction starts with a single controlled capital and affordable nearby neutral worlds. The existing level IDs, progression, and individual level-test options are preserved.
+
+| Mission | Planets | Stars | Factions | Layout |
+| --- | --- | --- | --- | --- |
+| The Spiral Breach | 128 | 1 | Blue, red, green, yellow | Blue's 12-world conversion system leads through a six-world spiral into a broad 110-world battlefield. The final two spiral worlds offer two and four landing choices. Red, Green, and Yellow each start with one capital near those landings, within two captures of an exit, with extensive neutral territory behind them. The eastern reserve and second spiral are removed. Irregular, closely linked neighborhoods form distinct Omni and Shield districts; the main area averages about five connections per world. |
+| The Pink Frontier | 79 | 3 | Blue, red, pink | Pink occupies the central conversion system. Blue and Red approach from outside; northern Omni and Shield flanks and a southern bypass provide alternatives to fighting straight through Pink. Introduces Pink's transformation ability. |
+| Shifting Fronts | 92 | 3 | Blue, red, green, pink | Blue starts at the fixed central shield hub with six cheap choices and an outer ring of mixed weapon sites. Three enemy systems approach from unequal directions. Outer routes also connect the enemies, letting Blue break out or exploit their battles. |
+| The Three Fortresses | 101 | 3 | Blue, red, green | Three large rotating systems, each with 24 planets in three rings. Every planet in Blue's system produces Conversion; Red's produces Omni; Green's produces Shield. Perimeter routes and a shared central junction connect all three. Pink is absent, preserving the systems' weapon identities. |
+| The Galactic Crown | 151 | 6 | All five | An asymmetric galaxy: Blue and Red on the west, Yellow to the south, Green in a larger eastern system, Pink on the northeastern edge, and a large neutral core. Five core approaches and several uneven outer routes connect the war. Pink has routes toward Green, the north, and the center. |
+
+No stars have Dyson spheres. Normal systems contain eight outer orbiters at radius 620 and four inner orbiters at radius 300. Large systems add twelve outer worlds at radius 1040. Level 1 has only Blue's normal orbiting system. Fixed ports stay clear of swept orbits. Nearby lane junctions share a planet instead of overlapping. Basic map checks cover loading, openings, weapon identities, spacing and connectivity during orbital movement, plus the first map's six-step approach, two broad landings, nearby capitals, and main-area connectivity. Pink transforms planets only in Levels 2, 3, and 5.
+
+### Conversion Probe
+
+- One stored charge; a source takes 60 seconds. Multiple sources increase charging up to four effective sources (15-second minimum). The button shows actual source count and recharge time.
+- Launch at any hostile or neutral non-capital, non-Dyson world within 600 units of any owned planet. A faction must still have its capital. Duplicate probes from the same faction to one target are prevented.
+- A distinct probe leaves the capital at 225 world units per second, twice the average normal attacking ship speed. It follows the target's live position, including orbiting worlds. Its hull, glow, exhaust, and fading trail use the sender's faction color. There is no destination line, target ring, or arrival countdown.
+- Successful arrival triggers a 1.2-second pink halo, expanding capture wave, twin turning arcs, and short radial streaks in the shared planet-effects renderer. It follows the captured planet, freezes with the simulation, and clears on expiry, recapture, or retry. Reduced motion keeps a steady, fading halo and arcs without rotation, expansion, or radial streaks.
+- Impact captures the planet and changes all live stationed ships to the attacker's color. Launched fleets retain their original allegiance. Target weapons remain available to the new owner.
+- If the firing faction captures the destination before impact, the probe explodes at its current flight position in its faction color. It cannot recapture the friendly planet or trigger the pink arrival halo; the spent charge remains spent.
+- Repulse Shield cannot block conversion. It continues to repel normal fleets and Omni Strike ships. Evacuating a threatened garrison denies those ships to the conversion attacker.
+- Launch spends the charge. Losing launch range after launch does not cancel it; losing the launching capital does. An already-friendly target cancels harmlessly. Capitals remain immune.
+- AI factions can launch probes at shielded worlds and reserve their shields for incoming combat fleets.
+
+### Pink construction
+
+Pink (`#ff8fc7`) appears from Mission 2 and uses the same fleet combat, production, and charge rules as other factions. Its additional strength is transforming non-capital, non-Dyson planets it continuously holds. A visible ring and countdown show the work: at 30 seconds, existing weapon sources are stripped; at 60 seconds, the planet produces only Conversion Probe. Plain planets follow the same construction timeline. An existing exclusive conversion source needs no work.
+
+Capturing a planet resets unfinished construction. Weapons already stripped remain removed. Completed conversion sources persist after capture and benefit the new owner. Capitals never transform. This behavior is enabled only on the three Chapter 2 maps that include pink. Charge integration splits at construction boundaries so newly built sources cannot receive charge retroactively.
+
+### Local testing
+
+When local development is requested, run `npm run dev`, then open `http://127.0.0.1:3001/`. Choose Chapter 2 under Change to play normally. The picker uses a three-column grid: Chapter 1, Chapter 2, and disabled Multiplayer in the first row; Quick Match, Chaos Mode, and Create Your Own Map in the second. It scrolls vertically to the text-only level-test rows for both chapters and includes the shared Hard Mode toggle. Each test starts its selected level and advances through the remaining levels without saving test wins. Selecting a test shows its chapter, level, and mission title on the menu. Test controls remain available in both development and production builds.
+
+Port 3001 is used for this game locally; port 3000 is occupied by another project. Strict port selection prevents silently launching on an unexpected port.
+
+The user authorized releasing the latest local game on 2026-10-28 and resumed the normal `AGENTS.md` deployment workflow for future changes. Chapter 2 is included in the production game; individual level tests remain available.

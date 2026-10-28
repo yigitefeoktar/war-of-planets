@@ -64,7 +64,7 @@ test('Chapter 1 advances from the tutorial through the Helios finale', () => {
   assert.equal(followingMission(expanded, second.id), undefined);
   assert.equal(followingMission(expanded, 'invalid'), undefined);
   assert.equal(launchMission(expanded, parseProgress(JSON.stringify(progress)).completed)?.id, FIRST_STRIKE.id);
-  assert.equal(launchMission(CHAPTERS['chapter-2'], []), undefined);
+  assert.equal(launchMission(CHAPTERS['chapter-2'], [])?.title, 'The Spiral Breach');
 });
 test('startup selects Chapter 1 for new and existing saves without deleting completed levels', () => {
   assert.equal(emptyProgress().selectedMode, 'chapter-1');

@@ -1,12 +1,14 @@
 import type { Base } from './types';
-import { OVERDRIVE_DURATION, REPULSE_DURATION } from './superweapons';
+import { CONVERSION_COLOR, OVERDRIVE_DURATION, REPULSE_DURATION } from './superweapons';
+
+export const CONVERSION_ARRIVAL_DURATION = 1.2;
 
 export interface RepelledShip {
   x: number; y: number; vx: number; vy: number;
   angle: number; spin: number; life: number; color: string;
 }
 
-export function drawPlanetEffects(ctx: CanvasRenderingContext2D, base: Base) {
+export function drawPlanetEffects(ctx: CanvasRenderingContext2D, base: Base, reducedMotion = false) {
   const radius = (base.isDysonSphere ? 62 : base.isCapital ? 40 : 20) + 24;
   for (const weapon of ['overdrive', 'repulse'] as const) {
     const effect = base[weapon];
@@ -60,6 +62,53 @@ export function drawPlanetEffects(ctx: CanvasRenderingContext2D, base: Base) {
     ctx.fillText(`${reactor ? '3×' : 'SHIELD'} ${Math.ceil(effect.remaining)}s`, 0, -r - 25);
     ctx.restore();
   }
+  drawConversionArrival(ctx, base, reducedMotion);
+}
+
+function drawConversionArrival(ctx: CanvasRenderingContext2D, base: Base, reducedMotion: boolean) {
+  const effect = base.conversionArrival;
+  if (!effect || effect.remaining <= 0 || effect.color !== base.color) return;
+  const progress = Math.max(0, Math.min(1, 1 - effect.remaining / CONVERSION_ARRIVAL_DURATION));
+  const spread = reducedMotion ? 0.35 : 1 - Math.pow(1 - progress, 3);
+  const radius = 44;
+  const fade = 1 - progress;
+  ctx.save();
+  ctx.translate(base.x, base.y);
+  ctx.shadowColor = CONVERSION_COLOR; ctx.shadowBlur = 22;
+  ctx.globalAlpha = fade;
+  const halo = ctx.createRadialGradient(0, 0, 16, 0, 0, radius * (1.6 + spread * 0.5));
+  halo.addColorStop(0, '#fff0f866');
+  halo.addColorStop(0.35, '#ff8fc766');
+  halo.addColorStop(1, '#ff8fc700');
+  ctx.fillStyle = halo;
+  ctx.beginPath(); ctx.arc(0, 0, radius * (1.6 + spread * 0.5), 0, Math.PI * 2); ctx.fill();
+
+  // A pink capture wave, followed by the two turning arcs of the weapon icon.
+  ctx.strokeStyle = CONVERSION_COLOR; ctx.lineWidth = 4 * (1 - progress) + 1;
+  ctx.beginPath(); ctx.arc(0, 0, radius * (0.65 + spread * 1.1), 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = '#ffd1e8'; ctx.lineWidth = 2.5;
+  ctx.save();
+  if (!reducedMotion) ctx.rotate(progress * Math.PI);
+  const orbit = radius * (0.9 + spread * 0.15);
+  for (let side = 0; side < 2; side++) {
+    const start = side * Math.PI, end = start + Math.PI * 0.72;
+    ctx.beginPath(); ctx.arc(0, 0, orbit, start, end); ctx.stroke();
+    const x = Math.cos(end) * orbit, y = Math.sin(end) * orbit;
+    const tx = -Math.sin(end), ty = Math.cos(end);
+    ctx.beginPath(); ctx.moveTo(x - tx * 8 + Math.cos(end) * 5, y - ty * 8 + Math.sin(end) * 5);
+    ctx.lineTo(x, y); ctx.lineTo(x - tx * 8 - Math.cos(end) * 5, y - ty * 8 - Math.sin(end) * 5); ctx.stroke();
+  }
+  ctx.restore();
+  if (!reducedMotion) {
+    ctx.strokeStyle = CONVERSION_COLOR; ctx.lineWidth = 2; ctx.globalAlpha = fade * fade * 0.7;
+    for (let index = 0; index < 8; index++) {
+      const angle = index * Math.PI / 4;
+      const r = radius * (0.85 + spread * 1.25), length = 16 * fade;
+      ctx.beginPath(); ctx.moveTo(Math.cos(angle) * r, Math.sin(angle) * r);
+      ctx.lineTo(Math.cos(angle) * (r + length), Math.sin(angle) * (r + length)); ctx.stroke();
+    }
+  }
+  ctx.restore();
 }
 
 export function drawRepelledShips(ctx: CanvasRenderingContext2D, ships: RepelledShip[]) {

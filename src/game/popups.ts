@@ -19,7 +19,7 @@ export function activeGamePopup(state: GamePopupState, now: number): 'superweapo
 
 /** Every target click ends weapon mode, including an impossible target. */
 export function resolveSuperweaponClick(
-  engine: Pick<GameEngine, 'activateOmniStrike' | 'activatePlanetAbility'>,
+  engine: Pick<GameEngine, 'activateOmniStrike' | 'activatePlanetAbility' | 'activateConversionProbe'>,
   color: string,
   weapon: SuperweaponId,
   targetId: string | null,
@@ -27,6 +27,7 @@ export function resolveSuperweaponClick(
   if (!targetId) return 'cancelled';
   const activated = weapon === 'omni'
     ? engine.activateOmniStrike(color, targetId)
+    : weapon === 'conversion' ? engine.activateConversionProbe(color, targetId)
     : engine.activatePlanetAbility(color, targetId, weapon);
   return activated ? 'activated' : 'impossible';
 }

@@ -1,9 +1,17 @@
+import { CONVERSION_COLOR } from './superweapons';
 import type { SuperweaponId } from './types';
 
 type IconPath = { d: string; fill?: boolean };
 
 // Shared by the SVG buttons and the canvas planet badges.
 export const SUPERWEAPON_VISUALS: Record<SuperweaponId, { color: string; paths: IconPath[] }> = {
+  conversion: {
+    color: CONVERSION_COLOR,
+    paths: [
+      { d: 'M5 8a8 8 0 0 1 13-2l2 2M20 3v5h-5M19 16a8 8 0 0 1-13 2l-2-2M4 21v-5h5' },
+      { d: 'M12 8.5 15.5 12 12 15.5 8.5 12Z', fill: true },
+    ],
+  },
   overdrive: {
     color: '#ffc36a',
     paths: [{ d: 'M13.5 2.5 5.5 13h5l-1 8.5L18.5 10h-5V2.5Z', fill: true }],
