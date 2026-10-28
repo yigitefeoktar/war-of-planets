@@ -110,11 +110,11 @@ function spiralBreach() {
     planet.ships = 12;
   }
 
-  // Four worlds occupy just 60 degrees of a large orbit. Their moving arc is
+  // Two worlds occupy just 20 degrees of a large orbit. Their moving arc is
   // a ferry, starting below the star and rotating toward Blue and the eastern dock.
   const ferry = { x: 2600, y: 6500 }, ferryIds: string[] = [];
-  for (let index = 0; index < 4; index++) {
-    const angle = (60 + index * 20) * Math.PI / 180;
+  for (let index = 0; index < 2; index++) {
+    const angle = (80 + index * 20) * Math.PI / 180;
     const planet = map.world({ x: ferry.x + Math.cos(angle) * 1400, y: ferry.y + Math.sin(angle) * 1400 },
       undefined, 12, `${map.id}-ferry-${index}`);
     ferryIds.push(planet.id);
@@ -171,8 +171,8 @@ function spiralBreach() {
 
   return {
     id: map.id, title: 'The Spiral Breach', width: map.width, height: map.height, attackRange: 600,
-    briefing: 'Take the early spiral fork to a northern system of Omni Strike and Repulse Shield worlds, or continue toward the nearby Red, Green, and Yellow capitals. Their eastern territory has been cut back. A four-world rotating arc provides a second crossing along the bottom: board it near Blue and ride toward the battlefield dock.',
-    lesson: 'Your home system and both approach paths produce Conversion Probe. The northern arsenal starts neutral. Four ordinary planets share one side of the large southern orbit, completing a turn in three minutes; boarding connections change as they rotate. Enemy capitals require ordinary attacks.',
+    briefing: 'Take the early spiral fork to a northern system of Omni Strike and Repulse Shield worlds, or continue toward the nearby Red, Green, and Yellow capitals. Their eastern territory has been cut back. A two-world rotating arc provides a second crossing along the bottom: board it near Blue and ride toward the battlefield dock.',
+    lesson: 'Your home system and both approach paths produce Conversion Probe. The northern arsenal starts neutral. Two ordinary planets share one side of the large southern orbit, completing a turn in three minutes; boarding connections change as they rotate. Enemy capitals require ordinary attacks.',
     galaxyTheme: 'twin-suns', overviewScale: 0.9, mobileFocus: 'capital',
     weapons: [...CHAPTER_TWO_WEAPONS], pinkTerraforming: false,
     objective: { type: 'eliminate-capitals', description: 'Capture Red, Green, and Yellow capitals while protecting your blue capital. Capitals cannot be converted.' },

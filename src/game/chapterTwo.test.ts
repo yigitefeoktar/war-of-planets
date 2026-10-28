@@ -9,7 +9,7 @@ import { canIssueFleetOrder } from './logistics';
 test('Chapter 2 progresses through five distinct maps and introduces pink after conversion', () => {
   assert.deepEqual(CHAPTERS['chapter-2'].maps, CHAPTER_TWO_MAPS);
   assert.deepEqual(CHAPTER_TWO_MAPS.map(map => map.title), ['The Spiral Breach', 'The Pink Frontier', 'Shifting Fronts', 'The Three Fortresses', 'The Galactic Crown']);
-  assert.equal(CHAPTER_TWO_MAPS[0].planets.length, 94);
+  assert.equal(CHAPTER_TWO_MAPS[0].planets.length, 92);
   assert.deepEqual(CHAPTER_TWO_MAPS.slice(1).map(map => map.planets.length), [79, 92, 101, 151]);
   assert.deepEqual(CHAPTER_TWO_MAPS.map(map => mapOrbits(map).length), [3, 3, 3, 3, 6]);
   const first = CHAPTER_TWO_MAPS[0];
@@ -69,8 +69,8 @@ test('orbits keep clear of fixed worlds and neighboring systems throughout a ful
           reached.add(other.id); frontier.push(other);
         }
       }
-      // The experimental four-world ferry deliberately undocks during its orbit.
-      const ferryIds = new Set(orbits.filter(orbit => map.id === 'frontier-twin-suns' && orbit.planetIds.length === 4).flatMap(orbit => orbit.planetIds));
+      // The experimental two-world ferry deliberately undocks during its orbit.
+      const ferryIds = new Set(orbits.filter(orbit => orbit.allowDelayedBoarding).flatMap(orbit => orbit.planetIds));
       assert.ok(live.every(planet => reached.has(planet.id) || ferryIds.has(planet.id)), `${map.title}: permanent routes disconnected at ${seconds}s`);
       for (let index = 0; index < live.length; index++) for (const other of live.slice(index + 1)) {
         assert.ok(Math.hypot(live[index].x - other.x, live[index].y - other.y) >= 249.99, `${map.title}: ${live[index].id} overlaps ${other.id} at ${seconds}s`);
@@ -117,7 +117,7 @@ test('the first map has six conversion approach worlds, two broad landings, and 
   assert.ok(degrees.reduce((sum, degree) => sum + degree, 0) / hub.length >= 4, 'the hub is a battlefield rather than a long chain');
 });
 
-test('the early arsenal fork favors Blue and the four-world ferry docks on both sides as it rotates', () => {
+test('the early arsenal fork favors Blue and the two-world ferry docks on both sides as it rotates', () => {
   const map = CHAPTER_TWO_MAPS[0], orbits = mapOrbits(map);
   const d = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
   const arsenal = orbits.find(orbit => orbit.planetIds.some(id => id.includes('-arsenal-')))!;
@@ -152,27 +152,26 @@ test('the early arsenal fork favors Blue and the four-world ferry docks on both 
   const ferry = orbits.find(orbit => orbit.planetIds.some(id => id.includes('-ferry-')))!;
   const worlds = map.planets.filter(planet => ferry.planetIds.includes(planet.id));
   const dock = map.planets.find(planet => planet.id.endsWith('-ferry-dock'))!;
-  assert.equal(worlds.length, 4);
+  assert.equal(worlds.length, 2);
   assert.equal(ferry.periodSeconds, 180);
-  assert.ok(worlds.every(planet => planet.y > ferry.y), 'all four ferry planets start below their star');
+  assert.ok(worlds.every(planet => planet.y > ferry.y), 'both ferry planets start below their star');
   assert.ok(worlds.every(planet => planet.owner === NEUTRAL && !planet.capital && !planet.superweaponUnlocks?.length && Math.abs(d(planet, ferry) - 1400) < 0.001));
   for (const [index, planet] of worlds.entries()) if (index > 0) assert.ok(d(planet, worlds[index - 1]) <= map.attackRange);
   const atTime = (planet: typeof worlds[number], orbit: typeof ferry, seconds: number) => {
     const angle = seconds * Math.PI * 2 / orbit.periodSeconds, x = planet.x - orbit.x, y = planet.y - orbit.y;
     return { x: orbit.x + x * Math.cos(angle) - y * Math.sin(angle), y: orbit.y + x * Math.sin(angle) + y * Math.cos(angle) };
   };
-  let both = 0, blueOnly = 0, mainOnly = 0, undocked = 0;
+  let blueWindows = 0, mainWindows = 0, undocked = 0;
   for (let seconds = 0; seconds < 900; seconds += 5) {
     const live = worlds.map(planet => atTime(planet, ferry, seconds));
     const home = map.planets.filter(planet => orbits[0].planetIds.includes(planet.id)).map(planet => atTime(planet, orbits[0], seconds));
     const nearBlue = live.some(planet => home.some(other => d(planet, other) <= map.attackRange));
     const nearMain = live.some(planet => d(planet, dock) <= map.attackRange);
-    if (nearBlue && nearMain) both++;
-    else if (nearBlue) blueOnly++;
-    else if (nearMain) mainOnly++;
-    else undocked++;
+    if (nearBlue) blueWindows++;
+    if (nearMain) mainWindows++;
+    if (!nearBlue && !nearMain) undocked++;
   }
-  assert.ok(both > 0 && blueOnly > 0 && mainOnly > 0 && undocked > 0, 'the connected arc alternates between boarding, bridging, landing and transit');
+  assert.ok(blueWindows > 0 && mainWindows > 0 && undocked > 0, 'the two connected worlds can board at Blue and carry fleets to the main area');
 });
 
 test('an undocked ferry must have a real future boarding contact to pass map validation', () => {
