@@ -10,8 +10,8 @@ test('Chapter 2 progresses through five distinct maps and introduces pink after 
   assert.deepEqual(CHAPTERS['chapter-2'].maps, CHAPTER_TWO_MAPS);
   assert.deepEqual(CHAPTER_TWO_MAPS.map(map => map.title), ['The Spiral Breach', 'The Pink Frontier', 'Shifting Fronts', 'The Three Fortresses', 'The Galactic Crown']);
   assert.equal(CHAPTER_TWO_MAPS[0].planets.length, 92);
-  assert.deepEqual(CHAPTER_TWO_MAPS.slice(1).map(map => map.planets.length), [149, 92, 101, 151]);
-  assert.deepEqual(CHAPTER_TWO_MAPS.map(map => mapOrbits(map).length), [3, 4, 3, 3, 6]);
+  assert.deepEqual(CHAPTER_TWO_MAPS.slice(1).map(map => map.planets.length), [149, 235, 101, 151]);
+  assert.deepEqual(CHAPTER_TWO_MAPS.map(map => mapOrbits(map).length), [3, 4, 5, 3, 6]);
   const first = CHAPTER_TWO_MAPS[0];
   assert.ok(!first.planets.some(planet => planet.owner === PINK));
   assert.deepEqual(first.planets.find(planet => planet.owner === PLAYER)!.superweaponUnlocks, ['conversion']);
@@ -188,14 +188,14 @@ test('an undocked ferry must have a real future boarding contact to pass map val
   }), /unreachable planets/);
 });
 
-test('chapter layouts place Pink then Blue at the center, preserve specialty systems, and put finale Pink on an edge', () => {
+test('chapter layouts introduce central Pink, orbiting giant capitals, specialty systems, and edge Pink in the finale', () => {
   const pinkMap = CHAPTER_TWO_MAPS[1], playerMap = CHAPTER_TWO_MAPS[2], fortress = CHAPTER_TWO_MAPS[3], finale = CHAPTER_TWO_MAPS[4];
   const pink = pinkMap.planets.find(planet => planet.capital && planet.owner === PINK)!;
   assert.equal(pink.x, pinkMap.width / 2);
   assert.equal(pink.y, pinkMap.height / 2);
   assert.ok(mapOrbits(pinkMap).every(orbit => !orbit.planetIds.includes(pink.id)));
   const player = playerMap.planets.find(planet => planet.owner === PLAYER)!;
-  assert.ok(Math.hypot(player.x - playerMap.width / 2, player.y - playerMap.height / 2) < 250);
+  assert.ok(mapOrbits(playerMap).some(orbit => orbit.planetIds.length === 40 && orbit.planetIds.includes(player.id)));
   assert.equal(playerMap.planets.filter(planet => planet.capital && planet.owner !== PLAYER).length, 3);
   assert.equal(fortress.pinkTerraforming, false);
   assert.ok(!fortress.planets.some(planet => planet.owner === PINK));
@@ -207,6 +207,54 @@ test('chapter layouts place Pink then Blue at the center, preserve specialty sys
   const edgePink = finale.planets.find(planet => planet.owner === PINK)!;
   assert.ok(edgePink.x > finale.width * 0.85 && edgePink.y < finale.height * 0.25);
   assert.ok([...FACTIONS, PINK].every(color => finale.planets.some(planet => planet.owner === color && planet.capital)));
+});
+
+test('Shifting Fronts has four record-size systems, distinct arsenals, and a small Pink satellite beside the unarmed giant', () => {
+  const map = CHAPTER_TWO_MAPS[2], orbits = mapOrbits(map), giants = orbits.filter(orbit => orbit.planetIds.length === 40);
+  assert.equal(giants.length, 4);
+  assert.equal(orbits.length, 5);
+  const otherMaps = [...CHAPTERS['chapter-1'].maps, ...CHAPTER_TWO_MAPS.filter(other => other !== map)];
+  const largestOtherOrbit = Math.max(...otherMaps.flatMap(other => mapOrbits(other).flatMap(orbit => orbit.planetIds.map(id => {
+    const planet = other.planets.find(planet => planet.id === id)!;
+    return Math.hypot(planet.x - orbit.x, planet.y - orbit.y);
+  }))));
+  const groups = giants.map(orbit => {
+    assert.equal(orbit.periodSeconds, 300);
+    const worlds = map.planets.filter(planet => orbit.planetIds.includes(planet.id));
+    assert.ok(Math.max(...worlds.map(planet => Math.hypot(planet.x - orbit.x, planet.y - orbit.y))) > largestOtherOrbit);
+    assert.ok(worlds.filter(planet => !planet.superweaponUnlocks?.length).length >= 24);
+    const reached = new Set([worlds[0].id]), queue = [worlds[0]];
+    for (const planet of queue) for (const other of worlds) {
+      if (!reached.has(other.id) && Math.hypot(planet.x - other.x, planet.y - other.y) <= map.attackRange) {
+        reached.add(other.id); queue.push(other);
+      }
+    }
+    assert.equal(reached.size, 40, 'all four orbital bands connect internally');
+    return worlds;
+  });
+  const blue = groups.find(worlds => worlds.some(planet => planet.owner === PLAYER))!;
+  assert.equal(blue.filter(planet => planet.superweaponUnlocks?.includes('omni')).length, 8);
+  assert.equal(blue.filter(planet => planet.superweaponUnlocks?.includes('repulse')).length, 8);
+  for (const [color, weapon] of [['#ef4444', 'omni'], ['#22c55e', 'repulse']] as const) {
+    const worlds = groups.find(worlds => worlds.some(planet => planet.owner === color))!;
+    assert.equal(worlds.filter(planet => planet.superweaponUnlocks?.join() === weapon).length, 16);
+    assert.ok(worlds.every(planet => !planet.superweaponUnlocks?.length || planet.superweaponUnlocks.join() === weapon));
+  }
+  const neutral = groups.find(worlds => !worlds.some(planet => planet.capital))!;
+  assert.ok(neutral.every(planet => planet.owner === NEUTRAL && !planet.superweaponUnlocks?.length));
+  const satellite = orbits.find(orbit => orbit.planetIds.length === 6)!;
+  assert.equal(satellite.periodSeconds, 100);
+  assert.ok(satellite.planetIds.some(id => map.planets.some(planet => planet.id === id && planet.owner === PINK && planet.capital)));
+  assert.equal(map.planets.filter(planet => planet.capital).length, 4);
+  // The outer crossings stay usable without capturing the central junction.
+  const outside = map.planets.filter(planet => !planet.id.includes('-core-crossing-') && !planet.id.includes('-junction'));
+  const reached = new Set([outside[0].id]), queue = [outside[0]];
+  for (const planet of queue) for (const other of outside) {
+    if (!reached.has(other.id) && Math.hypot(planet.x - other.x, planet.y - other.y) <= map.attackRange) {
+      reached.add(other.id); queue.push(other);
+    }
+  }
+  assert.equal(reached.size, outside.length, 'perimeter routes connect every system even without the central crossing');
 });
 
 test('the Pink introduction has Shield and Omni edge arsenals and an unarmed stationary center with permanent routes', () => {

@@ -248,34 +248,85 @@ function pinkFrontier() {
 }
 
 function shiftingFronts() {
-  const map = new Battlefield('frontier-shifting-fronts', 8000, 7600);
-  const center = { x: 4000, y: 3600 };
-  const capital = map.world(center, 'repulse', 380, `${map.id}-blue-capital`);
-  capital.owner = BLUE; capital.capital = true;
-  // Two fixed rings give Blue immediate choices between defensive and conversion sites.
-  for (const [ring, radius, count] of [[1, 520, 6], [2, 1040, 12]]) {
-    for (let index = 0; index < count; index++) {
-      const angle = index * Math.PI * 2 / count;
-      map.world({ x: center.x + Math.cos(angle) * radius, y: center.y + Math.sin(angle) * radius },
-        index % 3 === 0 ? 'conversion' : ring === 1 ? 'repulse' : index % 2 === 0 ? 'repulse' : 'omni',
-        ring === 1 ? 12 : 18, `${map.id}-hub-${ring}-${index}`);
+  const map = new Battlefield('frontier-shifting-fronts', 11400, 9600);
+  const blue = { x: 2200, y: 7300 }, red = { x: 2300, y: 2500 };
+  const green = { x: 7400, y: 2350 }, frontier = { x: 7350, y: 7400 };
+  const pink = { x: 10500, y: 7450 }, center = { x: 4800, y: 4900 };
+
+  const giant = (name: string, point: Point, owner: Owner, capitalIndex: number, profile: 'mixed' | 'omni' | 'repulse' | 'plain') => {
+    const ids: string[] = [];
+    for (const ring of [
+      { count: 16, radius: 1500, phase: 0 }, { count: 12, radius: 1050, phase: 15 },
+      { count: 8, radius: 620, phase: 22.5 }, { count: 4, radius: 300, phase: 45 },
+    ]) for (let member = 0; member < ring.count; member++) {
+      const index = ids.length, capital = owner !== NEUTRAL && index === capitalIndex;
+      const angle = (ring.phase + member * 360 / ring.count) * Math.PI / 180;
+      const planet = map.world({ x: point.x + Math.cos(angle) * ring.radius, y: point.y + Math.sin(angle) * ring.radius },
+        undefined, capital ? owner === BLUE ? 320 : 240 : 14,
+        `${map.id}-${name}-${capital ? 'capital' : index}`);
+      if (capital) { planet.owner = owner; planet.capital = true; }
+      ids.push(planet.id);
     }
+    // Sixteen scattered sources leave most of each armed system ordinary.
+    // The unarmed giant is a completely neutral canvas for Pink's factories.
+    if (profile !== 'plain') {
+      const worlds = map.planets.filter(planet => ids.includes(planet.id) && !planet.capital);
+      for (let source = 0; source < 16; source++) {
+        const planet = worlds[source * 2];
+        planet.superweaponUnlocks = [profile === 'mixed' ? source % 2 === 0 ? 'omni' : 'repulse' : profile];
+        planet.ships = 18;
+      }
+    }
+    map.orbits.push({ ...point, periodSeconds: 300, planetIds: ids });
+  };
+  giant('blue-mixed', blue, BLUE, 14, 'mixed');
+  giant('red-omni', red, RED, 2, 'omni');
+  giant('green-shield', green, GREEN, 6, 'repulse');
+  giant('unarmed', frontier, NEUTRAL, -1, 'plain');
+
+  const pinkIds: string[] = [];
+  for (let index = 0; index < 6; index++) {
+    const angle = index * Math.PI / 3, capital = index === 3;
+    const planet = map.world({ x: pink.x + Math.cos(angle) * 330, y: pink.y + Math.sin(angle) * 330 },
+      undefined, capital ? 280 : 12, `${map.id}-pink-${capital ? 'capital' : index}`);
+    if (capital) { planet.owner = PINK; planet.capital = true; }
+    pinkIds.push(planet.id);
   }
-  const enemies = [
-    { name: 'red', point: { x: 4000, y: 1200 }, owner: RED, capital: 2, period: 240 },
-    { name: 'green', point: { x: 6800, y: 5000 }, owner: GREEN, capital: 0, period: 300 },
-    { name: 'pink', point: { x: 1200, y: 5700 }, owner: PINK, capital: 4, period: 270 },
-  ] as const;
-  for (const enemy of enemies) {
-    map.system(enemy.name, enemy.point, enemy.owner, enemy.capital, enemy.owner === PINK ? 'conversion' : undefined, enemy.period);
-    const d = distance(center, enemy.point);
-    map.lane([map.port(enemy.point, center), { x: center.x + (enemy.point.x - center.x) * 1040 / d, y: center.y + (enemy.point.y - center.y) * 1040 / d }]);
+  map.orbits.push({ ...pink, periodSeconds: 100, planetIds: pinkIds });
+
+  // A small open junction offers a shortcut, while the perimeter crossings
+  // let factions change fronts without taking the center first.
+  map.world(center, undefined, 18, `${map.id}-junction`);
+  for (let index = 0; index < 6; index++) {
+    const angle = (index * 60 + 10) * Math.PI / 180;
+    map.world({ x: center.x + Math.cos(angle) * 520, y: center.y + Math.sin(angle) * 520 },
+      undefined, 16, `${map.id}-junction-${index}`);
   }
-  // Outer routes let enemies fight each other and let Blue escape a concentrated central assault.
-  map.lane([{ x: 3050, y: 1200 }, { x: 1700, y: 1500 }, { x: 1200, y: 4750 }], 'omni');
-  map.lane([{ x: 4950, y: 1200 }, { x: 6800, y: 2000 }, { x: 6800, y: 4050 }], 'repulse');
-  map.lane([{ x: 2150, y: 5700 }, { x: 4200, y: 6400 }, { x: 6000, y: 6000 }, { x: 6800, y: 5950 }], 'conversion');
-  return map.finish('Shifting Fronts', 'Blue holds the center, surrounded by Red in the north, Green in the east, and Pink in the southwest. Capture the nearby shield and conversion sites, choose which front to reinforce, and use the outer routes when the central battle becomes crowded.');
+  const portRadius = (point: Point) => {
+    const orbit = map.orbits.find(orbit => orbit.x === point.x && orbit.y === point.y);
+    return orbit ? Math.max(...map.planets.filter(planet => orbit.planetIds.includes(planet.id)).map(planet => distance(point, planet))) + 360 : 450;
+  };
+  // Two parallel rows make each short crossing a maneuvering area with loops,
+  // rather than a single-file chain. Near the junction, paths share close nodes.
+  const crossing = (name: string, a: Point, b: Point) => {
+    const d = distance(a, b), ux = (b.x - a.x) / d, uy = (b.y - a.y) / d;
+    const start = portRadius(a), end = d - portRadius(b), steps = Math.max(1, Math.ceil((end - start) / 500));
+    for (const side of [-1, 1]) for (let step = 0; step <= steps; step++) {
+      const along = start + (end - start) * step / steps;
+      const point = { x: a.x + ux * along - uy * side * 220, y: a.y + uy * along + ux * side * 220 };
+      if (!map.planets.some(planet => distance(planet, point) < 270)) {
+        map.world(point, undefined, 16, `${map.id}-${name}-${side}-${step}`);
+      }
+    }
+  };
+  crossing('west-crossing', blue, red);
+  crossing('north-crossing', red, green);
+  crossing('east-crossing', green, frontier);
+  crossing('south-crossing', frontier, blue);
+  for (const [index, system] of [blue, red, green, frontier].entries()) crossing(`core-crossing-${index}`, system, center);
+  crossing('pink-crossing', frontier, pink);
+
+  return map.finish('Shifting Fronts', 'Four giant systems form a connected war. Blue has a mixed Omni and Shield arsenal, Red has Omni sites, and Green has Shield sites. The fourth giant starts entirely neutral and unarmed. Pink approaches it from a small satellite system and can turn its ordinary worlds into Conversion factories. Take the paired outer crossings or change fronts through the central junction; contest the blank giant before Pink builds an empire there.');
 }
 
 function threeFortresses() {
