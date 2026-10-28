@@ -37,7 +37,7 @@ export function chapterTestLevel(mode: ModeId): number {
 }
 export type PlanetDefinition = { id: string; x: number; y: number; owner: typeof ALL_FACTIONS[number] | typeof NEUTRAL; ships: number; capital?: boolean; superweaponUnlocks?: SuperweaponId[] };
 export type DysonSphereDefinition = { chargeIntervalSeconds: number };
-export type OrbitDefinition = { x: number; y: number; periodSeconds: number; planetIds: string[]; dysonSphere?: DysonSphereDefinition };
+export type OrbitDefinition = { x: number; y: number; periodSeconds: number; planetIds: string[]; dysonSphere?: DysonSphereDefinition; allowDelayedBoarding?: boolean };
 export type GeneratedMapModule = {
   id: string; kind: 'home' | 'junction' | 'arena' | 'star-system' | 'weapon-cluster' | 'corridor';
   x: number; y: number; planetIds: string[]; ports: string[];
@@ -424,10 +424,20 @@ export function validateMap(map: MapDefinition): void {
     }
   }
   const reached = new Set([map.planets.find(p => p.capital && p.owner === PLAYER)!.id]);
+  const delayedOrbits = new Map(orbits.filter(orbit => orbit.allowDelayedBoarding)
+    .flatMap(orbit => orbit.planetIds.map(id => [id, orbit] as const)));
+  // An explicitly authored ferry may start undocked, but its swept orbit must
+  // actually reach a fixed world. This never waives reachability for an island.
+  const canDockLater = (moving: PlanetDefinition, fixed: PlanetDefinition) => {
+    const orbit = delayedOrbits.get(moving.id);
+    return !!orbit && !orbitMembers.has(fixed.id)
+      && Math.abs(Math.hypot(fixed.x - orbit.x, fixed.y - orbit.y) - Math.hypot(moving.x - orbit.x, moving.y - orbit.y)) <= map.attackRange;
+  };
   let changed = true;
   while (changed) {
     changed = false;
-    for (const p of map.planets) if (!reached.has(p.id) && map.planets.some(q => reached.has(q.id) && Math.hypot(q.x - p.x, q.y - p.y) <= map.attackRange)) { reached.add(p.id); changed = true; }
+    for (const p of map.planets) if (!reached.has(p.id) && map.planets.some(q => reached.has(q.id)
+      && (Math.hypot(q.x - p.x, q.y - p.y) <= map.attackRange || canDockLater(p, q) || canDockLater(q, p)))) { reached.add(p.id); changed = true; }
   }
   if (reached.size !== map.planets.length) throw new Error('Map has unreachable planets');
 }

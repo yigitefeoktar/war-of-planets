@@ -111,15 +111,15 @@ function spiralBreach() {
   }
 
   // Four worlds occupy just 60 degrees of a large orbit. Their moving arc is
-  // a ferry: boarding windows open near Blue, then near the fixed eastern dock.
+  // a ferry, starting below the star and rotating toward Blue and the eastern dock.
   const ferry = { x: 2600, y: 6500 }, ferryIds: string[] = [];
   for (let index = 0; index < 4; index++) {
-    const angle = (-120 + index * 20) * Math.PI / 180;
+    const angle = (60 + index * 20) * Math.PI / 180;
     const planet = map.world({ x: ferry.x + Math.cos(angle) * 1400, y: ferry.y + Math.sin(angle) * 1400 },
       undefined, 12, `${map.id}-ferry-${index}`);
     ferryIds.push(planet.id);
   }
-  map.orbits.push({ ...ferry, periodSeconds: 180, planetIds: ferryIds });
+  map.orbits.push({ ...ferry, periodSeconds: 180, planetIds: ferryIds, allowDelayedBoarding: true });
 
   // Capitals sit at the near edge, within two captures of a spiral landing.
   // Their neutral hinterlands extend north, east and south instead of hiding

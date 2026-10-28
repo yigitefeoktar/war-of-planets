@@ -154,6 +154,7 @@ test('the early arsenal fork favors Blue and the four-world ferry docks on both 
   const dock = map.planets.find(planet => planet.id.endsWith('-ferry-dock'))!;
   assert.equal(worlds.length, 4);
   assert.equal(ferry.periodSeconds, 180);
+  assert.ok(worlds.every(planet => planet.y > ferry.y), 'all four ferry planets start below their star');
   assert.ok(worlds.every(planet => planet.owner === NEUTRAL && !planet.capital && !planet.superweaponUnlocks?.length && Math.abs(d(planet, ferry) - 1400) < 0.001));
   for (const [index, planet] of worlds.entries()) if (index > 0) assert.ok(d(planet, worlds[index - 1]) <= map.attackRange);
   const atTime = (planet: typeof worlds[number], orbit: typeof ferry, seconds: number) => {
@@ -172,6 +173,18 @@ test('the early arsenal fork favors Blue and the four-world ferry docks on both 
     else undocked++;
   }
   assert.ok(both > 0 && blueOnly > 0 && mainOnly > 0 && undocked > 0, 'the connected arc alternates between boarding, bridging, landing and transit');
+});
+
+test('an undocked ferry must have a real future boarding contact to pass map validation', () => {
+  const map = CHAPTER_TWO_MAPS[0], ferry = mapOrbits(map).find(orbit => orbit.allowDelayedBoarding)!;
+  assert.doesNotThrow(() => validateMap(map));
+  assert.throws(() => validateMap({ ...map, orbits: mapOrbits(map).map(orbit => ({ ...orbit, allowDelayedBoarding: false })) }), /unreachable planets/);
+  const ids = new Set(ferry.planetIds);
+  assert.throws(() => validateMap({
+    ...map, width: 14000,
+    planets: map.planets.map(planet => ids.has(planet.id) ? { ...planet, x: planet.x + 9000 } : planet),
+    orbits: mapOrbits(map).map(orbit => orbit === ferry ? { ...orbit, x: orbit.x + 9000 } : orbit),
+  }), /unreachable planets/);
 });
 
 test('chapter layouts place Pink then Blue at the center, preserve specialty systems, and put finale Pink on an edge', () => {
